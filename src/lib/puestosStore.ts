@@ -20,6 +20,10 @@ function clonarPuestos(puestos: PuestoConfig[]) {
   return puestos.map(clonarPuesto)
 }
 
+function clonarMinimosPuesto(minimos: MinimosPuesto): MinimosPuesto {
+  return { M: minimos.M, T: minimos.T, N: minimos.N }
+}
+
 function alinearMinimosDia(
   minimos: MinimosDia,
   puestos: PuestoConfig[],
@@ -33,10 +37,6 @@ function alinearMinimosDia(
     )
   }
   return copia
-}
-
-function clonarMinimosPuesto(minimos: MinimosPuesto): MinimosPuesto {
-  return { M: minimos.M, T: minimos.T, N: minimos.N }
 }
 
 function alinearMinimosSemana(
@@ -57,6 +57,7 @@ function alinearMinimosSemana(
 
 let puestosData = clonarPuestos(PUESTOS_INICIALES)
 let minimosSemanaData = crearMinimosSemana(puestosData)
+let configCargada = false
 
 const listeners = new Set<() => void>()
 
@@ -83,6 +84,23 @@ export function getPuestos(): PuestoConfig[] {
 
 export function getMinimosSemana(): MinimosSemana {
   return minimosSemanaData
+}
+
+export function configOperativaCargada() {
+  return configCargada
+}
+
+export function hydratePuestosYMinimos(
+  puestos: PuestoConfig[],
+  semana: MinimosSemana,
+) {
+  puestosData = clonarPuestos(puestos)
+  minimosSemanaData = alinearMinimosSemana(
+    clonarMinimosSemana(semana),
+    puestosData,
+  )
+  configCargada = true
+  emit()
 }
 
 export function usePuestosData() {

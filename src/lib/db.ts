@@ -1,19 +1,51 @@
-import { collection, doc, getDoc, getDocs, setDoc } from 'firebase/firestore'
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  writeBatch,
+} from 'firebase/firestore'
 import { ensureFirebase, getDb } from '@/lib/firebase'
+import {
+  PUESTOS_INICIALES,
+  clonarMinimosPuesto,
+  crearMinimosSemana,
+  type DiaSemana,
+  type MinimosDia,
+  type MinimosPuesto,
+  type MinimosSemana,
+  type PuestoConfig,
+} from '@/lib/calendarioPuestos'
 import {
   idDocumentoCuadrante,
   parseCuadranteFirestore,
   type CuadranteMensualFirestore,
 } from '@/lib/cuadranteFirestore'
 import type {
+  EventoOperativo,
   FichaPolicia,
   Limitaciones,
   PreferenciaAnual,
   RolPolicia,
+  TipoEvento,
 } from '@/types'
 
 const COLECCION_AGENTES = 'agentes'
 const COLECCION_CUADRANTES = 'cuadrantes'
+const COLECCION_EVENTOS = 'eventos'
+const COLECCION_PUESTOS = 'puestos'
+const COLECCION_CONFIG = 'config'
+const DOC_MINIMOS_SEMANA = 'minimosSemana'
+
+const TIPOS_EVENTO: TipoEvento[] = [
+  'FESTIVO',
+  'CRUCERO',
+  'CONCIERTO',
+  'OPERATIVA_ESPECIAL',
+]
+const DIAS_SEMANA: DiaSemana[] = [1, 2, 3, 4, 5, 6, 7]
 
 const ROLES: RolPolicia[] = [
   'RESPONSABLE',
@@ -229,6 +261,282 @@ export async function saveCuadrante(
       { merge: true },
     ),
   )
+}
+
+function leerMinimosPuesto(valor: unknown): MinimosPuesto | null {
+  if (!valor || typeof valor !== 'object') return null
+  const raw = valor as Record<string, unknown>
+  const leer = (n: unknown) => {
+    if (typeof n !== 'number' || !Number.isFinite(n)) return 0
+    return Math.min(99, Math.max(0, Math.round(n)))
+  }
+  return { M: leer(raw.M), T: leer(raw.T), N: leer(raw.N) }
+}
+
+function leerModificadoresMinimos(
+  valor: unknown,
+): EventoOperativo['modificadoresMinimos'] {
+  if (!valor || typeof valor !== 'object') return {}
+  const result: EventoOperativo['modificadoresMinimos'] = {}
+  for (const [puesto, turnos] of Object.entries(
+    valor as Record<string, unknown>,
+  )) {
+    const leido = leerMinimosPuesto(turnos)
+    if (leido) result[puesto] = leido
+  }
+  return result
+}
+
+function esTipoEvento(valor: unknown): valor is TipoEvento {
+  return typeof valor === 'string' && TIPOS_EVENTO.includes(valor as TipoEvento)
+}
+
+function eventoDesdeFirestore(
+  docId: string,
+  data: Record<string, unknown>,
+): EventoOperativo | null {
+  const fecha =
+    typeof data.fecha === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data.fecha)
+      ? data.fecha
+      : null
+  if (!fecha || !esTipoEvento(data.tipo)) return null
+
+  return {
+    id:
+      typeof data.id === 'string' && data.id.trim()
+        ? data.id.trim()
+        : docId || `ev-${fecha}`,
+    fecha,
+    tipo: data.tipo,
+    descripcion:
+      typeof data.descripcion === 'string' ? data.descripcion.trim() : '',
+    modificadoresMinimos: leerModificadoresMinimos(data.modificadoresMinimos),
+  }
+}
+
+function eventoParaFirestore(evento: EventoOperativo): EventoOperativo {
+  const fecha = evento.fecha.trim()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+    throw new Error('La fecha del evento no es válida')
+  }
+  const id = evento.id.trim() || `ev-${fecha}`
+  const modificadoresMinimos: EventoOperativo['modificadoresMinimos'] = {}
+  for (const [puesto, turnos] of Object.entries(evento.modificadoresMinimos)) {
+    modificadoresMinimos[puesto] = clonarMinimosPuesto(turnos)
+  }
+  return {
+    id,
+    fecha,
+    tipo: evento.tipo,
+    descripcion: evento.descripcion.trim(),
+    modificadoresMinimos,
+  }
+}
+
+export async function getEventos(): Promise<EventoOperativo[]> {
+  const firestore = await requireDb()
+  const snapshot = await getDocs(collection(firestore, COLECCION_EVENTOS))
+  const eventos: EventoOperativo[] = []
+  for (const documento of snapshot.docs) {
+    const evento = eventoDesdeFirestore(documento.id, documento.data())
+    if (evento) eventos.push(evento)
+  }
+  return eventos.sort((a, b) => a.fecha.localeCompare(b.fecha))
+}
+
+export async function saveEvento(
+  evento: EventoOperativo,
+): Promise<EventoOperativo> {
+  const firestore = await requireDb()
+  const payload = eventoParaFirestore(evento)
+  await conTiempoLimite(
+    setDoc(doc(firestore, COLECCION_EVENTOS, payload.id), payload, {
+      merge: true,
+    }),
+  )
+  return payload
+}
+
+export async function deleteEvento(eventoId: string): Promise<void> {
+  const firestore = await requireDb()
+  const id = eventoId.trim()
+  if (!id) throw new Error('Identificador de evento vacío')
+  await conTiempoLimite(deleteDoc(doc(firestore, COLECCION_EVENTOS, id)))
+}
+
+function puestoDesdeFirestore(
+  docId: string,
+  data: Record<string, unknown>,
+): PuestoConfig | null {
+  const codigo =
+    typeof data.codigo === 'string' && data.codigo.trim()
+      ? data.codigo.trim().toUpperCase()
+      : docId.trim().toUpperCase()
+  const nombre =
+    typeof data.nombre === 'string' ? data.nombre.trim() : ''
+  const abreviatura =
+    typeof data.abreviatura === 'string'
+      ? data.abreviatura.trim().toUpperCase()
+      : ''
+  if (!codigo || !nombre || !abreviatura) return null
+  return { codigo, nombre, abreviatura }
+}
+
+function puestoParaFirestore(puesto: PuestoConfig): PuestoConfig {
+  const codigo = puesto.codigo.trim().toUpperCase()
+  const nombre = puesto.nombre.trim()
+  const abreviatura = puesto.abreviatura.trim().toUpperCase()
+  if (!codigo) throw new Error('El código del puesto es obligatorio')
+  if (!nombre) throw new Error('El nombre del puesto es obligatorio')
+  if (!abreviatura) throw new Error('La abreviatura del puesto es obligatoria')
+  return { codigo, nombre, abreviatura }
+}
+
+export async function getPuestos(): Promise<PuestoConfig[]> {
+  const firestore = await requireDb()
+  const snapshot = await getDocs(collection(firestore, COLECCION_PUESTOS))
+  const puestos: PuestoConfig[] = []
+  for (const documento of snapshot.docs) {
+    const puesto = puestoDesdeFirestore(documento.id, documento.data())
+    if (puesto) puestos.push(puesto)
+  }
+  return puestos.sort((a, b) =>
+    a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }),
+  )
+}
+
+export async function savePuesto(puesto: PuestoConfig): Promise<PuestoConfig> {
+  const firestore = await requireDb()
+  const payload = puestoParaFirestore(puesto)
+  await conTiempoLimite(
+    setDoc(doc(firestore, COLECCION_PUESTOS, payload.codigo), payload, {
+      merge: true,
+    }),
+  )
+  return payload
+}
+
+export async function deletePuesto(codigo: string): Promise<void> {
+  const firestore = await requireDb()
+  const id = codigo.trim().toUpperCase()
+  if (!id) throw new Error('Código de puesto vacío')
+  await conTiempoLimite(deleteDoc(doc(firestore, COLECCION_PUESTOS, id)))
+}
+
+export async function seedPuestosSiVacios(
+  puestos: PuestoConfig[] = PUESTOS_INICIALES,
+): Promise<PuestoConfig[]> {
+  const existentes = await getPuestos()
+  if (existentes.length > 0) return existentes
+
+  const firestore = await requireDb()
+  const batch = writeBatch(firestore)
+  const lista = puestos.map(puestoParaFirestore)
+  for (const puesto of lista) {
+    batch.set(doc(firestore, COLECCION_PUESTOS, puesto.codigo), puesto, {
+      merge: true,
+    })
+  }
+  await conTiempoLimite(batch.commit())
+  return lista
+}
+
+/** Firestore guarda mínimos indexados por código de puesto. */
+function minimosSemanaAFirestore(
+  semana: MinimosSemana,
+  puestos: PuestoConfig[],
+): Record<string, Record<string, MinimosPuesto>> {
+  const dias: Record<string, Record<string, MinimosPuesto>> = {}
+  for (const dia of DIAS_SEMANA) {
+    const porCodigo: Record<string, MinimosPuesto> = {}
+    for (const puesto of puestos) {
+      porCodigo[puesto.codigo] = clonarMinimosPuesto(
+        semana[dia][puesto.nombre] ?? { M: 0, T: 0, N: 0 },
+      )
+    }
+    dias[String(dia)] = porCodigo
+  }
+  return dias
+}
+
+function minimosSemanaDesdeFirestore(
+  data: Record<string, unknown>,
+  puestos: PuestoConfig[],
+): MinimosSemana {
+  const base = crearMinimosSemana(puestos)
+  const diasRaw =
+    data.dias && typeof data.dias === 'object'
+      ? (data.dias as Record<string, unknown>)
+      : data
+
+  for (const dia of DIAS_SEMANA) {
+    const diaRaw = diasRaw[String(dia)]
+    if (!diaRaw || typeof diaRaw !== 'object') continue
+    const porCodigo = diaRaw as Record<string, unknown>
+    const diaMin: MinimosDia = { ...base[dia] }
+    for (const puesto of puestos) {
+      const leido =
+        leerMinimosPuesto(porCodigo[puesto.codigo]) ??
+        leerMinimosPuesto(porCodigo[puesto.nombre])
+      if (leido) diaMin[puesto.nombre] = leido
+    }
+    base[dia] = diaMin
+  }
+  return base
+}
+
+export async function getMinimosSemana(
+  puestos: PuestoConfig[],
+): Promise<MinimosSemana | null> {
+  const firestore = await requireDb()
+  const snapshot = await getDoc(
+    doc(firestore, COLECCION_CONFIG, DOC_MINIMOS_SEMANA),
+  )
+  if (!snapshot.exists()) return null
+  return minimosSemanaDesdeFirestore(snapshot.data(), puestos)
+}
+
+export async function saveMinimosSemana(
+  semana: MinimosSemana,
+  puestos: PuestoConfig[],
+): Promise<MinimosSemana> {
+  const firestore = await requireDb()
+  const dias = minimosSemanaAFirestore(semana, puestos)
+  await conTiempoLimite(
+    setDoc(
+      doc(firestore, COLECCION_CONFIG, DOC_MINIMOS_SEMANA),
+      {
+        dias,
+        actualizadoEn: new Date().toISOString(),
+      },
+      { merge: true },
+    ),
+  )
+  return semana
+}
+
+export async function seedMinimosSiVacios(
+  puestos: PuestoConfig[],
+): Promise<MinimosSemana> {
+  const existentes = await getMinimosSemana(puestos)
+  if (existentes) return existentes
+  const semana = crearMinimosSemana(puestos)
+  await saveMinimosSemana(semana, puestos)
+  return semana
+}
+
+/** Carga puestos + mínimos + eventos; siembra puestos/mínimos si están vacíos. */
+export async function cargarConfigOperativa(): Promise<{
+  puestos: PuestoConfig[]
+  minimosSemana: MinimosSemana
+  eventos: EventoOperativo[]
+}> {
+  const puestos = await seedPuestosSiVacios()
+  const [minimosSemana, eventos] = await Promise.all([
+    seedMinimosSiVacios(puestos),
+    getEventos(),
+  ])
+  return { puestos, minimosSemana, eventos }
 }
 
 export type { CuadranteMensualFirestore } from '@/lib/cuadranteFirestore'

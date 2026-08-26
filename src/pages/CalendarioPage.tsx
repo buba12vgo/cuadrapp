@@ -13,7 +13,9 @@ import {
   type TipoDiaEditor,
 } from '@/lib/calendarioPuestos'
 import { diasDelMes } from '@/lib/convenio'
+import { deleteEvento, saveEvento } from '@/lib/db'
 import { useEventosData } from '@/lib/eventosStore'
+import { isFirebaseReady } from '@/lib/firebase'
 import { useMinimosSemanaData, usePuestosData } from '@/lib/puestosStore'
 import type { EventoOperativo, TipoEvento } from '@/types'
 
@@ -95,6 +97,7 @@ function EditorDiaDrawer({
   evento,
   puestos,
   semana,
+  guardando,
   onGuardar,
   onBorrar,
   onCerrar,
@@ -103,8 +106,9 @@ function EditorDiaDrawer({
   evento: EventoOperativo | undefined
   puestos: PuestoConfig[]
   semana: MinimosSemana
-  onGuardar: (evento: EventoOperativo | null) => void
-  onBorrar: () => void
+  guardando?: boolean
+  onGuardar: (evento: EventoOperativo | null) => void | Promise<void>
+  onBorrar: () => void | Promise<void>
   onCerrar: () => void
 }) {
   const baseDia = () => minimosDefectoParaFecha(fecha, semana, puestos)
@@ -135,14 +139,14 @@ function EditorDiaDrawer({
     return () => window.removeEventListener('keydown', onKey)
   }, [onCerrar])
 
-  function guardar() {
+  async function guardar() {
     const defecto = minimosDefectoParaFecha(fecha, semana, puestos)
     if (tipoDia === 'NORMAL' && minimosIgualesDefecto(minimos, defecto, puestos)) {
-      onGuardar(null)
+      await onGuardar(null)
       return
     }
 
-    onGuardar({
+    await onGuardar({
       id: evento?.id ?? `ev-${fecha}`,
       fecha,
       tipo: tipoEventoDesdeEditor(tipoDia),
@@ -272,8 +276,8 @@ function EditorDiaDrawer({
           <button
             type="button"
             className="h-8 px-3 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-40"
-            disabled={!evento}
-            onClick={onBorrar}
+            disabled={!evento || guardando}
+            onClick={() => void onBorrar()}
           >
             Borrar evento
           </button>
@@ -281,16 +285,18 @@ function EditorDiaDrawer({
             <button
               type="button"
               className="h-8 px-3 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+              disabled={guardando}
               onClick={onCerrar}
             >
               Cancelar
             </button>
             <button
               type="button"
-              className="h-8 bg-slate-900 px-3 text-xs font-semibold text-white hover:bg-slate-800"
-              onClick={guardar}
+              className="h-8 bg-slate-900 px-3 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+              disabled={guardando}
+              onClick={() => void guardar()}
             >
-              Guardar configuración del día
+              {guardando ? 'Guardando…' : 'Guardar configuración del día'}
             </button>
           </div>
         </footer>
@@ -308,6 +314,9 @@ export function CalendarioPage() {
   const [fechaSeleccionada, setFechaSeleccionada] = useState<string | null>(
     null,
   )
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const firebaseOk = isFirebaseReady()
 
   const eventosPorFecha = useMemo(() => {
     const mapa = new Map<string, EventoOperativo>()
@@ -320,21 +329,70 @@ export function CalendarioPage() {
     ? eventosPorFecha.get(fechaSeleccionada)
     : undefined
 
-  function guardarDia(evento: EventoOperativo | null) {
+  async function guardarDia(evento: EventoOperativo | null) {
     if (!fechaSeleccionada) return
-    setEventosData((actual) => {
-      const resto = actual.filter((item) => item.fecha !== fechaSeleccionada)
-      return evento ? [...resto, evento] : resto
-    })
-    setFechaSeleccionada(null)
+    if (!firebaseOk) {
+      window.alert('Firebase no está configurado; no se puede guardar.')
+      return
+    }
+
+    setGuardando(true)
+    setError(null)
+    try {
+      const existente = eventosPorFecha.get(fechaSeleccionada)
+      if (evento) {
+        const guardado = await saveEvento(evento)
+        setEventosData((actual) => {
+          const resto = actual.filter(
+            (item) => item.fecha !== fechaSeleccionada,
+          )
+          return [...resto, guardado]
+        })
+      } else {
+        if (existente) await deleteEvento(existente.id)
+        setEventosData((actual) =>
+          actual.filter((item) => item.fecha !== fechaSeleccionada),
+        )
+      }
+      setFechaSeleccionada(null)
+    } catch (err) {
+      const mensaje =
+        err instanceof Error
+          ? err.message
+          : 'No se pudo guardar el evento en Firestore'
+      setError(mensaje)
+      window.alert(mensaje)
+    } finally {
+      setGuardando(false)
+    }
   }
 
-  function borrarDia() {
+  async function borrarDia() {
     if (!fechaSeleccionada) return
-    setEventosData((actual) =>
-      actual.filter((item) => item.fecha !== fechaSeleccionada),
-    )
-    setFechaSeleccionada(null)
+    if (!firebaseOk) {
+      window.alert('Firebase no está configurado; no se puede borrar.')
+      return
+    }
+
+    const existente = eventosPorFecha.get(fechaSeleccionada)
+    setGuardando(true)
+    setError(null)
+    try {
+      if (existente) await deleteEvento(existente.id)
+      setEventosData((actual) =>
+        actual.filter((item) => item.fecha !== fechaSeleccionada),
+      )
+      setFechaSeleccionada(null)
+    } catch (err) {
+      const mensaje =
+        err instanceof Error
+          ? err.message
+          : 'No se pudo borrar el evento en Firestore'
+      setError(mensaje)
+      window.alert(mensaje)
+    } finally {
+      setGuardando(false)
+    }
   }
 
   return (
@@ -345,7 +403,8 @@ export function CalendarioPage() {
             Calendario operativo
           </h1>
           <p className="text-[11px] text-slate-500">
-            Eventos y mínimos por puesto · {eventosData.length} días configurados
+            Eventos y mínimos por puesto · {eventosData.length} días
+            configurados · Firestore
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -378,6 +437,12 @@ export function CalendarioPage() {
           </label>
         </div>
       </div>
+
+      {error ? (
+        <p className="border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-800">
+          {error}
+        </p>
+      ) : null}
 
       <div className="min-h-0 flex-1 overflow-auto border border-slate-300 bg-white p-2">
         <div className="grid grid-cols-7 gap-1">
@@ -446,6 +511,7 @@ export function CalendarioPage() {
           evento={eventoEditando}
           puestos={puestos}
           semana={semana}
+          guardando={guardando}
           onGuardar={guardarDia}
           onBorrar={borrarDia}
           onCerrar={() => setFechaSeleccionada(null)}

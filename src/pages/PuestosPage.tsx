@@ -4,7 +4,17 @@ import {
   sugerirAbreviatura,
   type PuestoConfig,
 } from '@/lib/calendarioPuestos'
-import { renombrarPuestoEnMinimos, usePuestosData } from '@/lib/puestosStore'
+import {
+  deletePuesto,
+  saveMinimosSemana,
+  savePuesto,
+} from '@/lib/db'
+import { isFirebaseReady } from '@/lib/firebase'
+import {
+  getMinimosSemana,
+  renombrarPuestoEnMinimos,
+  usePuestosData,
+} from '@/lib/puestosStore'
 
 const CAMPO =
   'h-8 w-full border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none focus:border-slate-700'
@@ -71,6 +81,7 @@ function EditorPuestoModal({
   inicial,
   editandoCodigo,
   puestos,
+  guardando,
   onGuardar,
   onCancelar,
 }: {
@@ -78,7 +89,8 @@ function EditorPuestoModal({
   inicial: FormularioPuesto
   editandoCodigo: string | null
   puestos: PuestoConfig[]
-  onGuardar: (puesto: PuestoConfig) => void
+  guardando?: boolean
+  onGuardar: (puesto: PuestoConfig) => void | Promise<void>
   onCancelar: () => void
 }) {
   const [form, setForm] = useState(inicial)
@@ -112,14 +124,14 @@ function EditorPuestoModal({
         aria-labelledby="puesto-titulo"
         className="w-full max-w-md border border-slate-300 bg-slate-50 shadow-xl"
         onClick={(event) => event.stopPropagation()}
-        onSubmit={(event) => {
+        onSubmit={async (event) => {
           event.preventDefault()
           const fallo = validar(form, puestos, editandoCodigo)
           if (fallo) {
             setError(fallo)
             return
           }
-          onGuardar({
+          await onGuardar({
             codigo: normalizarCodigo(form.codigo || form.nombre),
             nombre: form.nombre.trim(),
             abreviatura: form.abreviatura.trim().toUpperCase(),
@@ -213,15 +225,17 @@ function EditorPuestoModal({
           <button
             type="button"
             className="h-8 px-3 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+            disabled={guardando}
             onClick={onCancelar}
           >
             Cancelar
           </button>
           <button
             type="submit"
-            className="h-8 bg-slate-900 px-3 text-xs font-semibold text-white hover:bg-slate-800"
+            className="h-8 bg-slate-900 px-3 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+            disabled={guardando}
           >
-            Guardar puesto
+            {guardando ? 'Guardando…' : 'Guardar puesto'}
           </button>
         </footer>
       </form>
@@ -233,6 +247,9 @@ export function PuestosPage() {
   const [puestos, setPuestos] = usePuestosData()
   const [modo, setModo] = useState<'nuevo' | 'editar' | null>(null)
   const [editando, setEditando] = useState<PuestoConfig | null>(null)
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const firebaseOk = isFirebaseReady()
 
   function abrirNuevo() {
     setEditando(null)
@@ -244,30 +261,78 @@ export function PuestosPage() {
     setModo('editar')
   }
 
-  function guardar(puesto: PuestoConfig) {
-    if (modo === 'nuevo') {
-      setPuestos((actual) => [...actual, puesto])
-    } else if (editando) {
-      const nombreAnterior = editando.nombre
-      if (nombreAnterior !== puesto.nombre) {
-        renombrarPuestoEnMinimos(nombreAnterior, puesto.nombre)
-      }
-      setPuestos((actual) =>
-        actual.map((item) =>
-          item.codigo === editando.codigo ? puesto : item,
-        ),
-      )
-    }
-    setModo(null)
-    setEditando(null)
+  async function persistirMinimosTrasCambioPuestos(lista: PuestoConfig[]) {
+    await saveMinimosSemana(getMinimosSemana(), lista)
   }
 
-  function borrar(puesto: PuestoConfig) {
+  async function guardar(puesto: PuestoConfig) {
+    if (!firebaseOk) {
+      window.alert('Firebase no está configurado; no se puede guardar.')
+      return
+    }
+
+    setGuardando(true)
+    setError(null)
+    try {
+      const guardado = await savePuesto(puesto)
+      if (modo === 'nuevo') {
+        setPuestos((actual) => [...actual, guardado])
+        await persistirMinimosTrasCambioPuestos([
+          ...puestos.filter((p) => p.codigo !== guardado.codigo),
+          guardado,
+        ])
+      } else if (editando) {
+        const nombreAnterior = editando.nombre
+        if (nombreAnterior !== guardado.nombre) {
+          renombrarPuestoEnMinimos(nombreAnterior, guardado.nombre)
+        }
+        const lista = puestos.map((item) =>
+          item.codigo === editando.codigo ? guardado : item,
+        )
+        setPuestos(lista)
+        await persistirMinimosTrasCambioPuestos(lista)
+      }
+      setModo(null)
+      setEditando(null)
+    } catch (err) {
+      const mensaje =
+        err instanceof Error
+          ? err.message
+          : 'No se pudo guardar el puesto en Firestore'
+      setError(mensaje)
+      window.alert(mensaje)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  async function borrar(puesto: PuestoConfig) {
     const ok = window.confirm(
       `¿Eliminar el puesto «${puesto.nombre}»? Se quitará de los mínimos configurados.`,
     )
     if (!ok) return
-    setPuestos((actual) => actual.filter((item) => item.codigo !== puesto.codigo))
+    if (!firebaseOk) {
+      window.alert('Firebase no está configurado; no se puede eliminar.')
+      return
+    }
+
+    setGuardando(true)
+    setError(null)
+    try {
+      await deletePuesto(puesto.codigo)
+      const lista = puestos.filter((item) => item.codigo !== puesto.codigo)
+      setPuestos(lista)
+      await persistirMinimosTrasCambioPuestos(lista)
+    } catch (err) {
+      const mensaje =
+        err instanceof Error
+          ? err.message
+          : 'No se pudo eliminar el puesto en Firestore'
+      setError(mensaje)
+      window.alert(mensaje)
+    } finally {
+      setGuardando(false)
+    }
   }
 
   return (
@@ -276,17 +341,25 @@ export function PuestosPage() {
         <div>
           <h1 className="text-sm font-bold text-slate-900">Puestos</h1>
           <p className="text-[11px] text-slate-500">
-            Configura los puestos operativos · {puestos.length} puestos
+            Configura los puestos operativos · {puestos.length} puestos ·
+            Firestore
           </p>
         </div>
         <button
           type="button"
-          className="h-8 bg-slate-900 px-3 text-xs font-semibold text-white hover:bg-slate-800"
+          className="h-8 bg-slate-900 px-3 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={!firebaseOk || guardando}
           onClick={abrirNuevo}
         >
           Nuevo puesto
         </button>
       </div>
+
+      {error ? (
+        <p className="border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-800">
+          {error}
+        </p>
+      ) : null}
 
       <div className="min-h-0 flex-1 overflow-auto border border-slate-300 bg-white">
         <table className="w-full border-collapse text-xs">
@@ -321,15 +394,17 @@ export function PuestosPage() {
                 <td className="border border-slate-200 px-3 py-2 text-right">
                   <button
                     type="button"
-                    className="mr-2 text-xs font-semibold text-slate-700 hover:underline"
+                    className="mr-2 text-xs font-semibold text-slate-700 hover:underline disabled:opacity-40"
+                    disabled={guardando}
                     onClick={() => abrirEditar(puesto)}
                   >
                     Editar
                   </button>
                   <button
                     type="button"
-                    className="text-xs font-semibold text-red-700 hover:underline"
-                    onClick={() => borrar(puesto)}
+                    className="text-xs font-semibold text-red-700 hover:underline disabled:opacity-40"
+                    disabled={guardando}
+                    onClick={() => void borrar(puesto)}
                   >
                     Eliminar
                   </button>
@@ -356,6 +431,7 @@ export function PuestosPage() {
           inicial={formularioVacio()}
           editandoCodigo={null}
           puestos={puestos}
+          guardando={guardando}
           onGuardar={guardar}
           onCancelar={() => setModo(null)}
         />
@@ -366,6 +442,7 @@ export function PuestosPage() {
           inicial={formularioDesde(editando)}
           editandoCodigo={editando.codigo}
           puestos={puestos}
+          guardando={guardando}
           onGuardar={guardar}
           onCancelar={() => {
             setModo(null)

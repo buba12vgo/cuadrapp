@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  ABREV_PUESTO,
-  PUESTOS_BASE,
   puestoExcluidoParaAgente,
   type MinimosDia,
   type PuestoBase,
+  type PuestoConfig,
   type TurnoOperativo,
 } from '@/lib/calendarioPuestos'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
+import { usePuestosData } from '@/lib/puestosStore'
 import type { FichaPolicia } from '@/types'
 
 const TURNOS: TurnoOperativo[] = ['M', 'T', 'N']
@@ -47,6 +47,7 @@ export function RepartoOperativoModal({
   ) => void
   onCerrar: () => void
 }) {
+  const [puestos] = usePuestosData()
   const [turnoActivo, setTurnoActivo] = useState<TurnoOperativo>('M')
   const [borrador, setBorrador] = useState(asignacionesDia)
 
@@ -74,17 +75,13 @@ export function RepartoOperativoModal({
   const asignacionesTurno = borrador[turnoActivo] ?? {}
 
   const ocupacion = useMemo(() => {
-    const conteo: Record<PuestoBase, number> = {
-      'Centro de Control': 0,
-      Lonjas: 0,
-      'Berbés Acceso': 0,
-      Retén: 0,
-    }
+    const conteo: Record<string, number> = {}
+    for (const puesto of puestos) conteo[puesto.nombre] = 0
     for (const puesto of Object.values(asignacionesTurno)) {
-      if (puesto) conteo[puesto] += 1
+      if (puesto) conteo[puesto] = (conteo[puesto] ?? 0) + 1
     }
     return conteo
-  }, [asignacionesTurno])
+  }, [asignacionesTurno, puestos])
 
   function asignar(agenteId: string, puesto: PuestoBase | '') {
     setBorrador((actual) => {
@@ -97,6 +94,10 @@ export function RepartoOperativoModal({
 
   function guardar() {
     onGuardar(borrador)
+  }
+
+  function etiquetaPuesto(puesto: PuestoConfig) {
+    return `${puesto.abreviatura} · ${puesto.nombre}`
   }
 
   return (
@@ -179,19 +180,21 @@ export function RepartoOperativoModal({
                       }
                     >
                       <option value="">Sin puesto</option>
-                      {PUESTOS_BASE.map((puesto) => (
+                      {puestos.map((puesto) => (
                         <option
-                          key={puesto}
-                          value={puesto}
+                          key={puesto.codigo}
+                          value={puesto.nombre}
                           disabled={puestoExcluidoParaAgente(
                             agente.puestosExcluidos,
-                            puesto,
+                            puesto.nombre,
+                            puestos,
                           )}
                         >
-                          {ABREV_PUESTO[puesto]} · {puesto}
+                          {etiquetaPuesto(puesto)}
                           {puestoExcluidoParaAgente(
                             agente.puestosExcluidos,
-                            puesto,
+                            puesto.nombre,
+                            puestos,
                           )
                             ? ' (excluido)'
                             : ''}
@@ -209,17 +212,18 @@ export function RepartoOperativoModal({
               Puestos a cubrir · mínimos exigidos
             </h3>
             <ul className="flex flex-col gap-2 p-2">
-              {PUESTOS_BASE.map((puesto) => {
-                const minimo = minimos[puesto][turnoActivo]
-                const actual = ocupacion[puesto]
+              {puestos.map((puesto) => {
+                const minimo =
+                  minimos[puesto.nombre]?.[turnoActivo] ?? 0
+                const actual = ocupacion[puesto.nombre] ?? 0
                 return (
                   <li
-                    key={puesto}
+                    key={puesto.codigo}
                     className="border border-slate-200 bg-white px-2 py-2"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs font-semibold text-slate-800">
-                        {puesto}
+                        {puesto.nombre}
                       </span>
                       <span
                         className={`rounded px-1.5 py-0.5 text-xs tabular-nums ${claseContador(
@@ -233,7 +237,8 @@ export function RepartoOperativoModal({
                     <ul className="mt-1 space-y-0.5">
                       {bolsa
                         .filter(
-                          (agente) => asignacionesTurno[agente.id] === puesto,
+                          (agente) =>
+                            asignacionesTurno[agente.id] === puesto.nombre,
                         )
                         .map((agente) => (
                           <li
@@ -244,7 +249,8 @@ export function RepartoOperativoModal({
                           </li>
                         ))}
                       {bolsa.every(
-                        (agente) => asignacionesTurno[agente.id] !== puesto,
+                        (agente) =>
+                          asignacionesTurno[agente.id] !== puesto.nombre,
                       ) ? (
                         <li className="text-[11px] text-slate-400">—</li>
                       ) : null}

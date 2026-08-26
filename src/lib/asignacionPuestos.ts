@@ -1,13 +1,14 @@
 import type { DragEvent } from 'react'
 import {
-  ABREV_PUESTO,
-  PUESTOS_BASE,
+  abreviaturaDesdePuestos,
   puestoExcluidoParaAgente,
   type AsignacionesDiarias,
   type PuestoBase,
+  type PuestoConfig,
   type TurnoOperativo,
 } from '@/lib/calendarioPuestos'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
+import { getPuestos } from '@/lib/puestosStore'
 import type { FichaPolicia } from '@/types'
 
 export const MIME_PUESTO = 'application/x-cuadrapp-puesto'
@@ -23,21 +24,35 @@ export function abreviaturaPuesto(
   fecha: string,
   agenteId: string,
   turno: TurnoOperativo,
+  puestos: PuestoConfig[] = getPuestos(),
 ) {
   const puesto = asignaciones[fecha]?.[turno]?.[agenteId]
   if (!puesto) return null
-  return ABREV_PUESTO[puesto]
+  return abreviaturaDesdePuestos(puestos, puesto)
 }
 
-export function puestosPermitidosParaAgente(agente: FichaPolicia) {
-  return PUESTOS_BASE.filter(
-    (puesto) => !puestoExcluidoParaAgente(agente.puestosExcluidos, puesto),
-  )
+export function puestosPermitidosParaAgente(
+  agente: FichaPolicia,
+  puestos: PuestoConfig[] = getPuestos(),
+) {
+  return puestos
+    .filter(
+      (puesto) =>
+        !puestoExcluidoParaAgente(
+          agente.puestosExcluidos,
+          puesto.nombre,
+          puestos,
+        ),
+    )
+    .map((puesto) => puesto.nombre)
 }
 
-export function leerPuestoArrastrado(dataTransfer: DataTransfer): PuestoBase | null {
+export function leerPuestoArrastrado(
+  dataTransfer: DataTransfer,
+  puestos: PuestoConfig[] = getPuestos(),
+): PuestoBase | null {
   const raw = dataTransfer.getData(MIME_PUESTO)
-  if (PUESTOS_BASE.includes(raw as PuestoBase)) return raw as PuestoBase
+  if (puestos.some((puesto) => puesto.nombre === raw)) return raw
   return null
 }
 
@@ -71,8 +86,9 @@ export function asignarPuestoEnCelda(
   fecha: string,
   turno: TurnoOperativo,
   puesto: PuestoBase,
+  puestos: PuestoConfig[] = getPuestos(),
 ): { ok: true; asignaciones: AsignacionesDiarias } | { ok: false; error: string } {
-  if (puestoExcluidoParaAgente(agente.puestosExcluidos, puesto)) {
+  if (puestoExcluidoParaAgente(agente.puestosExcluidos, puesto, puestos)) {
     return { ok: false, error: 'Puesto excluido para este agente' }
   }
 
@@ -91,8 +107,9 @@ export function asignarPuestoMesAgente(
   agente: FichaPolicia,
   puesto: PuestoBase,
   fechasTurno: Array<{ fecha: string; turno: TurnoOperativo }>,
+  puestos: PuestoConfig[] = getPuestos(),
 ): { ok: true; asignaciones: AsignacionesDiarias } | { ok: false; error: string } {
-  if (puestoExcluidoParaAgente(agente.puestosExcluidos, puesto)) {
+  if (puestoExcluidoParaAgente(agente.puestosExcluidos, puesto, puestos)) {
     return { ok: false, error: 'Puesto excluido para este agente' }
   }
 

@@ -18,6 +18,12 @@ export function AdminLayout() {
             <NavLink to="/admin/agentes" className={navClass}>
               Agentes
             </NavLink>
+            <NavLink to="/admin/puestos" className={navClass}>
+              Puestos
+            </NavLink>
+            <NavLink to="/admin/minimos" className={navClass}>
+              Mínimos
+            </NavLink>
             <NavLink to="/admin/plan-anual" className={navClass}>
               Plan anual
             </NavLink>

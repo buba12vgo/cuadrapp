@@ -1,19 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  MINIMOS_DEFECTO,
-  PUESTOS_BASE,
   TIPO_DIA_LABEL,
-  clonarMinimos,
   minimosARecord,
+  minimosDefectoParaFecha,
   minimosDesdeEvento,
   minimosIgualesDefecto,
   tipoEditorDesdeEvento,
   tipoEventoDesdeEditor,
   type MinimosDia,
+  type MinimosSemana,
+  type PuestoConfig,
   type TipoDiaEditor,
 } from '@/lib/calendarioPuestos'
 import { diasDelMes } from '@/lib/convenio'
 import { useEventosData } from '@/lib/eventosStore'
+import { useMinimosSemanaData, usePuestosData } from '@/lib/puestosStore'
 import type { EventoOperativo, TipoEvento } from '@/types'
 
 const MESES = [
@@ -92,31 +93,39 @@ function celdasMes(anio: number, mes: number) {
 function EditorDiaDrawer({
   fecha,
   evento,
+  puestos,
+  semana,
   onGuardar,
   onBorrar,
   onCerrar,
 }: {
   fecha: string
   evento: EventoOperativo | undefined
+  puestos: PuestoConfig[]
+  semana: MinimosSemana
   onGuardar: (evento: EventoOperativo | null) => void
   onBorrar: () => void
   onCerrar: () => void
 }) {
+  const baseDia = () => minimosDefectoParaFecha(fecha, semana, puestos)
   const [tipoDia, setTipoDia] = useState<TipoDiaEditor>(() =>
     tipoEditorDesdeEvento(evento),
   )
   const [descripcion, setDescripcion] = useState(evento?.descripcion ?? '')
   const [minimos, setMinimos] = useState<MinimosDia>(() =>
-    evento ? minimosDesdeEvento(evento) : clonarMinimos(MINIMOS_DEFECTO),
+    evento
+      ? minimosDesdeEvento(evento, puestos, baseDia())
+      : baseDia(),
   )
 
   useEffect(() => {
+    const base = minimosDefectoParaFecha(fecha, semana, puestos)
     setTipoDia(tipoEditorDesdeEvento(evento))
     setDescripcion(evento?.descripcion ?? '')
     setMinimos(
-      evento ? minimosDesdeEvento(evento) : clonarMinimos(MINIMOS_DEFECTO),
+      evento ? minimosDesdeEvento(evento, puestos, base) : base,
     )
-  }, [fecha, evento])
+  }, [fecha, evento, puestos, semana])
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -127,7 +136,8 @@ function EditorDiaDrawer({
   }, [onCerrar])
 
   function guardar() {
-    if (tipoDia === 'NORMAL' && minimosIgualesDefecto(minimos)) {
+    const defecto = minimosDefectoParaFecha(fecha, semana, puestos)
+    if (tipoDia === 'NORMAL' && minimosIgualesDefecto(minimos, defecto, puestos)) {
       onGuardar(null)
       return
     }
@@ -141,7 +151,7 @@ function EditorDiaDrawer({
         (tipoDia === 'NORMAL'
           ? 'Mínimos personalizados'
           : TIPO_DIA_LABEL[tipoDia]),
-      modificadoresMinimos: minimosARecord(minimos),
+      modificadoresMinimos: minimosARecord(minimos, puestos),
     })
   }
 
@@ -219,10 +229,10 @@ function EditorDiaDrawer({
                 </tr>
               </thead>
               <tbody>
-                {PUESTOS_BASE.map((puesto) => (
-                  <tr key={puesto}>
+                {puestos.map((puesto) => (
+                  <tr key={puesto.codigo}>
                     <td className={`${CELDA_TABLA} font-medium text-slate-800`}>
-                      {puesto}
+                      {puesto.nombre}
                     </td>
                     {TURNOS.map((turno) => (
                       <td key={turno} className={`${CELDA_TABLA} text-center`}>
@@ -231,12 +241,16 @@ function EditorDiaDrawer({
                           min={0}
                           max={99}
                           className={INPUT_MIN}
-                          value={minimos[puesto][turno]}
+                          value={minimos[puesto.nombre]?.[turno] ?? 0}
                           onChange={(event) =>
                             setMinimos((actual) => ({
                               ...actual,
-                              [puesto]: {
-                                ...actual[puesto],
+                              [puesto.nombre]: {
+                                ...(actual[puesto.nombre] ?? {
+                                  M: 0,
+                                  T: 0,
+                                  N: 0,
+                                }),
                                 [turno]: leerNumero(event.target.value),
                               },
                             }))
@@ -287,6 +301,8 @@ function EditorDiaDrawer({
 
 export function CalendarioPage() {
   const [eventosData, setEventosData] = useEventosData()
+  const [puestos] = usePuestosData()
+  const [semana] = useMinimosSemanaData()
   const [anio, setAnio] = useState(ANIO_INICIAL)
   const [mes, setMes] = useState(8)
   const [fechaSeleccionada, setFechaSeleccionada] = useState<string | null>(
@@ -428,6 +444,8 @@ export function CalendarioPage() {
           key={fechaSeleccionada}
           fecha={fechaSeleccionada}
           evento={eventoEditando}
+          puestos={puestos}
+          semana={semana}
           onGuardar={guardarDia}
           onBorrar={borrarDia}
           onCerrar={() => setFechaSeleccionada(null)}

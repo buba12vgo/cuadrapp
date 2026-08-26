@@ -1,7 +1,12 @@
-import { useEffect, useState } from 'react'
-import { agenteNuevo, getAgentes, saveAgente } from '@/lib/db'
+import { useEffect, useRef, useState } from 'react'
+import { agenteNuevo, getAgentes, saveAgente, saveAgentes } from '@/lib/db'
 import { isFirebaseConfigured } from '@/lib/firebase'
 import { useAgentesData } from '@/lib/agentesStore'
+import {
+  descargarPlantillaAgentes,
+  fichasDesdeImportacion,
+  parsearExcelAgentes,
+} from '@/lib/importarAgentes'
 import type {
   FichaPolicia,
   Limitaciones,
@@ -388,7 +393,9 @@ export function AgentesPage() {
   const [esNuevo, setEsNuevo] = useState(false)
   const [loading, setLoading] = useState(true)
   const [guardando, setGuardando] = useState(false)
+  const [importando, setImportando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const inputExcel = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!isFirebaseConfigured) {
@@ -466,6 +473,40 @@ export function AgentesPage() {
     }
   }
 
+  async function importarDesdeExcel(archivo: File) {
+    setImportando(true)
+    setError(null)
+    try {
+      const { filas, avisos } = await parsearExcelAgentes(archivo)
+      const fichas = fichasDesdeImportacion(filas, agentesData)
+      const guardados = await saveAgentes(fichas)
+      setAgentesData((actual) => {
+        const porId = new Map(actual.map((agente) => [agente.id, agente]))
+        for (const guardado of guardados) porId.set(guardado.id, guardado)
+        return [...porId.values()].sort((a, b) =>
+          a.numeroPlaca.localeCompare(b.numeroPlaca, 'es', { numeric: true }),
+        )
+      })
+      const resumen = `Se han creado o actualizado ${guardados.length} fichas.`
+      const extra =
+        avisos.length > 0
+          ? `\n\nAvisos:\n${avisos.slice(0, 12).join('\n')}`
+          : ''
+      window.alert(resumen + extra)
+      void getAgentes().then(setAgentesData).catch(() => undefined)
+    } catch (err) {
+      const mensaje =
+        err instanceof Error
+          ? err.message
+          : 'No se pudo importar el Excel de agentes'
+      setError(mensaje)
+      window.alert(mensaje)
+    } finally {
+      setImportando(false)
+      if (inputExcel.current) inputExcel.current.value = ''
+    }
+  }
+
   return (
     <section className="flex h-full min-h-0 flex-col gap-3 overflow-auto p-3">
       <header className="flex flex-wrap items-start justify-between gap-3">
@@ -476,20 +517,47 @@ export function AgentesPage() {
           <p className="text-sm text-slate-500">
             {loading
               ? 'Cargando plantilla desde Firestore…'
-              : `${agentesData.length} fichas. Las limitaciones y el patrón alimentan el plan anual.`}
+              : `${agentesData.length} fichas. Importa un Excel con número, nombre, apellidos y rol.`}
           </p>
         </div>
-        <button
-          type="button"
-          disabled={loading || !isFirebaseConfigured}
-          className="h-8 border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-          onClick={() => {
-            setEsNuevo(true)
-            setAgenteModal(agenteNuevo())
-          }}
-        >
-          Nuevo agente
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            ref={inputExcel}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            className="hidden"
+            onChange={(event) => {
+              const archivo = event.target.files?.[0]
+              if (archivo) void importarDesdeExcel(archivo)
+            }}
+          />
+          <button
+            type="button"
+            className="h-8 px-2 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+            onClick={() => descargarPlantillaAgentes()}
+          >
+            Plantilla Excel
+          </button>
+          <button
+            type="button"
+            disabled={loading || importando || !isFirebaseConfigured}
+            className="h-8 border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => inputExcel.current?.click()}
+          >
+            {importando ? 'Importando…' : 'Importar Excel'}
+          </button>
+          <button
+            type="button"
+            disabled={loading || importando || !isFirebaseConfigured}
+            className="h-8 border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => {
+              setEsNuevo(true)
+              setAgenteModal(agenteNuevo())
+            }}
+          >
+            Nuevo agente
+          </button>
+        </div>
       </header>
 
       {error ? (
@@ -525,8 +593,8 @@ export function AgentesPage() {
                     colSpan={5}
                     className="px-3 py-6 text-center text-sm text-slate-500"
                   >
-                    No hay agentes en Firestore. Pulsa «Nuevo agente» para dar
-                    de alta la plantilla.
+                    No hay agentes en Firestore. Importa un Excel o pulsa
+                    «Nuevo agente».
                   </td>
                 </tr>
               ) : (

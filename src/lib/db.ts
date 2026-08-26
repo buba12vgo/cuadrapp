@@ -1,4 +1,11 @@
-import { collection, doc, getDoc, getDocs, setDoc } from 'firebase/firestore'
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  writeBatch,
+} from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import {
   idDocumentoCuadrante,
@@ -164,7 +171,10 @@ export async function getAgentes(): Promise<FichaPolicia[]> {
 
 const TIEMPO_ESCRITURA_MS = 15_000
 
-function conTiempoLimite<T>(promesa: Promise<T>): Promise<T> {
+function conTiempoLimite<T>(
+  promesa: Promise<T>,
+  ms = TIEMPO_ESCRITURA_MS,
+): Promise<T> {
   return new Promise((resolve, reject) => {
     const id = setTimeout(() => {
       reject(
@@ -172,7 +182,7 @@ function conTiempoLimite<T>(promesa: Promise<T>): Promise<T> {
           'Firestore no confirmó la escritura a tiempo. El dato puede haberse guardado; recarga la página si no lo ves.',
         ),
       )
-    }, TIEMPO_ESCRITURA_MS)
+    }, ms)
     promesa.then(
       (valor) => {
         clearTimeout(id)
@@ -197,6 +207,28 @@ export async function saveAgente(agente: FichaPolicia): Promise<FichaPolicia> {
     ),
   )
   return payload
+}
+
+const TAMANO_LOTE = 400
+
+export async function saveAgentes(
+  agentes: FichaPolicia[],
+): Promise<FichaPolicia[]> {
+  const firestore = requireDb()
+  const payloads = agentes.map(agenteParaFirestore)
+
+  for (let inicio = 0; inicio < payloads.length; inicio += TAMANO_LOTE) {
+    const lote = payloads.slice(inicio, inicio + TAMANO_LOTE)
+    const batch = writeBatch(firestore)
+    for (const payload of lote) {
+      batch.set(doc(firestore, COLECCION_AGENTES, payload.id), payload, {
+        merge: true,
+      })
+    }
+    await conTiempoLimite(batch.commit(), 30_000)
+  }
+
+  return payloads
 }
 
 export async function getCuadrante(

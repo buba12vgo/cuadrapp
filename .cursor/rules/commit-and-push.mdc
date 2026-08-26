@@ -1,0 +1,13 @@
+---
+description: Tras cada cambio listo, commit y push a GitHub
+alwaysApply: true
+---
+
+# Commit y push al terminar un cambio
+
+Cuando un cambio de código quede listo (feature, fix, etc.):
+
+1. Haz commit de los archivos relevantes. Nunca incluyas `.env` ni secretos.
+2. Haz `git push` a `origin` en la rama actual.
+
+No esperes a que el usuario lo pida otra vez en el mismo proyecto.

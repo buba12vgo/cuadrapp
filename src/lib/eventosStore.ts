@@ -1,5 +1,4 @@
 import { useCallback, useSyncExternalStore } from 'react'
-import { mockEventosCalendario } from '@/lib/calendarioPuestos'
 import type { EventoOperativo } from '@/types'
 
 function clonarEvento(evento: EventoOperativo): EventoOperativo {
@@ -14,7 +13,8 @@ function clonarEventos(eventos: EventoOperativo[]) {
   return eventos.map(clonarEvento)
 }
 
-let eventosData = clonarEventos(mockEventosCalendario)
+let eventosData: EventoOperativo[] = []
+let eventosCargados = false
 const listeners = new Set<() => void>()
 
 function emit() {
@@ -28,6 +28,16 @@ function subscribe(listener: () => void) {
 
 function getSnapshot() {
   return eventosData
+}
+
+export function eventosEstanCargados() {
+  return eventosCargados
+}
+
+export function hydrateEventos(eventos: EventoOperativo[]) {
+  eventosData = clonarEventos(eventos)
+  eventosCargados = true
+  emit()
 }
 
 export function useEventosData() {

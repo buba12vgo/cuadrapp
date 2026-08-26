@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import { useConfigOperativaBootstrap } from '@/lib/useConfigOperativaBootstrap'
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
   [
@@ -9,6 +10,8 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
   ].join(' ')
 
 export function AdminLayout() {
+  const { estado, error, firebaseOk } = useConfigOperativaBootstrap()
+
   return (
     <div className="flex h-svh flex-col bg-slate-50 text-slate-900">
       <header className="sticky top-0 z-50 shrink-0 border-b border-slate-200 bg-white">
@@ -17,6 +20,12 @@ export function AdminLayout() {
           <nav className="flex flex-wrap gap-1">
             <NavLink to="/admin/agentes" className={navClass}>
               Agentes
+            </NavLink>
+            <NavLink to="/admin/puestos" className={navClass}>
+              Puestos
+            </NavLink>
+            <NavLink to="/admin/minimos" className={navClass}>
+              Mínimos
             </NavLink>
             <NavLink to="/admin/plan-anual" className={navClass}>
               Plan anual
@@ -29,6 +38,17 @@ export function AdminLayout() {
             </NavLink>
           </nav>
         </div>
+        {estado === 'loading' ? (
+          <p className="border-t border-slate-100 px-4 py-1 text-[11px] text-slate-500">
+            Cargando puestos, mínimos y eventos desde Firestore…
+          </p>
+        ) : null}
+        {error ? (
+          <p className="border-t border-red-200 bg-red-50 px-4 py-1 text-[11px] text-red-800">
+            {error}
+            {!firebaseOk ? ' · Sin Firebase no se persisten cambios.' : ''}
+          </p>
+        ) : null}
       </header>
       <main className="flex min-h-0 flex-1 flex-col overflow-hidden p-2">
         <Outlet />

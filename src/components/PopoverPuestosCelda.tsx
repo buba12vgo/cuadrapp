@@ -1,5 +1,9 @@
 import { useEffect, useRef } from 'react'
-import { ABREV_PUESTO, type PuestoBase } from '@/lib/calendarioPuestos'
+import {
+  abreviaturaDesdePuestos,
+  type PuestoBase,
+} from '@/lib/calendarioPuestos'
+import { getPuestos } from '@/lib/puestosStore'
 
 export function PopoverPuestosCelda({
   rect,
@@ -13,6 +17,7 @@ export function PopoverPuestosCelda({
   onCerrar: () => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
+  const catalogo = getPuestos()
 
   useEffect(() => {
     function onPointer(event: MouseEvent) {
@@ -60,7 +65,10 @@ export function PopoverPuestosCelda({
               onCerrar()
             }}
           >
-            <span className="font-mono">{ABREV_PUESTO[puesto]}</span> · {puesto}
+            <span className="font-mono">
+              {abreviaturaDesdePuestos(catalogo, puesto)}
+            </span>{' '}
+            · {puesto}
           </button>
         ))
       )}

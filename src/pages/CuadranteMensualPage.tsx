@@ -26,6 +26,10 @@ import {
 } from '@/lib/cuadranteFirestore'
 import { getAgentes, getCuadrante, saveCuadrante } from '@/lib/db'
 import { useEventosData } from '@/lib/eventosStore'
+import {
+  useMinimosSemanaData,
+  usePuestosData,
+} from '@/lib/puestosStore'
 import { ensureFirebase, isFirebaseReady } from '@/lib/firebase'
 import { usePlanAnual } from '@/lib/planAnualStore'
 import {
@@ -132,6 +136,8 @@ function claseIndicador(ok: boolean) {
 export function CuadranteMensualPage() {
   const [agentesData, setAgentesData] = useAgentesData()
   const [eventosData] = useEventosData()
+  const [puestos] = usePuestosData()
+  const [minimosSemana] = useMinimosSemanaData()
   const [planAnual] = usePlanAnual()
   const [anio, setAnio] = useState(ANIO_ACTUAL)
   const [mes, setMes] = useState(8)
@@ -814,7 +820,12 @@ export function CuadranteMensualPage() {
           fecha={fechaReparto}
           agentes={agentesData}
           cuadrante={cuadrante}
-          minimos={minimosParaFecha(fechaReparto, eventosData)}
+          minimos={minimosParaFecha(
+            fechaReparto,
+            eventosData,
+            minimosSemana,
+            puestos,
+          )}
           asignacionesDia={asignacionesDiarias[fechaReparto] ?? {}}
           onGuardar={(asignaciones) =>
             guardarRepartoDia(fechaReparto, asignaciones)

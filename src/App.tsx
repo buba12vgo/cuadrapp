@@ -3,7 +3,9 @@ import { AdminLayout } from '@/components/AdminLayout'
 import { AgentesPage } from '@/pages/AgentesPage'
 import { CalendarioPage } from '@/pages/CalendarioPage'
 import { CuadranteMensualPage } from '@/pages/CuadranteMensualPage'
+import { MinimosPage } from '@/pages/MinimosPage'
 import { PlanAnualPage } from '@/pages/PlanAnualPage'
+import { PuestosPage } from '@/pages/PuestosPage'
 
 export default function App() {
   return (
@@ -11,6 +13,8 @@ export default function App() {
       <Route element={<AdminLayout />}>
         <Route path="/" element={<Navigate to="/admin/agentes" replace />} />
         <Route path="/admin/agentes" element={<AgentesPage />} />
+        <Route path="/admin/puestos" element={<PuestosPage />} />
+        <Route path="/admin/minimos" element={<MinimosPage />} />
         <Route path="/admin/plan-anual" element={<PlanAnualPage />} />
         <Route
           path="/admin/planificacion-anual"

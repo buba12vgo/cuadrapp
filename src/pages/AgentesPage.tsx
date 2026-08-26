@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react'
 import { agenteNuevo, getAgentes, saveAgente } from '@/lib/db'
-import { isFirebaseConfigured } from '@/lib/firebase'
+import { ensureFirebase, isFirebaseReady } from '@/lib/firebase'
+import {
+  fetchFirebaseStatus,
+  formatFirebaseStatus,
+} from '@/lib/firebaseStatus'
 import { useAgentesData } from '@/lib/agentesStore'
 import type {
   FichaPolicia,
@@ -389,21 +393,31 @@ export function AgentesPage() {
   const [loading, setLoading] = useState(true)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [firebaseOk, setFirebaseOk] = useState(isFirebaseReady())
 
   useEffect(() => {
-    if (!isFirebaseConfigured) {
-      setError(
-        'Firebase no configurado. Define VITE_FIREBASE_* en Vercel (Settings → Environment Variables) y redespliega, o usa .env.local en desarrollo.',
-      )
-      setLoading(false)
-      return
-    }
-
     let cancelado = false
 
     async function cargar() {
       setLoading(true)
       setError(null)
+
+      const ready = await ensureFirebase()
+      if (cancelado) return
+      setFirebaseOk(ready)
+
+      if (!ready) {
+        const status = await fetchFirebaseStatus()
+        if (cancelado) return
+        setError(
+          status
+            ? `Firebase no configurado. ${formatFirebaseStatus(status)}`
+            : 'Firebase no configurado. Define VITE_FIREBASE_* en Vercel (valores no vacíos) y redespliega sin build cache, o usa .env.local en desarrollo.',
+        )
+        setLoading(false)
+        return
+      }
+
       try {
         const lista = await getAgentes()
         if (!cancelado) setAgentesData(lista)
@@ -481,7 +495,7 @@ export function AgentesPage() {
         </div>
         <button
           type="button"
-          disabled={loading || !isFirebaseConfigured}
+          disabled={loading || !firebaseOk}
           className="h-8 border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
           onClick={() => {
             setEsNuevo(true)

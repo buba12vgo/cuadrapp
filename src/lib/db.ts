@@ -1,5 +1,5 @@
 import { collection, doc, getDoc, getDocs, setDoc } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { ensureFirebase, getDb } from '@/lib/firebase'
 import {
   idDocumentoCuadrante,
   parseCuadranteFirestore,
@@ -41,13 +41,15 @@ const PREFERENCIA_DEFECTO: PreferenciaAnual = {
   objetivoN: 3,
 }
 
-function requireDb() {
-  if (!db) {
+async function requireDb() {
+  const ready = await ensureFirebase()
+  const firestore = getDb()
+  if (!ready || !firestore) {
     throw new Error(
-      'Firebase no está configurado. Define VITE_FIREBASE_* en Vercel (o .env.local en desarrollo) y redespliega.',
+      'Firebase no está configurado. Define VITE_FIREBASE_* en Vercel (valores no vacíos) o .env.local en desarrollo, y redespliega.',
     )
   }
-  return db
+  return firestore
 }
 
 function esRolPolicia(valor: unknown): valor is RolPolicia {
@@ -152,7 +154,7 @@ export function agenteNuevo(): FichaPolicia {
 }
 
 export async function getAgentes(): Promise<FichaPolicia[]> {
-  const firestore = requireDb()
+  const firestore = await requireDb()
   const snapshot = await getDocs(collection(firestore, COLECCION_AGENTES))
   const agentes = snapshot.docs.map((documento) =>
     agenteDesdeFirestore(documento.id, documento.data()),
@@ -187,14 +189,12 @@ function conTiempoLimite<T>(promesa: Promise<T>): Promise<T> {
 }
 
 export async function saveAgente(agente: FichaPolicia): Promise<FichaPolicia> {
-  const firestore = requireDb()
+  const firestore = await requireDb()
   const payload = agenteParaFirestore(agente)
   await conTiempoLimite(
-    setDoc(
-      doc(firestore, COLECCION_AGENTES, payload.id),
-      payload,
-      { merge: true },
-    ),
+    setDoc(doc(firestore, COLECCION_AGENTES, payload.id), payload, {
+      merge: true,
+    }),
   )
   return payload
 }
@@ -203,11 +203,9 @@ export async function getCuadrante(
   mes: number,
   anio: number,
 ): Promise<CuadranteMensualFirestore | null> {
-  const firestore = requireDb()
+  const firestore = await requireDb()
   const docId = idDocumentoCuadrante(anio, mes)
-  const snapshot = await getDoc(
-    doc(firestore, COLECCION_CUADRANTES, docId),
-  )
+  const snapshot = await getDoc(doc(firestore, COLECCION_CUADRANTES, docId))
   if (!snapshot.exists()) return null
   return parseCuadranteFirestore(snapshot.data())
 }
@@ -217,7 +215,7 @@ export async function saveCuadrante(
   anio: number,
   datosCuadrante: CuadranteMensualFirestore,
 ): Promise<void> {
-  const firestore = requireDb()
+  const firestore = await requireDb()
   const docId = idDocumentoCuadrante(anio, mes)
   await conTiempoLimite(
     setDoc(

@@ -26,7 +26,7 @@ import {
 } from '@/lib/cuadranteFirestore'
 import { getAgentes, getCuadrante, saveCuadrante } from '@/lib/db'
 import { useEventosData } from '@/lib/eventosStore'
-import { isFirebaseConfigured } from '@/lib/firebase'
+import { ensureFirebase, isFirebaseReady } from '@/lib/firebase'
 import { usePlanAnual } from '@/lib/planAnualStore'
 import {
   MINIMO_AGENTES_TURNO,
@@ -146,7 +146,8 @@ export function CuadranteMensualPage() {
   const [guardandoCuadrante, setGuardandoCuadrante] = useState(false)
   const [guardadoOk, setGuardadoOk] = useState(false)
   const [errorCuadrante, setErrorCuadrante] = useState<string | null>(null)
-  const [agentesCargados, setAgentesCargados] = useState(!isFirebaseConfigured)
+  const [agentesCargados, setAgentesCargados] = useState(false)
+  const [firebaseOk, setFirebaseOk] = useState(isFirebaseReady())
 
   const nDias = diasDelMes(anio, mes)
   const objetivo = diasOperativosConvenio(anio, mes)
@@ -174,12 +175,15 @@ export function CuadranteMensualPage() {
   }, [diaDesde, diaHasta, nDias])
 
   useEffect(() => {
-    if (!isFirebaseConfigured) {
-      setAgentesCargados(true)
-      return
-    }
     let cancelado = false
     async function cargarAgentes() {
+      const ready = await ensureFirebase()
+      if (cancelado) return
+      setFirebaseOk(ready)
+      if (!ready) {
+        setAgentesCargados(true)
+        return
+      }
       try {
         const lista = await getAgentes()
         if (!cancelado) setAgentesData(lista)
@@ -204,7 +208,11 @@ export function CuadranteMensualPage() {
       setErrorCuadrante(null)
       setGuardadoOk(false)
 
-      if (!isFirebaseConfigured) {
+      const ready = await ensureFirebase()
+      if (cancelado) return
+      setFirebaseOk(ready)
+
+      if (!ready) {
         setCuadrante(cuadranteVacio(agentesData, nDias))
         setAsignacionesDiarias({})
         setLoadingCuadrante(false)
@@ -263,8 +271,10 @@ export function CuadranteMensualPage() {
   }
 
   async function guardarCuadranteEnFirestore() {
-    if (!isFirebaseConfigured) {
-      window.alert('Firebase no configurado. Define VITE_FIREBASE_* en Vercel y redespliega, o en .env.local en desarrollo.')
+    const ready = await ensureFirebase()
+    setFirebaseOk(ready)
+    if (!ready) {
+      window.alert('Firebase no configurado. Define VITE_FIREBASE_* en Vercel (valores no vacíos) y redespliega, o en .env.local en desarrollo.')
       return
     }
     if (agentesData.length === 0) {
@@ -503,7 +513,7 @@ export function CuadranteMensualPage() {
             type="button"
             className="h-6 bg-emerald-700 px-2 text-xs font-semibold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={
-              loadingCuadrante || guardandoCuadrante || !isFirebaseConfigured
+              loadingCuadrante || guardandoCuadrante || !firebaseOk
             }
             onClick={() => void guardarCuadranteEnFirestore()}
           >

@@ -28,10 +28,13 @@ function requireFirebaseEnv(mode: string): Plugin {
         return
       }
 
-      throw new Error(
+      // Warn (don't fail) so we can still ship diagnostics when Vercel has
+      // empty placeholders. The app will show a clear runtime error until
+      // non-empty VITE_FIREBASE_* values are set and redeployed.
+      console.warn(
         `[firebase] Faltan variables en el build: ${missing.join(', ')}. ` +
-          'En Vercel: Settings → Environment Variables (Production/Preview) ' +
-          'con valores no vacíos, luego Redeploy sin build cache.',
+          'En Vercel: Settings → Environment Variables con valores no vacíos, ' +
+          'luego Redeploy sin build cache.',
       )
     },
   }

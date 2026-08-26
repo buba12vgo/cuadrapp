@@ -323,7 +323,6 @@ export function MinimosPage() {
                           max={99}
                           className={INPUT_MIN}
                           value={fila[turno]}
-                          disabled={!firebaseOk}
                           onChange={(event) =>
                             actualizar(
                               puesto.nombre,

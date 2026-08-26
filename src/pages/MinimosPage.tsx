@@ -7,7 +7,7 @@ import {
 import { saveMinimosSemana } from '@/lib/db'
 import { isFirebaseReady } from '@/lib/firebase'
 import {
-  copiarMinimosDiaATodaLaSemana,
+  copiarMinimosDiaADias,
   useMinimosSemanaData,
   usePuestosData,
 } from '@/lib/puestosStore'
@@ -24,10 +24,21 @@ function leerNumero(valor: string) {
   return Math.min(99, Math.max(0, Math.round(n)))
 }
 
+function etiquetasDias(dias: DiaSemana[]) {
+  return dias
+    .map(
+      (dia) =>
+        DIAS_SEMANA_CONFIG.find((item) => item.dia === dia)?.label ?? String(dia),
+    )
+    .join(', ')
+}
+
 export function MinimosPage() {
   const [puestos] = usePuestosData()
   const [minimos, setMinimos] = useMinimosSemanaData()
   const [diaActivo, setDiaActivo] = useState<DiaSemana>(1)
+  const [diasDestino, setDiasDestino] = useState<DiaSemana[]>([])
+  const [panelCopiaAbierto, setPanelCopiaAbierto] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [guardadoOk, setGuardadoOk] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -40,6 +51,9 @@ export function MinimosPage() {
   const diaInfo =
     DIAS_SEMANA_CONFIG.find((item) => item.dia === diaActivo) ??
     DIAS_SEMANA_CONFIG[0]
+  const diasDisponibles = DIAS_SEMANA_CONFIG.filter(
+    (item) => item.dia !== diaActivo,
+  )
 
   useEffect(() => {
     minimosRef.current = minimos
@@ -54,6 +68,11 @@ export function MinimosPage() {
       if (timerRef.current) clearTimeout(timerRef.current)
     }
   }, [])
+
+  function cambiarDiaActivo(dia: DiaSemana) {
+    setDiaActivo(dia)
+    setDiasDestino((actual) => actual.filter((item) => item !== dia))
+  }
 
   async function persistir() {
     if (!firebaseOk) return
@@ -103,13 +122,35 @@ export function MinimosPage() {
     programarGuardado()
   }
 
-  function copiarSemana() {
+  function alternarDiaDestino(dia: DiaSemana) {
+    setDiasDestino((actual) =>
+      actual.includes(dia)
+        ? actual.filter((item) => item !== dia)
+        : [...actual, dia].sort((a, b) => a - b),
+    )
+  }
+
+  function seleccionarLaborables() {
+    setDiasDestino(
+      diasDisponibles
+        .map((item) => item.dia)
+        .filter((dia) => dia >= 1 && dia <= 5),
+    )
+  }
+
+  function seleccionarTodos() {
+    setDiasDestino(diasDisponibles.map((item) => item.dia))
+  }
+
+  function copiarADiasSeleccionados() {
+    if (diasDestino.length === 0) return
     const ok = window.confirm(
-      `¿Copiar los mínimos de ${diaInfo.label} a todos los días de la semana?`,
+      `¿Copiar los mínimos de ${diaInfo.label} a ${etiquetasDias(diasDestino)}?`,
     )
     if (!ok) return
-    copiarMinimosDiaATodaLaSemana(diaActivo)
+    copiarMinimosDiaADias(diaActivo, diasDestino)
     programarGuardado()
+    setPanelCopiaAbierto(false)
   }
 
   return (
@@ -139,13 +180,75 @@ export function MinimosPage() {
           <button
             type="button"
             className="h-8 border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-            disabled={puestos.length === 0 || !firebaseOk}
-            onClick={copiarSemana}
+            disabled={puestos.length === 0}
+            onClick={() => setPanelCopiaAbierto((abierto) => !abierto)}
+            aria-expanded={panelCopiaAbierto}
           >
-            Copiar {diaInfo.label} → toda la semana
+            Copiar {diaInfo.label} → otros días
           </button>
         </div>
       </div>
+
+      {panelCopiaAbierto ? (
+        <div className="shrink-0 border border-slate-300 bg-slate-50 px-3 py-2">
+          <p className="mb-2 text-[11px] text-slate-600">
+            Elige a qué días pegar los mínimos de <strong>{diaInfo.label}</strong>
+            .
+          </p>
+          <div className="mb-2 flex flex-wrap gap-1">
+            {diasDisponibles.map((item) => {
+              const seleccionado = diasDestino.includes(item.dia)
+              return (
+                <button
+                  key={item.dia}
+                  type="button"
+                  className={`h-8 min-w-16 px-2 text-xs font-semibold ${
+                    seleccionado
+                      ? 'bg-slate-900 text-white'
+                      : 'border border-slate-300 bg-white text-slate-700 hover:bg-white'
+                  }`}
+                  aria-pressed={seleccionado}
+                  onClick={() => alternarDiaDestino(item.dia)}
+                >
+                  {item.label}
+                </button>
+              )
+            })}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className="h-7 border border-slate-300 bg-white px-2 text-[11px] font-semibold text-slate-700 hover:bg-white"
+              onClick={seleccionarLaborables}
+            >
+              Laborables
+            </button>
+            <button
+              type="button"
+              className="h-7 border border-slate-300 bg-white px-2 text-[11px] font-semibold text-slate-700 hover:bg-white"
+              onClick={seleccionarTodos}
+            >
+              Todos
+            </button>
+            <button
+              type="button"
+              className="h-7 border border-slate-300 bg-white px-2 text-[11px] font-semibold text-slate-700 hover:bg-white"
+              onClick={() => setDiasDestino([])}
+            >
+              Ninguno
+            </button>
+            <button
+              type="button"
+              className="ml-auto h-7 bg-slate-900 px-3 text-[11px] font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+              disabled={diasDestino.length === 0}
+              onClick={copiarADiasSeleccionados}
+            >
+              Copiar a {diasDestino.length || '…'} día
+              {diasDestino.length === 1 ? '' : 's'}
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {error ? (
         <p className="border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-800">
@@ -163,7 +266,7 @@ export function MinimosPage() {
                 ? 'bg-slate-900 text-white'
                 : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
             }`}
-            onClick={() => setDiaActivo(item.dia)}
+            onClick={() => cambiarDiaActivo(item.dia)}
           >
             {item.label}
           </button>
@@ -220,7 +323,6 @@ export function MinimosPage() {
                           max={99}
                           className={INPUT_MIN}
                           value={fila[turno]}
-                          disabled={!firebaseOk}
                           onChange={(event) =>
                             actualizar(
                               puesto.nombre,

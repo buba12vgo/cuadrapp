@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BolsaPuestosPanel } from '@/components/BolsaPuestosPanel'
+import { BolsaPuestosPanel, filtroTurnoInicial } from '@/components/BolsaPuestosPanel'
 import { PopoverPuestosCelda } from '@/components/PopoverPuestosCelda'
 import { RepartoOperativoModal } from '@/components/RepartoOperativoModal'
 import { useAgentesData } from '@/lib/agentesStore'
@@ -26,6 +26,7 @@ import {
 } from '@/lib/cuadranteFirestore'
 import { getAgentes, getCuadrante, saveCuadrante } from '@/lib/db'
 import { useEventosData } from '@/lib/eventosStore'
+import type { FiltroTurnoBolsa } from '@/lib/bolsaPuestosPreferencias'
 import {
   useMinimosSemanaData,
   usePuestosData,
@@ -154,6 +155,8 @@ export function CuadranteMensualPage() {
   const [errorCuadrante, setErrorCuadrante] = useState<string | null>(null)
   const [agentesCargados, setAgentesCargados] = useState(false)
   const [firebaseOk, setFirebaseOk] = useState(isFirebaseReady())
+  const [filtroTurno, setFiltroTurno] =
+    useState<FiltroTurnoBolsa>(filtroTurnoInicial)
 
   const nDias = diasDelMes(anio, mes)
   const objetivo = diasOperativosConvenio(anio, mes)
@@ -379,7 +382,19 @@ export function CuadranteMensualPage() {
       mes,
       nDias,
       isoFecha,
-    ).map(({ fecha, turno }) => ({ fecha, turno }))
+    )
+      .filter(
+        ({ turno }) => filtroTurno === 'TODOS' || turno === filtroTurno,
+      )
+      .map(({ fecha, turno }) => ({ fecha, turno }))
+    if (fechasTurno.length === 0) {
+      window.alert(
+        filtroTurno === 'TODOS'
+          ? 'Este agente no tiene días operativos este mes'
+          : `Este agente no tiene días de ${filtroTurno} este mes`,
+      )
+      return
+    }
     const resultado = asignarPuestoMesAgente(
       asignacionesDiarias,
       agente,
@@ -413,6 +428,7 @@ export function CuadranteMensualPage() {
     event.stopPropagation()
     const puesto = leerPuestoArrastrado(event.dataTransfer)
     if (!puesto) return
+    if (filtroTurno !== 'TODOS' && turno !== filtroTurno) return
     aplicarAsignacionCelda(agenteId, fecha, turno, puesto)
   }
 
@@ -646,6 +662,8 @@ export function CuadranteMensualPage() {
                     const operativo = esTurnoOperativo(turno)
                     const avisos = mensajesInfraccion(fila, dia - 1)
                     const rota = avisos.length > 0
+                    const atenuada =
+                      filtroTurno !== 'TODOS' && turno !== filtroTurno
                     const fondoSuave =
                       especial && (turno === 'D' || turno === 'V')
                         ? '!bg-amber-50'
@@ -655,8 +673,8 @@ export function CuadranteMensualPage() {
                         key={agente.id}
                         className={`${CELDA} text-center font-bold ${CLASE_TURNO[turno]} ${fondoSuave} ${
                           rota ? 'border-red-600 !text-red-800' : ''
-                        } ${
-                          operativo
+                        } ${atenuada ? 'opacity-30' : ''} ${
+                          operativo && !atenuada
                             ? 'cursor-pointer hover:z-10 hover:ring-2 hover:ring-blue-500 data-[over=true]:ring-2 data-[over=true]:ring-emerald-600'
                             : ''
                         }`}
@@ -668,24 +686,26 @@ export function CuadranteMensualPage() {
                               : `${agente.numeroPlaca} · día ${dia} · ${turno}`
                         }
                         onDragOver={
-                          operativo ? permitirSoltarPuesto : undefined
+                          operativo && !atenuada
+                            ? permitirSoltarPuesto
+                            : undefined
                         }
                         onDragEnter={
-                          operativo
+                          operativo && !atenuada
                             ? (event) => {
                                 event.currentTarget.dataset.over = 'true'
                               }
                             : undefined
                         }
                         onDragLeave={
-                          operativo
+                          operativo && !atenuada
                             ? (event) => {
                                 event.currentTarget.dataset.over = 'false'
                               }
                             : undefined
                         }
                         onDrop={
-                          operativo
+                          operativo && !atenuada
                             ? (event) => {
                                 event.currentTarget.dataset.over = 'false'
                                 soltarEnCelda(
@@ -698,7 +718,7 @@ export function CuadranteMensualPage() {
                             : undefined
                         }
                         onClick={
-                          operativo
+                          operativo && !atenuada
                             ? (event) => {
                                 event.stopPropagation()
                                 setPopoverCelda({
@@ -788,7 +808,10 @@ export function CuadranteMensualPage() {
           </tfoot>
         </table>
         </div>
-        <BolsaPuestosPanel />
+        <BolsaPuestosPanel
+          filtroTurno={filtroTurno}
+          onFiltroTurno={setFiltroTurno}
+        />
       </div>
 
       {popoverCelda ? (

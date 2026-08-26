@@ -171,21 +171,29 @@ export function actualizarMinimo(
   emit()
 }
 
-export function copiarMinimosDiaATodaLaSemana(diaOrigen: keyof MinimosSemana) {
+export function copiarMinimosDiaADias(
+  diaOrigen: keyof MinimosSemana,
+  diasDestino: ReadonlyArray<keyof MinimosSemana>,
+) {
+  const destinos = [
+    ...new Set(diasDestino.filter((dia) => dia !== diaOrigen)),
+  ]
+  if (destinos.length === 0) return
+
   const origen = clonarMinimos(
     minimosSemanaData[diaOrigen],
     nombresPuestos(puestosData),
   )
-  minimosSemanaData = {
-    1: clonarMinimos(origen),
-    2: clonarMinimos(origen),
-    3: clonarMinimos(origen),
-    4: clonarMinimos(origen),
-    5: clonarMinimos(origen),
-    6: clonarMinimos(origen),
-    7: clonarMinimos(origen),
+  const semana = clonarMinimosSemana(minimosSemanaData)
+  for (const dia of destinos) {
+    semana[dia] = clonarMinimos(origen)
   }
+  minimosSemanaData = semana
   emit()
+}
+
+export function copiarMinimosDiaATodaLaSemana(diaOrigen: keyof MinimosSemana) {
+  copiarMinimosDiaADias(diaOrigen, [1, 2, 3, 4, 5, 6, 7])
 }
 
 export function renombrarPuestoEnMinimos(

@@ -393,7 +393,7 @@ export function AgentesPage() {
   useEffect(() => {
     if (!isFirebaseConfigured) {
       setError(
-        'Firebase no configurado. Copia .env.example a .env y rellena VITE_FIREBASE_*.',
+        'Firebase no configurado. Define VITE_FIREBASE_* en Vercel (Settings → Environment Variables) y redespliega, o usa .env.local en desarrollo.',
       )
       setLoading(false)
       return

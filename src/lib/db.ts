@@ -44,7 +44,7 @@ const PREFERENCIA_DEFECTO: PreferenciaAnual = {
 function requireDb() {
   if (!db) {
     throw new Error(
-      'Firebase no está configurado. Revisa las variables VITE_FIREBASE_* en .env',
+      'Firebase no está configurado. Define VITE_FIREBASE_* en Vercel (o .env.local en desarrollo) y redespliega.',
     )
   }
   return db

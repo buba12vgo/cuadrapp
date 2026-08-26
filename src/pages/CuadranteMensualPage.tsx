@@ -264,7 +264,7 @@ export function CuadranteMensualPage() {
 
   async function guardarCuadranteEnFirestore() {
     if (!isFirebaseConfigured) {
-      window.alert('Firebase no configurado. Revisa las variables VITE_FIREBASE_*.')
+      window.alert('Firebase no configurado. Define VITE_FIREBASE_* en Vercel y redespliega, o en .env.local en desarrollo.')
       return
     }
     if (agentesData.length === 0) {

@@ -1,18 +1,15 @@
 import {
-  ABREV_PUESTO,
-  PUESTOS_BASE,
   type AsignacionesDiarias,
   type PuestoBase,
+  type PuestoConfig,
   type TurnoOperativo,
+  abreviaturaDesdePuestos,
 } from '@/lib/calendarioPuestos'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
+import { getPuestos } from '@/lib/puestosStore'
 import type { FichaPolicia, Turno } from '@/types'
 
 const TURNOS: Turno[] = ['M', 'T', 'N', 'L', 'D', 'V']
-
-const ABREV_A_PUESTO: Record<string, PuestoBase> = Object.fromEntries(
-  PUESTOS_BASE.map((puesto) => [ABREV_PUESTO[puesto], puesto]),
-) as Record<string, PuestoBase>
 
 export type CeldaCuadranteFirestore = {
   t: Turno
@@ -46,9 +43,18 @@ function isoFecha(anio: number, mes: number, dia: number) {
   return `${anio}-${pad(mes)}-${pad(dia)}`
 }
 
-function puestoDesdeAbrev(abrev: string | undefined): PuestoBase | null {
+function mapaAbrevAPuesto(puestos: PuestoConfig[]) {
+  return Object.fromEntries(
+    puestos.map((puesto) => [puesto.abreviatura, puesto.nombre]),
+  ) as Record<string, PuestoBase>
+}
+
+function puestoDesdeAbrev(
+  abrev: string | undefined,
+  puestos: PuestoConfig[],
+): PuestoBase | null {
   if (!abrev) return null
-  return ABREV_A_PUESTO[abrev] ?? null
+  return mapaAbrevAPuesto(puestos)[abrev] ?? null
 }
 
 export function cuadranteVacio(
@@ -69,6 +75,7 @@ export function cuadranteParaFirestore(
   anio: number,
   mes: number,
   nDias: number,
+  puestos: PuestoConfig[] = getPuestos(),
 ): CuadranteMensualFirestore {
   const agentesFirestore: Record<string, CeldaCuadranteFirestore[]> = {}
 
@@ -82,7 +89,7 @@ export function cuadranteParaFirestore(
       if (esTurnoOperativo(turno)) {
         const fecha = isoFecha(anio, mes, dia)
         const puesto = asignaciones[fecha]?.[turno]?.[agente.id]
-        if (puesto) celda.p = ABREV_PUESTO[puesto]
+        if (puesto) celda.p = abreviaturaDesdePuestos(puestos, puesto)
       }
       dias.push(celda)
     }
@@ -104,6 +111,7 @@ export function cuadranteDesdeFirestore(
   anio: number,
   mes: number,
   nDias: number,
+  puestos: PuestoConfig[] = getPuestos(),
 ): { cuadrante: CuadranteMensual; asignaciones: AsignacionesDiarias } {
   const placaAId = new Map(
     agentes.map((agente) => [agente.numeroPlaca, agente.id]),
@@ -124,6 +132,7 @@ export function cuadranteDesdeFirestore(
       const dia = indice + 1
       const puesto = puestoDesdeAbrev(
         typeof raw.p === 'string' ? raw.p : undefined,
+        puestos,
       )
       if (puesto && esTurnoOperativo(turno)) {
         const fecha = isoFecha(anio, mes, dia)

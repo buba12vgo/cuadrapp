@@ -7,6 +7,7 @@ import {
   abreviaturaPuesto,
   asignarPuestoEnCelda,
   asignarPuestoMesAgente,
+  crearMinimosDeFecha,
   esTurnoOperativo,
   fechasOperativasAgenteMes,
   leerPuestoArrastrado,
@@ -402,6 +403,8 @@ export function CuadranteMensualPage() {
       agente,
       puesto,
       fechasTurno,
+      puestos,
+      crearMinimosDeFecha(eventosData, minimosSemana, puestos),
     )
     if (!resultado.ok) {
       avisarExclusion()

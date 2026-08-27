@@ -23,6 +23,7 @@ const ROL_LABEL: Record<RolPolicia, string> = {
   JEFE_SERVICIO: 'Jefe de servicio',
   JEFE_EQUIPO: 'Jefe de equipo',
   POLICIA: 'Policía',
+  POLICIA_BOLSA: 'Policía Bolsa',
 }
 
 const MES_LABEL: Record<FichaPolicia['mesAnclaVacaciones'], string> = {
@@ -37,6 +38,7 @@ const ROLES: RolPolicia[] = [
   'JEFE_SERVICIO',
   'JEFE_EQUIPO',
   'POLICIA',
+  'POLICIA_BOLSA',
 ]
 
 const MESES_VACACIONES: FichaPolicia['mesAnclaVacaciones'][] = [

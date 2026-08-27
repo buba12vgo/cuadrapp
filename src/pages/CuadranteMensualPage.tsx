@@ -70,12 +70,14 @@ const ROLES: RolPolicia[] = [
   'JEFE_SERVICIO',
   'JEFE_EQUIPO',
   'POLICIA',
+  'POLICIA_BOLSA',
 ]
 const ROL_LABEL: Record<RolPolicia, string> = {
   RESPONSABLE: 'Responsable',
   JEFE_SERVICIO: 'Jefe de servicio',
   JEFE_EQUIPO: 'Jefe de equipo',
   POLICIA: 'Policía',
+  POLICIA_BOLSA: 'Policía Bolsa',
 }
 
 const ANIO_ACTUAL = 2026

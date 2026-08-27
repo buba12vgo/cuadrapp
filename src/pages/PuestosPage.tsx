@@ -346,7 +346,11 @@ export function PuestosPage() {
       const lista = puestos.filter((item) => item.codigo !== puesto.codigo)
       setPuestos(lista)
       await persistirMinimosTrasCambioPuestos(lista)
-      await limpiarExclusionesDelPuesto(puesto)
+      try {
+        await limpiarExclusionesDelPuesto(puesto)
+      } catch (err) {
+        console.warn('No se pudieron limpiar exclusiones del puesto eliminado', err)
+      }
     } catch (err) {
       const mensaje =
         err instanceof Error

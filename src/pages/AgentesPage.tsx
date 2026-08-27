@@ -89,21 +89,24 @@ function normalizarExclusiones(
   const resultado = new Set<string>()
 
   for (const valor of exclusiones) {
+    if (!valor) continue
     if (codigosValidos.has(valor)) {
       resultado.add(valor)
       continue
     }
     const codigo = nombresACodigo.get(valor)
-    if (codigo) resultado.add(codigo)
+    if (codigo) {
+      resultado.add(codigo)
+      continue
+    }
+    // Conservar códigos aún no hidratados / puestos eliminados del catálogo local.
+    resultado.add(valor)
   }
 
   return [...resultado].sort((a, b) => a.localeCompare(b, 'es'))
 }
 
-function formularioDesde(
-  agente: FichaPolicia,
-  puestos: PuestoConfig[],
-): FormularioFicha {
+function formularioDesde(agente: FichaPolicia): FormularioFicha {
   return {
     numeroPlaca: agente.numeroPlaca,
     nombre: agente.nombre,
@@ -112,7 +115,7 @@ function formularioDesde(
     mesAnclaVacaciones: agente.mesAnclaVacaciones,
     limitaciones: { ...agente.limitaciones },
     preferenciaAnual: { ...agente.preferenciaAnual },
-    puestosExcluidos: normalizarExclusiones(agente.puestosExcluidos, puestos),
+    puestosExcluidos: [...agente.puestosExcluidos],
   }
 }
 
@@ -130,11 +133,11 @@ function FichaAgenteModal({
   onCancelar: () => void
 }) {
   const [puestos] = usePuestosData()
-  const [form, setForm] = useState(() => formularioDesde(agente, puestos))
+  const [form, setForm] = useState(() => formularioDesde(agente))
 
   useEffect(() => {
-    setForm(formularioDesde(agente, puestos))
-  }, [agente, puestos])
+    setForm(formularioDesde(agente))
+  }, [agente])
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {

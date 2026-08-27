@@ -81,7 +81,7 @@ export function BolsaPuestosPanel({
       </div>
       <p className="border-b border-slate-200 px-2 py-1 text-[9px] leading-tight text-slate-500">
         {filtroTurno === 'TODOS'
-          ? 'Arrastra a cabecera (mes) o celda (día). Desmarca para ocultar.'
+          ? 'Arrastra a cabecera (mes) o celda (día). Si el mínimo del puesto ya está cubierto, se busca otro; nunca se deja el día vacío.'
           : `Filtro ${filtroTurno}: cabecera y celdas de ese turno.`}
       </p>
       <ul className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-auto p-2">

@@ -1,15 +1,18 @@
 import type { DragEvent } from 'react'
 import {
   abreviaturaDesdePuestos,
+  minimosParaFecha,
   puestoExcluidoParaAgente,
   type AsignacionesDiarias,
+  type MinimosDia,
+  type MinimosSemana,
   type PuestoBase,
   type PuestoConfig,
   type TurnoOperativo,
 } from '@/lib/calendarioPuestos'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
 import { getPuestos } from '@/lib/puestosStore'
-import type { FichaPolicia } from '@/types'
+import type { EventoOperativo, FichaPolicia } from '@/types'
 
 export const MIME_PUESTO = 'application/x-cuadrapp-puesto'
 
@@ -80,6 +83,104 @@ function clonarAsignaciones(actual: AsignacionesDiarias): AsignacionesDiarias {
   return copia
 }
 
+export function contarOcupacionPuesto(
+  asignaciones: AsignacionesDiarias,
+  fecha: string,
+  turno: TurnoOperativo,
+  puesto: PuestoBase,
+  excluirAgenteId?: string,
+) {
+  const porAgente = asignaciones[fecha]?.[turno] ?? {}
+  let total = 0
+  for (const [agenteId, asignado] of Object.entries(porAgente)) {
+    if (excluirAgenteId && agenteId === excluirAgenteId) continue
+    if (asignado === puesto) total += 1
+  }
+  return total
+}
+
+function minimoPuestoTurno(
+  minimos: MinimosDia,
+  puesto: PuestoBase,
+  turno: TurnoOperativo,
+) {
+  return minimos[puesto]?.[turno] ?? 0
+}
+
+/**
+ * Elige puesto para un día operativo sin dejar al agente vacío.
+ * - Prefiere el arrastrado si aún no cubre el mínimo.
+ * - Si el mínimo del arrastrado ya está cubierto, busca otro puesto
+ *   permitido que aún necesite gente.
+ * - Si no hay alternativa, asigna igual el arrastrado (mejor de más que vacío).
+ */
+export function elegirPuestoParaDia(opts: {
+  preferido: PuestoBase
+  agente: FichaPolicia
+  asignaciones: AsignacionesDiarias
+  fecha: string
+  turno: TurnoOperativo
+  minimos: MinimosDia
+  puestos?: PuestoConfig[]
+}): PuestoBase {
+  const {
+    preferido,
+    agente,
+    asignaciones,
+    fecha,
+    turno,
+    minimos,
+    puestos = getPuestos(),
+  } = opts
+
+  const permitidos = puestosPermitidosParaAgente(agente, puestos)
+  if (!permitidos.includes(preferido)) {
+    // Excluido: intentar otro que necesite cobertura.
+    const alternativa = permitidos.find((puesto) => {
+      const ocupacion = contarOcupacionPuesto(
+        asignaciones,
+        fecha,
+        turno,
+        puesto,
+        agente.id,
+      )
+      return ocupacion < minimoPuestoTurno(minimos, puesto, turno)
+    })
+    return alternativa ?? preferido
+  }
+
+  const ocupacionPreferido = contarOcupacionPuesto(
+    asignaciones,
+    fecha,
+    turno,
+    preferido,
+    agente.id,
+  )
+  const minimoPreferido = minimoPuestoTurno(minimos, preferido, turno)
+
+  // Solo buscamos alternativa si el mínimo (>0) ya está cubierto.
+  const yaCubierto =
+    minimoPreferido > 0 && ocupacionPreferido >= minimoPreferido
+  if (!yaCubierto) return preferido
+
+  // Mínimo del puesto arrastrado ya cubierto: no dejar al agente sin puesto.
+  const alternativa = permitidos.find((puesto) => {
+    if (puesto === preferido) return false
+    const minimo = minimoPuestoTurno(minimos, puesto, turno)
+    if (minimo <= 0) return false
+    const ocupacion = contarOcupacionPuesto(
+      asignaciones,
+      fecha,
+      turno,
+      puesto,
+      agente.id,
+    )
+    return ocupacion < minimo
+  })
+
+  return alternativa ?? preferido
+}
+
 export function asignarPuestoEnCelda(
   asignaciones: AsignacionesDiarias,
   agente: FichaPolicia,
@@ -95,6 +196,7 @@ export function asignarPuestoEnCelda(
   const copia = clonarAsignaciones(asignaciones)
   if (!copia[fecha]) copia[fecha] = {}
   if (!copia[fecha][turno]) copia[fecha][turno] = {}
+  // Soltar en celda: siempre el puesto pedido; nunca se deja vacío por el mínimo.
   copia[fecha][turno] = {
     ...copia[fecha][turno],
     [agente.id]: puesto,
@@ -108,6 +210,7 @@ export function asignarPuestoMesAgente(
   puesto: PuestoBase,
   fechasTurno: Array<{ fecha: string; turno: TurnoOperativo }>,
   puestos: PuestoConfig[] = getPuestos(),
+  minimosDeFecha?: (fecha: string) => MinimosDia,
 ): { ok: true; asignaciones: AsignacionesDiarias } | { ok: false; error: string } {
   if (puestoExcluidoParaAgente(agente.puestosExcluidos, puesto, puestos)) {
     return { ok: false, error: 'Puesto excluido para este agente' }
@@ -115,14 +218,29 @@ export function asignarPuestoMesAgente(
 
   const copia = clonarAsignaciones(asignaciones)
   for (const { fecha, turno } of fechasTurno) {
-    const yaAsignado = copia[fecha]?.[turno]?.[agente.id]
-    if (yaAsignado) continue
+    const actual = copia[fecha]?.[turno]?.[agente.id]
+    // Si ya tiene puesto, no lo quitamos.
+    if (actual) continue
 
     if (!copia[fecha]) copia[fecha] = {}
     if (!copia[fecha][turno]) copia[fecha][turno] = {}
+
+    const minimos = minimosDeFecha?.(fecha)
+    const elegido = minimos
+      ? elegirPuestoParaDia({
+          preferido: puesto,
+          agente,
+          asignaciones: copia,
+          fecha,
+          turno,
+          minimos,
+          puestos,
+        })
+      : puesto
+
     copia[fecha][turno] = {
       ...copia[fecha][turno],
-      [agente.id]: puesto,
+      [agente.id]: elegido,
     }
   }
   return { ok: true, asignaciones: copia }
@@ -145,4 +263,12 @@ export function fechasOperativasAgenteMes(
     fechas.push({ fecha: isoFecha(anio, mes, dia), turno, dia })
   }
   return fechas
+}
+
+export function crearMinimosDeFecha(
+  eventos: EventoOperativo[],
+  semana: MinimosSemana,
+  puestos: PuestoConfig[] = getPuestos(),
+) {
+  return (fecha: string) => minimosParaFecha(fecha, eventos, semana, puestos)
 }

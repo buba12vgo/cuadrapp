@@ -4,6 +4,30 @@ export type TurnoAnual = 'M' | 'T' | 'N' | 'V'
 export type ObjetivosGlobales = { M: number; T: number; N: number }
 export type PlanAnual = Record<string, TurnoAnual[]>
 
+/** Meses (0-11) y agentes que no se han podido cuadrar tras autogenerar. */
+export type MarcasPlanAnual = {
+  /** % anual dentro de tolerancia respecto al selector. */
+  anioCuadra: boolean
+  /** Porcentajes reales del año (M/T/N sobre activos). */
+  pctAnio: ObjetivosGlobales | null
+  /** Meses cuyo % queda fuera de tolerancia. */
+  mesesSinCuadrar: number[]
+  /**
+   * Agentes cuya fila no respeta su preferencia anual
+   * (tras limitaciones / separación de noches).
+   */
+  agentesSinCuadrar: string[]
+  /** El mix de preferencias de la plantilla no puede alcanzar el % del selector. */
+  preferenciasIncompatibles: boolean
+}
+
+export type ResultadoGeneracionPlanAnual = {
+  plan: PlanAnual
+  marcas: MarcasPlanAnual
+}
+
+export const TOLERANCIA_PCT_PLAN = 2
+
 const MESES = 12
 const TURNOS_ACTIVOS = ['M', 'T', 'N'] as const
 type TurnoActivo = (typeof TURNOS_ACTIVOS)[number]
@@ -40,11 +64,7 @@ function puedeNoche(fila: Fila, mes: number, minDist: number) {
   return true
 }
 
-function puedeColocarNoche(
-  fila: TurnoAnual[],
-  mes: number,
-  minDist: number,
-) {
+function puedeColocarNoche(fila: TurnoAnual[], mes: number, minDist: number) {
   for (let otro = 0; otro < MESES; otro++) {
     if (otro === mes) continue
     if (fila[otro] !== 'N') continue
@@ -87,35 +107,26 @@ export function cuposDesdePorcentajes(
   return cupos
 }
 
-function cuposLaborales(
-  agente: FichaPolicia,
-  libres: number,
-  objetivosGlobales?: ObjetivosGlobales,
-): Cupos {
+/** Cupos desde la preferencia de la ficha, aplicando limitaciones. */
+function cuposLaborales(agente: FichaPolicia, libres: number): Cupos {
   const lim = agente.limitaciones
+  let M = Math.max(0, agente.preferenciaAnual.objetivoM)
+  let T = Math.max(0, agente.preferenciaAnual.objetivoT)
+  let N = Math.max(0, agente.preferenciaAnual.objetivoN)
 
   if (libres <= 0) return { M: 0, T: 0, N: 0 }
   if (lim.soloManana) return { M: libres, T: 0, N: 0 }
 
-  const base = objetivosGlobales
-    ? cuposDesdePorcentajes(libres, objetivosGlobales)
-    : {
-        M: Math.max(0, agente.preferenciaAnual.objetivoM),
-        T: Math.max(0, agente.preferenciaAnual.objetivoT),
-        N: Math.max(0, agente.preferenciaAnual.objetivoN),
-      }
-
   if (lim.soloMananaNoche) {
-    const N = Math.min(Math.max(0, base.N), libres)
+    N = Math.min(Math.max(0, N), libres)
     return { M: libres - N, T: 0, N }
   }
 
   if (lim.exentoNoches) {
-    const T = Math.min(Math.max(0, base.T), libres)
+    T = Math.min(Math.max(0, T), libres)
     return { M: libres - T, T, N: 0 }
   }
 
-  let { M, T, N } = base
   const suma = M + T + N
   if (suma === 0) return { M: libres, T: 0, N: 0 }
   if (suma > libres) {
@@ -148,14 +159,11 @@ function capacidadN(fila: Fila, minDist: number) {
   return mejor
 }
 
-function asignarFila(
-  agente: FichaPolicia,
-  objetivosGlobales?: ObjetivosGlobales,
-): TurnoAnual[] {
+function asignarFila(agente: FichaPolicia): TurnoAnual[] {
   const fila: Fila = Array.from({ length: MESES }, () => null)
   fila[MES_ANCLA[agente.mesAnclaVacaciones]] = 'V'
 
-  const cupos = cuposLaborales(agente, huecos(fila).length, objetivosGlobales)
+  const cupos = cuposLaborales(agente, huecos(fila).length)
   const minDists = cupos.N <= capacidadN(fila, 3) ? [3] : [2]
 
   for (const minDist of minDists) {
@@ -171,6 +179,7 @@ function asignarFila(
     }
   }
 
+  // N no colocables por separación → pasan a T (se marcará la ficha).
   cupos.T += cupos.N
   cupos.N = 0
 
@@ -205,23 +214,36 @@ function contarFlota(plan: PlanAnual, agentes: FichaPolicia[]): Cupos {
   return total
 }
 
-function objetivosACantidades(
-  totalActivos: number,
-  objetivos: ObjetivosGlobales,
-): Cupos {
-  return cuposDesdePorcentajes(totalActivos, objetivos)
+function contarFila(fila: TurnoAnual[]): Cupos & { V: number } {
+  const t = { M: 0, T: 0, N: 0, V: 0 }
+  for (const turno of fila) t[turno] += 1
+  return t
 }
 
-function puedeRecibir(
-  agente: FichaPolicia,
-  fila: TurnoAnual[],
-  mes: number,
-  turno: TurnoActivo,
+function pctDesdeCupos(cupos: Cupos): ObjetivosGlobales | null {
+  const activos = cupos.M + cupos.T + cupos.N
+  if (activos <= 0) return null
+  return {
+    M: (cupos.M / activos) * 100,
+    T: (cupos.T / activos) * 100,
+    N: (cupos.N / activos) * 100,
+  }
+}
+
+function dentroTolerancia(real: number, objetivo: number) {
+  return Math.abs(real - objetivo) <= TOLERANCIA_PCT_PLAN
+}
+
+function cuadraPorcentajes(
+  real: ObjetivosGlobales | null,
+  objetivo: ObjetivosGlobales,
 ) {
-  if (!permiteTurno(agente, turno)) return false
-  if (fila[mes] === 'V') return false
-  if (turno === 'N') return puedeColocarNoche(fila, mes, 2)
-  return true
+  if (!real) return false
+  return (
+    dentroTolerancia(real.M, objetivo.M) &&
+    dentroTolerancia(real.T, objetivo.T) &&
+    dentroTolerancia(real.N, objetivo.N)
+  )
 }
 
 function desviacionObjetivo(real: Cupos, objetivo: Cupos) {
@@ -232,69 +254,127 @@ function desviacionObjetivo(real: Cupos, objetivo: Cupos) {
   )
 }
 
-function intentarIntercambio(
-  plan: PlanAnual,
-  agentesById: Map<string, FichaPolicia>,
-  idA: string,
-  mesA: number,
-  idB: string,
-  mesB: number,
-) {
-  const filaA = plan[idA]
-  const filaB = plan[idB]
-  if (!filaA || !filaB) return false
-  const turnoA = filaA[mesA]
-  const turnoB = filaB[mesB]
-  if (turnoA === 'V' || turnoB === 'V') return false
-  if (turnoA === turnoB) return false
-  if (turnoA !== 'M' && turnoA !== 'T' && turnoA !== 'N') return false
-  if (turnoB !== 'M' && turnoB !== 'T' && turnoB !== 'N') return false
-
-  const agenteA = agentesById.get(idA)
-  const agenteB = agentesById.get(idB)
-  if (!agenteA || !agenteB) return false
-
-  // Simular intercambio
-  const copiaA = [...filaA]
-  const copiaB = idA === idB ? copiaA : [...filaB]
-  copiaA[mesA] = turnoB
-  copiaB[mesB] = turnoA
-
-  if (!puedeRecibir(agenteA, copiaA, mesA, turnoB)) return false
-  if (!puedeRecibir(agenteB, copiaB, mesB, turnoA)) return false
-
-  plan[idA] = copiaA
-  if (idA !== idB) plan[idB] = copiaB
-  return true
+function conteoMes(plan: PlanAnual, ids: string[], mes: number): Cupos {
+  const conteo: Cupos = { M: 0, T: 0, N: 0 }
+  for (const id of ids) {
+    const turno = plan[id]?.[mes]
+    if (turno === 'M' || turno === 'T' || turno === 'N') conteo[turno] += 1
+  }
+  return conteo
 }
 
-function intentarConversion(
+function desviacionMeses(
+  plan: PlanAnual,
+  ids: string[],
+  objetivos: ObjetivosGlobales,
+) {
+  let total = 0
+  for (let mes = 0; mes < MESES; mes++) {
+    const conteo = conteoMes(plan, ids, mes)
+    const activos = conteo.M + conteo.T + conteo.N
+    if (activos <= 0) continue
+    total += desviacionObjetivo(
+      conteo,
+      cuposDesdePorcentajes(activos, objetivos),
+    )
+  }
+  return total
+}
+
+/**
+ * Intercambia dos meses del mismo agente (preserva sus cupos M/T/N).
+ */
+function intentarSwapMismaFila(
   plan: PlanAnual,
   agentesById: Map<string, FichaPolicia>,
   id: string,
-  mes: number,
-  destino: TurnoActivo,
+  mesA: number,
+  mesB: number,
 ) {
+  if (mesA === mesB) return false
   const fila = plan[id]
   const agente = agentesById.get(id)
   if (!fila || !agente) return false
-  const actual = fila[mes]
-  if (actual !== 'M' && actual !== 'T' && actual !== 'N') return false
-  if (actual === destino) return false
-  if (!permiteTurno(agente, destino)) return false
-  if (destino === 'N' && !puedeColocarNoche(fila, mes, 2)) return false
+  const turnoA = fila[mesA]
+  const turnoB = fila[mesB]
+  if (turnoA === 'V' || turnoB === 'V' || turnoA === turnoB) return false
+  if (turnoA !== 'M' && turnoA !== 'T' && turnoA !== 'N') return false
+  if (turnoB !== 'M' && turnoB !== 'T' && turnoB !== 'N') return false
+  if (!permiteTurno(agente, turnoB) || !permiteTurno(agente, turnoA)) {
+    return false
+  }
 
   const copia = [...fila]
-  copia[mes] = destino
+  copia[mesA] = turnoB
+  copia[mesB] = turnoA
+  if (turnoB === 'N' && !puedeColocarNoche(copia, mesA, 2)) return false
+  if (turnoA === 'N' && !puedeColocarNoche(copia, mesB, 2)) return false
+
   plan[id] = copia
   return true
 }
 
 /**
- * Reajusta el plan con conversiones e intercambios para acercar el mix M/T/N
- * al objetivo global (año) y, en la medida de lo posible, por mes.
+ * Ciclo de 2×2 entre dos agentes: A(m1)=X, A(m2)=Y y B(m1)=Y, B(m2)=X.
+ * Tras el doble swap ambos conservan sus cupos.
  */
-function equilibrarObjetivosGlobales(
+function intentarDobleSwapPreservandoCupos(
+  plan: PlanAnual,
+  agentesById: Map<string, FichaPolicia>,
+  idA: string,
+  idB: string,
+  mes1: number,
+  mes2: number,
+) {
+  if (idA === idB || mes1 === mes2) return false
+  const filaA = plan[idA]
+  const filaB = plan[idB]
+  const agenteA = agentesById.get(idA)
+  const agenteB = agentesById.get(idB)
+  if (!filaA || !filaB || !agenteA || !agenteB) return false
+
+  const a1 = filaA[mes1]
+  const a2 = filaA[mes2]
+  const b1 = filaB[mes1]
+  const b2 = filaB[mes2]
+  if (a1 === 'V' || a2 === 'V' || b1 === 'V' || b2 === 'V') return false
+  if (a1 !== b2 || a2 !== b1) return false
+  if (a1 === a2) return false
+  if (a1 !== 'M' && a1 !== 'T' && a1 !== 'N') return false
+  if (a2 !== 'M' && a2 !== 'T' && a2 !== 'N') return false
+
+  const copiaA = [...filaA]
+  const copiaB = [...filaB]
+  copiaA[mes1] = a2
+  copiaA[mes2] = a1
+  copiaB[mes1] = b2
+  copiaB[mes2] = b1
+
+  for (const [agente, copia, mes, turno] of [
+    [agenteA, copiaA, mes1, a2],
+    [agenteA, copiaA, mes2, a1],
+    [agenteB, copiaB, mes1, b2],
+    [agenteB, copiaB, mes2, b1],
+  ] as const) {
+    if (!permiteTurno(agente, turno as TurnoActivo)) return false
+    if (
+      turno === 'N' &&
+      !puedeColocarNoche(copia, mes as number, 2)
+    ) {
+      return false
+    }
+  }
+
+  plan[idA] = copiaA
+  plan[idB] = copiaB
+  return true
+}
+
+/**
+ * Reordena meses sin cambiar los cupos de cada ficha, para acercar el % mensual
+ * al selector. El % anual queda fijado por la suma de preferencias.
+ */
+function equilibrarMesesPreservandoPreferencias(
   plan: PlanAnual,
   agentes: FichaPolicia[],
   objetivos: ObjetivosGlobales,
@@ -304,61 +384,15 @@ function equilibrarObjetivosGlobales(
   const agentesById = new Map(agentes.map((agente) => [agente.id, agente]))
   const ids = agentes.map((agente) => agente.id)
 
-  const realInicial = contarFlota(plan, agentes)
-  const totalActivos = realInicial.M + realInicial.T + realInicial.N
-  if (totalActivos <= 0) return
-  const objetivoAnio = objetivosACantidades(totalActivos, objetivos)
-
-  // 1) Conversiones directas: cambian el mix anual (M↔T↔N).
-  for (let pase = 0; pase < 6; pase++) {
-    const real = contarFlota(plan, agentes)
-    if (desviacionObjetivo(real, objetivoAnio) === 0) break
+  for (let pase = 0; pase < 20; pase++) {
     let mejorado = false
-
-    for (const surplus of TURNOS_ACTIVOS) {
-      for (const deficit of TURNOS_ACTIVOS) {
-        if (surplus === deficit) continue
-        while (
-          real[surplus] > objetivoAnio[surplus] &&
-          real[deficit] < objetivoAnio[deficit]
-        ) {
-          let convertido = false
-          for (const id of ids) {
-            const fila = plan[id]
-            if (!fila) continue
-            for (let mes = 0; mes < MESES; mes++) {
-              if (fila[mes] !== surplus) continue
-              if (intentarConversion(plan, agentesById, id, mes, deficit)) {
-                real[surplus] -= 1
-                real[deficit] += 1
-                convertido = true
-                mejorado = true
-                break
-              }
-            }
-            if (convertido) break
-          }
-          if (!convertido) break
-        }
-      }
-    }
-    if (!mejorado) break
-  }
-
-  // 2) Intercambios entre meses: redistribuyen el mix mensual sin empeorar el año.
-  for (let pase = 0; pase < 12; pase++) {
-    let mejorado = false
-    const realAnio = contarFlota(plan, agentes)
+    const devAntes = desviacionMeses(plan, ids, objetivos)
 
     for (let mes = 0; mes < MESES; mes++) {
-      const conteo: Cupos = { M: 0, T: 0, N: 0 }
-      for (const id of ids) {
-        const turno = plan[id]?.[mes]
-        if (turno === 'M' || turno === 'T' || turno === 'N') conteo[turno] += 1
-      }
-      const activosMes = conteo.M + conteo.T + conteo.N
-      if (activosMes <= 0) continue
-      const objetivoMes = cuposDesdePorcentajes(activosMes, objetivos)
+      const conteo = conteoMes(plan, ids, mes)
+      const activos = conteo.M + conteo.T + conteo.N
+      if (activos <= 0) continue
+      const objetivoMes = cuposDesdePorcentajes(activos, objetivos)
       if (desviacionObjetivo(conteo, objetivoMes) === 0) continue
 
       for (const surplus of TURNOS_ACTIVOS) {
@@ -367,76 +401,72 @@ function equilibrarObjetivosGlobales(
           if (conteo[surplus] <= objetivoMes[surplus]) continue
           if (conteo[deficit] >= objetivoMes[deficit]) continue
 
-          for (const idA of ids) {
-            if (plan[idA]?.[mes] !== surplus) continue
-            for (const idB of ids) {
+          // 1) Mismo agente: intercambiar surplus@mes con deficit@otroMes
+          for (const id of ids) {
+            if (plan[id]?.[mes] !== surplus) continue
+            for (let mesB = 0; mesB < MESES; mesB++) {
+              if (mesB === mes) continue
+              if (plan[id]?.[mesB] !== deficit) continue
+              if (!intentarSwapMismaFila(plan, agentesById, id, mes, mesB)) {
+                continue
+              }
+              const devDesp = desviacionMeses(plan, ids, objetivos)
+              if (devDesp >= devAntes) {
+                intentarSwapMismaFila(plan, agentesById, id, mes, mesB)
+                continue
+              }
+              conteo[surplus] -= 1
+              conteo[deficit] += 1
+              mejorado = true
+              break
+            }
+            if (conteo[surplus] <= objetivoMes[surplus]) break
+          }
+
+          // 2) Doble swap entre dos agentes (preserva cupos de ambos)
+          if (conteo[surplus] > objetivoMes[surplus]) {
+            for (const idA of ids) {
+              if (plan[idA]?.[mes] !== surplus) continue
               for (let mesB = 0; mesB < MESES; mesB++) {
                 if (mesB === mes) continue
-                if (plan[idB]?.[mesB] !== deficit) continue
-
-                // ¿El mesB se beneficia o al menos no se destroza demasiado?
-                const conteoB: Cupos = { M: 0, T: 0, N: 0 }
-                for (const id of ids) {
-                  const turno = plan[id]?.[mesB]
-                  if (turno === 'M' || turno === 'T' || turno === 'N') {
-                    conteoB[turno] += 1
+                if (plan[idA]?.[mesB] !== deficit) continue
+                for (const idB of ids) {
+                  if (idB === idA) continue
+                  if (plan[idB]?.[mes] !== deficit) continue
+                  if (plan[idB]?.[mesB] !== surplus) continue
+                  if (
+                    !intentarDobleSwapPreservandoCupos(
+                      plan,
+                      agentesById,
+                      idA,
+                      idB,
+                      mes,
+                      mesB,
+                    )
+                  ) {
+                    continue
                   }
+                  const devDesp = desviacionMeses(plan, ids, objetivos)
+                  if (devDesp >= devAntes) {
+                    intentarDobleSwapPreservandoCupos(
+                      plan,
+                      agentesById,
+                      idA,
+                      idB,
+                      mes,
+                      mesB,
+                    )
+                    continue
+                  }
+                  conteo[surplus] -= 1
+                  conteo[deficit] += 1
+                  mejorado = true
+                  break
                 }
-                const activosB = conteoB.M + conteoB.T + conteoB.N
-                const objetivoB = cuposDesdePorcentajes(activosB, objetivos)
-                const devBAntes = desviacionObjetivo(conteoB, objetivoB)
-                const devMesAntes = desviacionObjetivo(conteo, objetivoMes)
-
-                if (
-                  !intentarIntercambio(plan, agentesById, idA, mes, idB, mesB)
-                ) {
-                  continue
-                }
-
-                const despuesAnio = contarFlota(plan, agentes)
-                if (
-                  desviacionObjetivo(despuesAnio, objetivoAnio) >
-                  desviacionObjetivo(realAnio, objetivoAnio)
-                ) {
-                  intentarIntercambio(plan, agentesById, idA, mes, idB, mesB)
-                  continue
-                }
-
-                const conteoDesp: Cupos = {
-                  M: conteo.M,
-                  T: conteo.T,
-                  N: conteo.N,
-                }
-                conteoDesp[surplus] -= 1
-                conteoDesp[deficit] += 1
-                const conteoBDesp: Cupos = {
-                  M: conteoB.M,
-                  T: conteoB.T,
-                  N: conteoB.N,
-                }
-                conteoBDesp[deficit] -= 1
-                conteoBDesp[surplus] += 1
-                const devMesDesp = desviacionObjetivo(conteoDesp, objetivoMes)
-                const devBDesp = desviacionObjetivo(conteoBDesp, objetivoB)
-
-                // Aceptar si mejora el mes actual y no empeora la suma de desviaciones.
-                if (
-                  devMesDesp + devBDesp > devMesAntes + devBAntes ||
-                  devMesDesp >= devMesAntes
-                ) {
-                  intentarIntercambio(plan, agentesById, idA, mes, idB, mesB)
-                  continue
-                }
-
-                conteo[surplus] -= 1
-                conteo[deficit] += 1
-                Object.assign(realAnio, despuesAnio)
-                mejorado = true
-                break
+                if (conteo[surplus] <= objetivoMes[surplus]) break
               }
               if (conteo[surplus] <= objetivoMes[surplus]) break
             }
-            if (conteo[surplus] <= objetivoMes[surplus]) break
           }
         }
       }
@@ -446,18 +476,97 @@ function equilibrarObjetivosGlobales(
   }
 }
 
+function cuposEsperadosTrasLimitaciones(agente: FichaPolicia): Cupos {
+  return cuposLaborales(agente, MESES - 1)
+}
+
+function filaRespetaPreferencia(agente: FichaPolicia, fila: TurnoAnual[]) {
+  const real = contarFila(fila)
+  const esperado = cuposEsperadosTrasLimitaciones(agente)
+  // Tras limitaciones el objetivo de V puede ser 1 fijo en generación.
+  return (
+    real.M === esperado.M && real.T === esperado.T && real.N === esperado.N
+  )
+}
+
+function preferenciasAlcanzanObjetivo(
+  agentes: FichaPolicia[],
+  objetivos: ObjetivosGlobales,
+) {
+  const suma: Cupos = { M: 0, T: 0, N: 0 }
+  for (const agente of agentes) {
+    const cupos = cuposEsperadosTrasLimitaciones(agente)
+    suma.M += cupos.M
+    suma.T += cupos.T
+    suma.N += cupos.N
+  }
+  const pct = pctDesdeCupos(suma)
+  return {
+    pct,
+    cuadra: cuadraPorcentajes(pct, objetivos),
+  }
+}
+
+function calcularMarcas(
+  plan: PlanAnual,
+  agentes: FichaPolicia[],
+  objetivos: ObjetivosGlobales,
+): MarcasPlanAnual {
+  const flota = contarFlota(plan, agentes)
+  const pctAnio = pctDesdeCupos(flota)
+  const anioCuadra = cuadraPorcentajes(pctAnio, objetivos)
+
+  const mesesSinCuadrar: number[] = []
+  for (let mes = 0; mes < MESES; mes++) {
+    const conteo = conteoMes(
+      plan,
+      agentes.map((a) => a.id),
+      mes,
+    )
+    const activos = conteo.M + conteo.T + conteo.N
+    if (activos <= 0) {
+      mesesSinCuadrar.push(mes)
+      continue
+    }
+    const pctMes = pctDesdeCupos(conteo)
+    if (!cuadraPorcentajes(pctMes, objetivos)) mesesSinCuadrar.push(mes)
+  }
+
+  const agentesSinCuadrar = agentes
+    .filter((agente) => {
+      const fila = plan[agente.id]
+      if (!fila) return true
+      return !filaRespetaPreferencia(agente, fila)
+    })
+    .map((agente) => agente.id)
+
+  const compat = preferenciasAlcanzanObjetivo(agentes, objetivos)
+
+  return {
+    anioCuadra,
+    pctAnio,
+    mesesSinCuadrar,
+    agentesSinCuadrar,
+    preferenciasIncompatibles: !compat.cuadra,
+  }
+}
+
 export function generarPlanAnual(
   agentes: FichaPolicia[],
   objetivosGlobales?: ObjetivosGlobales,
-): PlanAnual {
+): ResultadoGeneracionPlanAnual {
   const plan: PlanAnual = {}
   for (const agente of agentes) {
-    plan[agente.id] = asignarFila(agente, objetivosGlobales)
+    plan[agente.id] = asignarFila(agente)
   }
-  if (objetivosGlobales) {
-    equilibrarObjetivosGlobales(plan, agentes, objetivosGlobales)
+
+  const objetivos = objetivosGlobales ?? { M: 34, T: 33, N: 33 }
+  equilibrarMesesPreservandoPreferencias(plan, agentes, objetivos)
+
+  return {
+    plan,
+    marcas: calcularMarcas(plan, agentes, objetivos),
   }
-  return plan
 }
 
 export function cicloRotacion(agente: FichaPolicia): TurnoAnual[] {

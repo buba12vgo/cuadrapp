@@ -5,6 +5,7 @@ import {
   generarPlanAnual,
   siguienteTurno,
   vacacionesObjetivo,
+  type MarcasPlanAnual,
   type ObjetivosGlobales,
   type TurnoAnual,
 } from '@/lib/generarPlanAnual'
@@ -102,6 +103,7 @@ export function PlanAnualPage() {
     T: 33,
     N: 33,
   })
+  const [marcas, setMarcas] = useState<MarcasPlanAnual | null>(null)
 
   const totalesMes = useMemo(() => {
     const columnas = MESES.map(() => ({ M: 0, T: 0, N: 0, V: 0 }))
@@ -114,7 +116,17 @@ export function PlanAnualPage() {
     return columnas
   }, [agentesData, planAnual])
 
+  const mesesMarcados = useMemo(
+    () => new Set(marcas?.mesesSinCuadrar ?? []),
+    [marcas],
+  )
+  const agentesMarcados = useMemo(
+    () => new Set(marcas?.agentesSinCuadrar ?? []),
+    [marcas],
+  )
+
   function rotarCelda(agente: FichaPolicia, mes: number) {
+    setMarcas(null)
     setPlanAnual((actual) => {
       const fila = [...(actual[agente.id] ?? [])]
       const actualTurno = fila[mes]
@@ -122,6 +134,12 @@ export function PlanAnualPage() {
       fila[mes] = siguienteTurno(agente, actualTurno)
       return { ...actual, [agente.id]: fila }
     })
+  }
+
+  function autogenerar() {
+    const resultado = generarPlanAnual(agentesData, objetivosGlobales)
+    setPlanAnual(resultado.plan)
+    setMarcas(resultado.marcas)
   }
 
   return (
@@ -155,14 +173,72 @@ export function PlanAnualPage() {
           <button
             type="button"
             className="h-6 bg-slate-900 px-2 text-xs font-semibold text-white hover:bg-slate-700"
-            onClick={() =>
-              setPlanAnual(generarPlanAnual(agentesData, objetivosGlobales))
-            }
+            onClick={autogenerar}
           >
             Autogenerar Año
           </button>
         </div>
       </div>
+
+      {marcas ? (
+        <div
+          className={`mx-1 mb-1 border px-2 py-1 text-xs ${
+            marcas.anioCuadra &&
+            marcas.mesesSinCuadrar.length === 0 &&
+            marcas.agentesSinCuadrar.length === 0
+              ? 'border-green-300 bg-green-50 text-green-900'
+              : 'border-amber-300 bg-amber-50 text-amber-950'
+          }`}
+        >
+          {marcas.preferenciasIncompatibles ? (
+            <p>
+              Las preferencias de las fichas no suman el % global del selector
+              {marcas.pctAnio
+                ? ` (real ≈ ${marcas.pctAnio.M.toFixed(1)}/${marcas.pctAnio.T.toFixed(1)}/${marcas.pctAnio.N.toFixed(1)}%). Ajusta objetivos M/T/N en Agentes.`
+                : '. Ajusta objetivos M/T/N en Agentes.'}
+            </p>
+          ) : null}
+          {!marcas.anioCuadra && !marcas.preferenciasIncompatibles ? (
+            <p>
+              No se ha podido cuadrar el % anual sin tocar preferencias
+              {marcas.pctAnio
+                ? ` (queda ${marcas.pctAnio.M.toFixed(1)}/${marcas.pctAnio.T.toFixed(1)}/${marcas.pctAnio.N.toFixed(1)}%).`
+                : '.'}
+            </p>
+          ) : null}
+          {marcas.mesesSinCuadrar.length > 0 ? (
+            <p>
+              Meses sin cuadrar:{' '}
+              <span className="font-semibold">
+                {marcas.mesesSinCuadrar.map((m) => MESES[m]).join(', ')}
+              </span>
+              . Marcados en cabecera.
+            </p>
+          ) : null}
+          {marcas.agentesSinCuadrar.length > 0 ? (
+            <p>
+              Fichas que no respetan su preferencia (p. ej. noches no
+              colocables):{' '}
+              <span className="font-semibold">
+                {marcas.agentesSinCuadrar
+                  .map((id) => {
+                    const agente = agentesData.find((a) => a.id === id)
+                    return agente
+                      ? `${agente.numeroPlaca} ${agente.nombre}`
+                      : id
+                  })
+                  .join(', ')}
+              </span>
+              . Marcadas a la izquierda.
+            </p>
+          ) : null}
+          {marcas.anioCuadra &&
+          marcas.mesesSinCuadrar.length === 0 &&
+          marcas.agentesSinCuadrar.length === 0 ? (
+            <p>Plan cuadrado con las preferencias de cada ficha.</p>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="min-h-0 flex-1 overflow-auto border border-slate-500 bg-white">
         <table className="w-full table-fixed border-separate border-spacing-0 text-xs leading-none">
@@ -174,12 +250,21 @@ export function PlanAnualPage() {
               >
                 Agente
               </th>
-              {MESES.map((mes) => (
+              {MESES.map((mes, indiceMes) => (
                 <th
                   key={mes}
-                  className={`${CELDA} sticky top-0 z-20 bg-white font-bold`}
+                  className={`${CELDA} sticky top-0 z-20 font-bold ${
+                    mesesMarcados.has(indiceMes)
+                      ? 'bg-amber-200 text-amber-950 ring-2 ring-inset ring-amber-500'
+                      : 'bg-white'
+                  }`}
+                  title={
+                    mesesMarcados.has(indiceMes)
+                      ? `${mes}: no se ha podido cuadrar el % del selector`
+                      : mes
+                  }
                 >
-                  {mes}
+                  {mesesMarcados.has(indiceMes) ? `!${mes}` : mes}
                 </th>
               ))}
               {TOTALES.map((clave, indice) => (
@@ -199,14 +284,29 @@ export function PlanAnualPage() {
             {agentesData.map((agente) => {
               const fila = planAnual[agente.id] ?? []
               const totales = totalesFila(fila)
+              const fichaMarcada = agentesMarcados.has(agente.id)
 
               return (
                 <tr key={agente.id}>
                   <td
-                    className={`${CELDA} sticky left-0 z-10 bg-white`}
+                    className={`${CELDA} sticky left-0 z-10 ${
+                      fichaMarcada
+                        ? 'bg-amber-100 font-semibold text-amber-950 ring-2 ring-inset ring-amber-500'
+                        : 'bg-white'
+                    }`}
                     style={{ width: ANCHO_AGENTE, minWidth: ANCHO_AGENTE }}
+                    title={
+                      fichaMarcada
+                        ? 'No se ha podido respetar la preferencia M/T/N de esta ficha'
+                        : undefined
+                    }
                   >
                     <div className="flex min-w-0 items-center gap-1">
+                      {fichaMarcada ? (
+                        <span className="shrink-0 text-amber-700" aria-hidden>
+                          !
+                        </span>
+                      ) : null}
                       <span className="shrink-0 font-mono font-semibold">
                         {agente.numeroPlaca}
                       </span>
@@ -220,7 +320,9 @@ export function PlanAnualPage() {
                       key={MESES[mes]}
                       role="button"
                       tabIndex={0}
-                      className={`${CELDA} cursor-pointer select-none text-center font-bold hover:z-10 hover:ring-2 hover:ring-blue-500 ${CLASE_TURNO[turno]}`}
+                      className={`${CELDA} cursor-pointer select-none text-center font-bold hover:z-10 hover:ring-2 hover:ring-blue-500 ${CLASE_TURNO[turno]} ${
+                        mesesMarcados.has(mes) ? 'outline outline-1 outline-amber-400' : ''
+                      }`}
                       title={`${MESES[mes]} · ${turno}`}
                       aria-label={`${agente.numeroPlaca} ${MESES[mes]} ${turno}`}
                       onClick={() => rotarCelda(agente, mes)}
@@ -264,10 +366,15 @@ export function PlanAnualPage() {
               return (
                 <tr key={turnoPie}>
                   <td
-                    className={`${CELDA} sticky left-0 z-40 bg-gray-200 text-left`}
+                    className={`${CELDA} sticky left-0 z-40 text-left ${
+                      marcas && !marcas.anioCuadra
+                        ? 'bg-amber-200 text-amber-950'
+                        : 'bg-gray-200'
+                    }`}
                     style={{ width: ANCHO_AGENTE, minWidth: ANCHO_AGENTE }}
                   >
                     % {turnoPie}
+                    {marcas && !marcas.anioCuadra ? ' !' : ''}
                   </td>
                   {totalesMes.map((columna, mes) => {
                     const activos = columna.M + columna.T + columna.N
@@ -278,7 +385,11 @@ export function PlanAnualPage() {
                         className={`${CELDA} text-center tabular-nums ${claseSemaforo(
                           real,
                           objetivosGlobales[turnoPie],
-                        )}`}
+                        )} ${
+                          mesesMarcados.has(mes)
+                            ? 'ring-2 ring-inset ring-amber-500'
+                            : ''
+                        }`}
                       >
                         {real == null ? '—' : `${real.toFixed(1)}%`}
                       </td>
@@ -291,7 +402,11 @@ export function PlanAnualPage() {
                         indice === 0 ? 'border-l-2 border-l-slate-600' : ''
                       } ${
                         clave === turnoPie
-                          ? claseSemaforo(pctAnio, objetivosGlobales[turnoPie])
+                          ? `${claseSemaforo(pctAnio, objetivosGlobales[turnoPie])} ${
+                              marcas && !marcas.anioCuadra
+                                ? 'ring-2 ring-inset ring-amber-500'
+                                : ''
+                            }`
                           : 'bg-gray-200'
                       }`}
                       style={stickyDerecha(indice)}

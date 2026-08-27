@@ -155,7 +155,9 @@ export function PlanAnualPage() {
           <button
             type="button"
             className="h-6 bg-slate-900 px-2 text-xs font-semibold text-white hover:bg-slate-700"
-            onClick={() => setPlanAnual(generarPlanAnual(agentesData))}
+            onClick={() =>
+              setPlanAnual(generarPlanAnual(agentesData, objetivosGlobales))
+            }
           >
             Autogenerar Año
           </button>

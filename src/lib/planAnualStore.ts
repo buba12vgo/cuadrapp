@@ -10,7 +10,7 @@ function clonarPlan(plan: PlanAnual): PlanAnual {
   return copia
 }
 
-let planAnual = clonarPlan(generarPlanAnual(mockAgentes))
+let planAnual = clonarPlan(generarPlanAnual(mockAgentes).plan)
 const listeners = new Set<() => void>()
 
 function emit() {

@@ -7,6 +7,7 @@ const ROLES: RolPolicia[] = [
   'JEFE_SERVICIO',
   'JEFE_EQUIPO',
   'POLICIA',
+  'POLICIA_BOLSA',
 ]
 
 const ALIAS_CABECERA: Record<string, 'numeroPlaca' | 'nombre' | 'apellidos' | 'rolBase'> =
@@ -40,6 +41,9 @@ const ALIAS_ROL: Record<string, RolPolicia> = {
   jefeequipo: 'JEFE_EQUIPO',
   policia: 'POLICIA',
   agente: 'POLICIA',
+  'policia bolsa': 'POLICIA_BOLSA',
+  'policia de bolsa': 'POLICIA_BOLSA',
+  policiabolsa: 'POLICIA_BOLSA',
 }
 
 export type FilaImportacionAgente = {

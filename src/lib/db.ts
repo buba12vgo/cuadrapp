@@ -52,6 +52,7 @@ const ROLES: RolPolicia[] = [
   'JEFE_SERVICIO',
   'JEFE_EQUIPO',
   'POLICIA',
+  'POLICIA_BOLSA',
 ]
 
 const MESES_VACACIONES: FichaPolicia['mesAnclaVacaciones'][] = [

@@ -3,6 +3,7 @@ export type RolPolicia =
   | 'JEFE_SERVICIO'
   | 'JEFE_EQUIPO'
   | 'POLICIA'
+  | 'POLICIA_BOLSA'
 
 export type Turno = 'M' | 'T' | 'N' | 'L' | 'D' | 'V'
 

@@ -102,7 +102,12 @@ export function inicializarPlanAnual(
   objetivos?: Parameters<typeof generarPlanAnual>[1],
 ) {
   if (Object.keys(planesPorAnio[anio] ?? {}).length > 0) return
-  const resultado = generarPlanAnual(agentes, objetivos, anio)
+  const resultado = generarPlanAnual(
+    agentes,
+    objetivos,
+    anio,
+    planParaAnio(anio - 1),
+  )
   planesPorAnio[anio] = resultado.plan
   marcasPorAnio[anio] = resultado.marcas
   emit()

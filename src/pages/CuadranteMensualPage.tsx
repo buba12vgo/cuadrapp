@@ -48,6 +48,7 @@ import {
   type CuadranteMensual,
 } from '@/lib/generarCuadranteMensual'
 import { mensajesInfraccion } from '@/lib/reglasCuadrante'
+import { MAX_FINDES_CONSECUTIVOS, maxFindesConsecutivosLaborados } from '@/lib/finesSemana'
 import type { RolPolicia, Turno } from '@/types'
 
 const MESES = [
@@ -669,7 +670,7 @@ export function CuadranteMensualPage() {
                           )
                         : null
                     const operativo = esTurnoOperativo(turno)
-                    const avisos = mensajesInfraccion(fila, dia - 1)
+                    const avisos = mensajesInfraccion(fila, dia - 1, { anio, mes })
                     const rota = avisos.length > 0
                     const atenuada =
                       filtroTurno !== 'TODOS' && turno !== filtroTurno
@@ -777,13 +778,14 @@ export function CuadranteMensualPage() {
                 const turnoPlan = planAnual[agente.id]?.[mes - 1] ?? 'M'
                 const trabajados = totalTrabajados(fila)
                 const findes = totalFindesTrabajados(fila, anio, mes)
+                const findesConsec = maxFindesConsecutivosLaborados(fila, anio, mes)
                 const objetivoFila = turnoPlan === 'V' ? 0 : objetivo
                 return (
                   <td
                     key={agente.id}
                     className={`${CELDA_PIE} bg-slate-200`}
                     style={{ width: ANCHO_AGENTE, minWidth: ANCHO_AGENTE }}
-                    title={`Trabajados ${trabajados} / ${objetivoFila} · Findes ${findes}`}
+                    title={`Trabajados ${trabajados} / ${objetivoFila} · Findes ${findes} · Máx. seguidos ${findesConsec}`}
                   >
                     <div className="flex h-full flex-col">
                       <span
@@ -795,10 +797,10 @@ export function CuadranteMensualPage() {
                       </span>
                       <span
                         className={`flex flex-1 items-center justify-center ${claseIndicador(
-                          findes >= 2,
+                          findesConsec <= MAX_FINDES_CONSECUTIVOS,
                         )}`}
                       >
-                        {findes}F
+                        {findesConsec}Fs
                       </span>
                     </div>
                   </td>

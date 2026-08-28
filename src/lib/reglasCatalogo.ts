@@ -176,6 +176,17 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     referencia: 'vacaciones.ts · mesVacacionesCiclo · anioReferenciaVacaciones',
   },
   {
+    id: 'diciembre-noche-no-repetir',
+    categoria: 'PLAN_ANUAL',
+    titulo: 'Diciembre noche sin repetición anual',
+    descripcion:
+      'Si un agente trabajó noche (N) en diciembre un año, no puede volver a tener N en diciembre del año siguiente en el plan anual.',
+    estado: 'implementada',
+    detalle:
+      'Al autogenerar o editar el plan se consulta diciembre del año anterior. La validación manual impide asignar N si ya la tuvo.',
+    referencia: 'generarPlanAnual · diciembreNProhibido · validarTurnoEnPlan',
+  },
+  {
     id: 'tolerancia-plan-anual',
     categoria: 'PLAN_ANUAL',
     titulo: 'Cuadre de porcentajes anuales',
@@ -185,6 +196,17 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     detalle:
       'Al editar una celda manualmente se validan turnos permitidos y separación de noches; las marcas se recalculan al instante.',
     referencia: 'TOLERANCIA_PCT_PLAN = 2 · validarTurnoEnPlan',
+  },
+  {
+    id: 'findes-consecutivos-max',
+    categoria: 'CUADRANTE',
+    titulo: 'Fines de semana consecutivos',
+    descripcion:
+      'No se pueden trabajar más de 2 fines de semana seguidos. Se procura alternar los findes laborables, priorizando cubrir los mínimos operativos.',
+    estado: 'implementada',
+    detalle:
+      'Al generar el cuadrante mensual se intercambian jornadas de finde por descansos entre semana sin alterar el total de días trabajados. El pie del cuadrante muestra la racha máxima (Fs) y se alerta si supera 2.',
+    referencia: 'finesSemana · MAX_FINDES_CONSECUTIVOS = 2',
   },
   {
     id: 'eventos-modifican-minimos',

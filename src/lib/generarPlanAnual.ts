@@ -32,6 +32,7 @@ export const TOLERANCIA_PCT_PLAN = 2
 
 const MESES = 12
 const TURNOS_ACTIVOS = ['M', 'T', 'N'] as const
+const MES_DICIEMBRE = 11
 type TurnoActivo = (typeof TURNOS_ACTIVOS)[number]
 
 type Cupos = { M: number; T: number; N: number }
@@ -568,11 +569,33 @@ export function calcularMarcas(
   }
 }
 
+export function diciembreNProhibido(
+  agenteId: string,
+  planAnioAnterior?: PlanAnual,
+) {
+  return planAnioAnterior?.[agenteId]?.[MES_DICIEMBRE] === 'N'
+}
+
+function evitarDiciembreNRepetido(
+  agente: FichaPolicia,
+  fila: TurnoAnual[],
+  planAnioAnterior?: PlanAnual,
+) {
+  if (fila[MES_DICIEMBRE] !== 'N') return
+  if (!diciembreNProhibido(agente.id, planAnioAnterior)) return
+
+  const alternativas: TurnoAnual[] = []
+  if (agente.limitaciones.M) alternativas.push('M')
+  if (agente.limitaciones.T) alternativas.push('T')
+  fila[MES_DICIEMBRE] = alternativas[0] ?? 'M'
+}
+
 export function validarTurnoEnPlan(
   agente: FichaPolicia,
   fila: TurnoAnual[],
   mes: number,
   turno: TurnoAnual,
+  planAnioAnterior?: PlanAnual,
 ): string | null {
   if (turno === 'V') return null
   if (turno === 'M' || turno === 'T' || turno === 'N') {
@@ -582,6 +605,13 @@ export function validarTurnoEnPlan(
     if (turno === 'N' && !puedeColocarNoche(fila, mes, 2)) {
       return 'Separación insuficiente entre noches en el plan anual'
     }
+    if (
+      mes === MES_DICIEMBRE &&
+      turno === 'N' &&
+      diciembreNProhibido(agente.id, planAnioAnterior)
+    ) {
+      return 'No puede repetir noche en diciembre respecto al año anterior'
+    }
   }
   return null
 }
@@ -590,14 +620,21 @@ export function generarPlanAnual(
   agentes: FichaPolicia[],
   objetivosGlobales?: ObjetivosGlobales,
   anio = new Date().getFullYear(),
+  planAnioAnterior?: PlanAnual,
 ): ResultadoGeneracionPlanAnual {
   const plan: PlanAnual = {}
   for (const agente of agentes) {
-    plan[agente.id] = asignarFila(agente, anio)
+    const fila = asignarFila(agente, anio)
+    evitarDiciembreNRepetido(agente, fila, planAnioAnterior)
+    plan[agente.id] = fila
   }
 
   const objetivos = objetivosGlobales ?? { M: 34, T: 33, N: 33 }
   equilibrarMesesPreservandoPreferencias(plan, agentes, objetivos)
+  for (const agente of agentes) {
+    const fila = plan[agente.id]
+    if (fila) evitarDiciembreNRepetido(agente, fila, planAnioAnterior)
+  }
 
   return {
     plan,

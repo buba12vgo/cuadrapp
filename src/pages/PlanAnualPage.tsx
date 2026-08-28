@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAgentesData } from '@/lib/agentesStore'
-import { usePlanAnual } from '@/lib/planAnualStore'
+import { usePlanAnual, planParaAnio } from '@/lib/planAnualStore'
 import {
   calcularMarcas,
   generarPlanAnual,
@@ -133,7 +133,12 @@ export function PlanAnualPage() {
   useEffect(() => {
     if (agentesData.length === 0) return
     if (Object.keys(planAnual).length > 0) return
-    const resultado = generarPlanAnual(agentesData, objetivosGlobales, anio)
+    const resultado = generarPlanAnual(
+      agentesData,
+      objetivosGlobales,
+      anio,
+      planParaAnio(anio - 1),
+    )
     registrarPlan(anio, resultado.plan, resultado.marcas)
   }, [agentesData, anio, objetivosGlobales, planAnual, registrarPlan])
 
@@ -143,7 +148,13 @@ export function PlanAnualPage() {
     if (!turnoActual) return
 
     const siguiente = siguienteTurno(agente, turnoActual)
-    const error = validarTurnoEnPlan(agente, filaActual, mes, siguiente)
+    const error = validarTurnoEnPlan(
+      agente,
+      filaActual,
+      mes,
+      siguiente,
+      planParaAnio(anio - 1),
+    )
     if (error) {
       window.alert(error)
       return
@@ -156,7 +167,12 @@ export function PlanAnualPage() {
   }
 
   function autogenerar() {
-    const resultado = generarPlanAnual(agentesData, objetivosGlobales, anio)
+    const resultado = generarPlanAnual(
+      agentesData,
+      objetivosGlobales,
+      anio,
+      planParaAnio(anio - 1),
+    )
     registrarPlan(anio, resultado.plan, resultado.marcas)
   }
 

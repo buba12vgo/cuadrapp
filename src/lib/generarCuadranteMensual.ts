@@ -8,6 +8,7 @@ import {
   diasOperativosConvenio,
   esDiaTrabajado,
 } from '@/lib/convenio'
+import { equilibrarFindesConsecutivos } from '@/lib/finesSemana'
 
 export type CuadranteMensual = Record<string, Turno[]>
 
@@ -124,7 +125,11 @@ export function generarFilaMensual(
   const offset = offsetDescansoInicial % 6
   const par = offset <= 1 ? 0 : offset % 2 === 0 ? offset : offset - 1
 
-  return construirFila(turnoBase, nDias, nLaborables, minEntre, par)
+  const fila = construirFila(turnoBase, nDias, nLaborables, minEntre, par)
+  if (turnoBase === 'M' || turnoBase === 'T' || turnoBase === 'N') {
+    return equilibrarFindesConsecutivos(fila, anio, mes, turnoBase)
+  }
+  return fila
 }
 
 export function generarCuadranteMensual(

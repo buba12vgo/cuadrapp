@@ -1,10 +1,22 @@
-import type { FichaPolicia } from '@/types'
+import type { FichaPolicia, RolPolicia } from '@/types'
 import { turnosLaboralesPermitidos } from '@/lib/limitaciones'
 import { mesesVacacionesEnPlan } from '@/lib/vacaciones'
 
 export type TurnoAnual = 'M' | 'T' | 'N' | 'V'
+export type CeldaPlanAnual = TurnoAnual | null
+export type FilaPlanAnual = CeldaPlanAnual[]
 export type ObjetivosGlobales = { M: number; T: number; N: number }
-export type PlanAnual = Record<string, TurnoAnual[]>
+export type PlanAnual = Record<string, FilaPlanAnual>
+
+/** Vista del plan anual: operativos o jefes de servicio. */
+export type GrupoPlanAnual = 'OPERATIVO' | 'JEFE_SERVICIO'
+
+export type OpcionesGeneracionPlanAnual = {
+  /** Solo autogenera agentes de este grupo (los demás se conservan). */
+  grupo?: GrupoPlanAnual
+  /** Plan existente a fusionar (p. ej. al generar un grupo sin tocar el otro). */
+  planBase?: PlanAnual
+}
 
 /** Meses (0-11) y agentes que no se han podido cuadrar tras autogenerar. */
 export type MarcasPlanAnual = {
@@ -35,6 +47,42 @@ const TURNOS_ACTIVOS = ['M', 'T', 'N'] as const
 const MES_DICIEMBRE = 11
 type TurnoActivo = (typeof TURNOS_ACTIVOS)[number]
 
+export function filaVaciaPlanAnual(): FilaPlanAnual {
+  return Array.from({ length: MESES }, () => null)
+}
+
+export function esPoliciaBolsa(rol: RolPolicia) {
+  return rol === 'POLICIA_BOLSA'
+}
+
+export function grupoPlanAnual(rol: RolPolicia): GrupoPlanAnual | null {
+  if (rol === 'JEFE_SERVICIO') return 'JEFE_SERVICIO'
+  if (
+    rol === 'POLICIA' ||
+    rol === 'JEFE_EQUIPO' ||
+    rol === 'POLICIA_BOLSA' ||
+    rol === 'RESPONSABLE'
+  ) {
+    return 'OPERATIVO'
+  }
+  return null
+}
+
+export function agentePerteneceGrupo(
+  agente: FichaPolicia,
+  grupo: GrupoPlanAnual,
+) {
+  return grupoPlanAnual(agente.rolBase) === grupo
+}
+
+function clonarPlan(plan: PlanAnual): PlanAnual {
+  const copia: PlanAnual = {}
+  for (const [id, fila] of Object.entries(plan)) {
+    copia[id] = [...fila]
+  }
+  return copia
+}
+
 type Cupos = { M: number; T: number; N: number }
 type Fila = (TurnoAnual | null)[]
 
@@ -60,7 +108,7 @@ function puedeNoche(fila: Fila, mes: number, minDist: number) {
   return true
 }
 
-function puedeColocarNoche(fila: TurnoAnual[], mes: number, minDist: number) {
+function puedeColocarNoche(fila: FilaPlanAnual, mes: number, minDist: number) {
   for (let otro = 0; otro < MESES; otro++) {
     if (otro === mes) continue
     if (fila[otro] !== 'N') continue
@@ -232,9 +280,11 @@ function contarFlota(plan: PlanAnual, agentes: FichaPolicia[]): Cupos {
   return total
 }
 
-function contarFila(fila: TurnoAnual[]): Cupos & { V: number } {
+function contarFila(fila: FilaPlanAnual): Cupos & { V: number } {
   const t = { M: 0, T: 0, N: 0, V: 0 }
-  for (const turno of fila) t[turno] += 1
+  for (const turno of fila) {
+    if (turno) t[turno] += 1
+  }
   return t
 }
 
@@ -498,7 +548,7 @@ function cuposEsperadosTrasLimitaciones(agente: FichaPolicia): Cupos {
   return cuposLaborales(agente, MESES - 1)
 }
 
-function filaRespetaPreferencia(agente: FichaPolicia, fila: TurnoAnual[]) {
+function filaRespetaPreferencia(agente: FichaPolicia, fila: FilaPlanAnual) {
   const real = contarFila(fila)
   const esperado = cuposEsperadosTrasLimitaciones(agente)
   // Tras limitaciones el objetivo de V puede ser 1 fijo en generación.
@@ -578,7 +628,7 @@ export function diciembreNProhibido(
 
 function evitarDiciembreNRepetido(
   agente: FichaPolicia,
-  fila: TurnoAnual[],
+  fila: FilaPlanAnual,
   planAnioAnterior?: PlanAnual,
 ) {
   if (fila[MES_DICIEMBRE] !== 'N') return
@@ -592,7 +642,7 @@ function evitarDiciembreNRepetido(
 
 export function validarTurnoEnPlan(
   agente: FichaPolicia,
-  fila: TurnoAnual[],
+  fila: FilaPlanAnual,
   mes: number,
   turno: TurnoAnual,
   planAnioAnterior?: PlanAnual,
@@ -616,29 +666,69 @@ export function validarTurnoEnPlan(
   return null
 }
 
+function agentesAutogenerables(
+  agentes: FichaPolicia[],
+  grupo?: GrupoPlanAnual,
+) {
+  return agentes.filter((agente) => {
+    if (esPoliciaBolsa(agente.rolBase)) return false
+    if (!grupo) return true
+    return agentePerteneceGrupo(agente, grupo)
+  })
+}
+
 export function generarPlanAnual(
   agentes: FichaPolicia[],
   objetivosGlobales?: ObjetivosGlobales,
   anio = new Date().getFullYear(),
   planAnioAnterior?: PlanAnual,
+  opciones?: OpcionesGeneracionPlanAnual,
 ): ResultadoGeneracionPlanAnual {
-  const plan: PlanAnual = {}
-  for (const agente of agentes) {
+  if (!opciones?.grupo) {
+    const operativo = generarPlanAnual(
+      agentes,
+      objetivosGlobales,
+      anio,
+      planAnioAnterior,
+      { ...opciones, grupo: 'OPERATIVO' },
+    )
+    return generarPlanAnual(
+      agentes,
+      objetivosGlobales,
+      anio,
+      planAnioAnterior,
+      { ...opciones, grupo: 'JEFE_SERVICIO', planBase: operativo.plan },
+    )
+  }
+
+  const plan: PlanAnual = opciones.planBase
+    ? clonarPlan(opciones.planBase)
+    : {}
+  const objetivos = objetivosGlobales ?? { M: 34, T: 33, N: 33 }
+  const agentesGenerar = agentesAutogenerables(agentes, opciones.grupo)
+
+  for (const agente of agentesGenerar) {
     const fila = asignarFila(agente, anio)
     evitarDiciembreNRepetido(agente, fila, planAnioAnterior)
     plan[agente.id] = fila
   }
 
-  const objetivos = objetivosGlobales ?? { M: 34, T: 33, N: 33 }
-  equilibrarMesesPreservandoPreferencias(plan, agentes, objetivos)
   for (const agente of agentes) {
+    if (!esPoliciaBolsa(agente.rolBase)) continue
+    if (!plan[agente.id]) {
+      plan[agente.id] = filaVaciaPlanAnual()
+    }
+  }
+
+  equilibrarMesesPreservandoPreferencias(plan, agentesGenerar, objetivos)
+  for (const agente of agentesGenerar) {
     const fila = plan[agente.id]
     if (fila) evitarDiciembreNRepetido(agente, fila, planAnioAnterior)
   }
 
   return {
     plan,
-    marcas: calcularMarcas(plan, agentes, objetivos),
+    marcas: calcularMarcas(plan, agentesGenerar, objetivos),
   }
 }
 
@@ -651,8 +741,12 @@ export function cicloRotacion(agente: FichaPolicia): TurnoAnual[] {
   return ciclo.length > 1 ? ciclo : ['M', 'T', 'N', 'V']
 }
 
-export function siguienteTurno(agente: FichaPolicia, actual: TurnoAnual) {
+export function siguienteTurno(
+  agente: FichaPolicia,
+  actual: TurnoAnual | null,
+): TurnoAnual {
   const ciclo = cicloRotacion(agente)
+  if (!actual) return ciclo[0]
   const indice = ciclo.indexOf(actual)
   if (indice < 0) return ciclo[0]
   return ciclo[(indice + 1) % ciclo.length]

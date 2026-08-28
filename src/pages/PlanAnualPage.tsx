@@ -2,11 +2,15 @@ import { useEffect, useMemo, useState } from 'react'
 import { useAgentesData } from '@/lib/agentesStore'
 import { usePlanAnual, planParaAnio } from '@/lib/planAnualStore'
 import {
+  agentePerteneceGrupo,
   calcularMarcas,
+  filaVaciaPlanAnual,
   generarPlanAnual,
   siguienteTurno,
   validarTurnoEnPlan,
   vacacionesObjetivo,
+  type CeldaPlanAnual,
+  type GrupoPlanAnual,
   type ObjetivosGlobales,
   type TurnoAnual,
 } from '@/lib/generarPlanAnual'
@@ -40,6 +44,13 @@ const CELDA =
   'h-6 border border-slate-400 px-1 py-0 text-xs leading-none'
 const CAMPO_PCT =
   'h-6 w-11 border border-slate-400 bg-white px-1 text-center text-xs text-slate-900 outline-none focus:border-slate-700'
+const CAMPO =
+  'h-6 border border-slate-400 bg-white px-1 text-xs text-slate-900 outline-none focus:border-slate-700'
+
+const GRUPOS_PLAN: Array<{ valor: GrupoPlanAnual; label: string }> = [
+  { valor: 'OPERATIVO', label: 'Policías + jefes de equipo' },
+  { valor: 'JEFE_SERVICIO', label: 'Jefes de Servicio' },
+]
 
 const CLASE_TURNO: Record<TurnoAnual, string> = {
   M: 'bg-yellow-200 text-yellow-950',
@@ -48,9 +59,11 @@ const CLASE_TURNO: Record<TurnoAnual, string> = {
   V: 'bg-gray-300 text-slate-800',
 }
 
-function totalesFila(turnos: TurnoAnual[]) {
+function totalesFila(turnos: CeldaPlanAnual[]) {
   const totales = { M: 0, T: 0, N: 0, V: 0 }
-  for (const turno of turnos) totales[turno] += 1
+  for (const turno of turnos) {
+    if (turno) totales[turno] += 1
+  }
   return totales
 }
 
@@ -102,24 +115,35 @@ function cuadraTotal(
 
 export function PlanAnualPage() {
   const [agentesData] = useAgentesData()
-  const { anio, plan: planAnual, marcas, setAnio, setPlanAnual, setMarcas, registrarPlan } =
+  const { anio, plan: planAnual, setAnio, setPlanAnual, setMarcas, registrarPlan } =
     usePlanAnual()
+  const [grupoVista, setGrupoVista] = useState<GrupoPlanAnual>('OPERATIVO')
   const [objetivosGlobales, setObjetivosGlobales] = useState<ObjetivosGlobales>({
     M: 34,
     T: 33,
     N: 33,
   })
 
+  const agentesVisibles = useMemo(
+    () => agentesData.filter((agente) => agentePerteneceGrupo(agente, grupoVista)),
+    [agentesData, grupoVista],
+  )
+
+  const marcas = useMemo(
+    () => calcularMarcas(planAnual, agentesVisibles, objetivosGlobales),
+    [planAnual, agentesVisibles, objetivosGlobales],
+  )
+
   const totalesMes = useMemo(() => {
     const columnas = MESES.map(() => ({ M: 0, T: 0, N: 0, V: 0 }))
-    for (const agente of agentesData) {
-      const fila = planAnual[agente.id] ?? []
+    for (const agente of agentesVisibles) {
+      const fila = planAnual[agente.id] ?? filaVaciaPlanAnual()
       fila.forEach((turno, mes) => {
-        columnas[mes][turno] += 1
+        if (turno) columnas[mes][turno] += 1
       })
     }
     return columnas
-  }, [agentesData, planAnual])
+  }, [agentesVisibles, planAnual])
 
   const mesesMarcados = useMemo(
     () => new Set(marcas?.mesesSinCuadrar ?? []),
@@ -143,10 +167,8 @@ export function PlanAnualPage() {
   }, [agentesData, anio, objetivosGlobales, planAnual, registrarPlan])
 
   function rotarCelda(agente: FichaPolicia, mes: number) {
-    const filaActual = [...(planAnual[agente.id] ?? [])]
-    const turnoActual = filaActual[mes]
-    if (!turnoActual) return
-
+    const filaActual = [...(planAnual[agente.id] ?? filaVaciaPlanAnual())]
+    const turnoActual = filaActual[mes] ?? null
     const siguiente = siguienteTurno(agente, turnoActual)
     const error = validarTurnoEnPlan(
       agente,
@@ -163,7 +185,7 @@ export function PlanAnualPage() {
     filaActual[mes] = siguiente
     const planActualizado = { ...planAnual, [agente.id]: filaActual }
     setPlanAnual(planActualizado)
-    setMarcas(calcularMarcas(planActualizado, agentesData, objetivosGlobales))
+    setMarcas(calcularMarcas(planActualizado, agentesVisibles, objetivosGlobales))
   }
 
   function autogenerar() {
@@ -172,6 +194,7 @@ export function PlanAnualPage() {
       objetivosGlobales,
       anio,
       planParaAnio(anio - 1),
+      { grupo: grupoVista, planBase: planAnual },
     )
     registrarPlan(anio, resultado.plan, resultado.marcas)
   }
@@ -199,6 +222,22 @@ export function PlanAnualPage() {
           </label>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-1">
+            <span className="text-xs font-semibold text-slate-600">Vista</span>
+            <select
+              className={CAMPO}
+              value={grupoVista}
+              onChange={(event) =>
+                setGrupoVista(event.target.value as GrupoPlanAnual)
+              }
+            >
+              {GRUPOS_PLAN.map((grupo) => (
+                <option key={grupo.valor} value={grupo.valor}>
+                  {grupo.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <span className="text-xs font-semibold text-slate-600">
             Objetivo global
           </span>
@@ -333,8 +372,8 @@ export function PlanAnualPage() {
             </tr>
           </thead>
           <tbody>
-            {agentesData.map((agente) => {
-              const fila = planAnual[agente.id] ?? []
+            {agentesVisibles.map((agente) => {
+              const fila = planAnual[agente.id] ?? filaVaciaPlanAnual()
               const totales = totalesFila(fila)
               const fichaMarcada = agentesMarcados.has(agente.id)
 
@@ -372,11 +411,17 @@ export function PlanAnualPage() {
                       key={MESES[mes]}
                       role="button"
                       tabIndex={0}
-                      className={`${CELDA} cursor-pointer select-none text-center font-bold hover:z-10 hover:ring-2 hover:ring-blue-500 ${CLASE_TURNO[turno]} ${
+                      className={`${CELDA} cursor-pointer select-none text-center font-bold hover:z-10 hover:ring-2 hover:ring-blue-500 ${
+                        turno ? CLASE_TURNO[turno] : 'bg-white text-slate-400'
+                      } ${
                         mesesMarcados.has(mes) ? 'outline outline-1 outline-amber-400' : ''
                       }`}
-                      title={`${MESES[mes]} · ${turno}`}
-                      aria-label={`${agente.numeroPlaca} ${MESES[mes]} ${turno}`}
+                      title={
+                        turno
+                          ? `${MESES[mes]} · ${turno}`
+                          : `${MESES[mes]} · sin asignar`
+                      }
+                      aria-label={`${agente.numeroPlaca} ${MESES[mes]} ${turno ?? 'vacío'}`}
                       onClick={() => rotarCelda(agente, mes)}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter' || event.key === ' ') {
@@ -385,7 +430,7 @@ export function PlanAnualPage() {
                         }
                       }}
                     >
-                      {turno}
+                      {turno ?? ''}
                     </td>
                   ))}
                   {TOTALES.map((clave, indice) => (

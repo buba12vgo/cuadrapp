@@ -140,7 +140,12 @@ export function generarCuadranteMensual(
 ): CuadranteMensual {
   const cuadrante: CuadranteMensual = {}
   agenteIds.forEach((id, indice) => {
-    const turnoBase = planAnual[id]?.[mes - 1] ?? 'M'
+    const turnoBase = planAnual[id]?.[mes - 1]
+    if (!turnoBase) {
+      const nDias = diasDelMes(anio, mes)
+      cuadrante[id] = Array.from({ length: nDias }, () => 'D')
+      return
+    }
     cuadrante[id] = generarFilaMensual(turnoBase, anio, mes, indice * 2)
   })
   return cuadrante

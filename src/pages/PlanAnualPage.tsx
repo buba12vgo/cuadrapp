@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useAgentesData } from '@/lib/agentesStore'
 import { usePlanAnual, planParaAnio } from '@/lib/planAnualStore'
 import {
@@ -151,6 +151,8 @@ export function PlanAnualPage() {
     [agentesData, grupoVista],
   )
 
+  const hayPlanAnio = Object.keys(planAnual).length > 0
+
   const marcas = useMemo(
     () => calcularMarcas(planAnual, agentesVisibles, objetivosGlobales),
     [planAnual, agentesVisibles, objetivosGlobales],
@@ -168,25 +170,13 @@ export function PlanAnualPage() {
   }, [agentesVisibles, planAnual])
 
   const mesesMarcados = useMemo(
-    () => new Set(marcas?.mesesSinCuadrar ?? []),
-    [marcas],
+    () => new Set(hayPlanAnio ? (marcas?.mesesSinCuadrar ?? []) : []),
+    [hayPlanAnio, marcas],
   )
   const agentesMarcados = useMemo(
-    () => new Set(marcas?.agentesSinCuadrar ?? []),
-    [marcas],
+    () => new Set(hayPlanAnio ? (marcas?.agentesSinCuadrar ?? []) : []),
+    [hayPlanAnio, marcas],
   )
-
-  useEffect(() => {
-    if (agentesData.length === 0) return
-    if (Object.keys(planAnual).length > 0) return
-    const resultado = generarPlanAnual(
-      agentesData,
-      objetivosGlobales,
-      anio,
-      planParaAnio(anio - 1),
-    )
-    registrarPlan(anio, resultado.plan, resultado.marcas)
-  }, [agentesData, anio, objetivosGlobales, planAnual, registrarPlan])
 
   function rotarCelda(agente: FichaPolicia, mes: number) {
     const filaActual = [...(planAnual[agente.id] ?? filaVaciaPlanAnual())]
@@ -210,6 +200,7 @@ export function PlanAnualPage() {
     setMarcas(calcularMarcas(planActualizado, agentesVisibles, objetivosGlobales))
   }
 
+  /** Regenera solo el año del selector; no escribe años vecinos. */
   function autogenerar() {
     const resultado = generarPlanAnual(
       agentesData,
@@ -286,6 +277,7 @@ export function PlanAnualPage() {
           <button
             type="button"
             className="h-6 bg-slate-900 px-2 text-xs font-semibold text-white hover:bg-slate-700"
+            title={`Regenera solo ${anio}. Los demás años no se modifican.`}
             onClick={autogenerar}
           >
             Autogenerar Año
@@ -293,7 +285,16 @@ export function PlanAnualPage() {
         </div>
       </div>
 
-      {marcas ? (
+      {!hayPlanAnio ? (
+        <div className="mx-1 mb-1 border border-slate-300 bg-slate-50 px-2 py-1 text-xs text-slate-700">
+          <p>
+            {anio} no tiene plan. Pulsa <span className="font-semibold">Autogenerar Año</span> para
+            crear solo este año; los anteriores y siguientes no se tocan.
+          </p>
+        </div>
+      ) : null}
+
+      {hayPlanAnio && marcas ? (
         <div
           className={`mx-1 mb-1 border px-2 py-1 text-xs ${
             marcas.anioCuadra &&
@@ -550,14 +551,14 @@ export function PlanAnualPage() {
                 <tr key={turnoPie}>
                   <td
                     className={`${CELDA} sticky left-0 z-40 text-left ${
-                      marcas && !marcas.anioCuadra
+                      hayPlanAnio && marcas && !marcas.anioCuadra
                         ? 'bg-amber-200 text-amber-950'
                         : 'bg-gray-200'
                     }`}
                     style={{ width: ANCHO_AGENTE, minWidth: ANCHO_AGENTE }}
                   >
                     % {turnoPie}
-                    {marcas && !marcas.anioCuadra ? ' !' : ''}
+                    {hayPlanAnio && marcas && !marcas.anioCuadra ? ' !' : ''}
                   </td>
                   {totalesMes.map((columna, mes) => {
                     const activos = columna.M + columna.T + columna.N
@@ -586,7 +587,7 @@ export function PlanAnualPage() {
                       } ${
                         clave === turnoPie
                           ? `${claseSemaforo(pctAnio, objetivosGlobales[turnoPie])} ${
-                              marcas && !marcas.anioCuadra
+                              hayPlanAnio && marcas && !marcas.anioCuadra
                                 ? 'ring-2 ring-inset ring-amber-500'
                                 : ''
                             }`

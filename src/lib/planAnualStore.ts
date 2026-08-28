@@ -14,6 +14,8 @@ function clonarPlan(plan: PlanAnual): PlanAnual {
   return copia
 }
 
+const PLAN_VACIO: PlanAnual = {}
+
 let anioActivo = ANIO_REFERENCIA_VACACIONES_DEFECTO
 let planesPorAnio: Record<number, PlanAnual> = {}
 let marcasPorAnio: Record<number, MarcasPlanAnual | null> = {}
@@ -33,7 +35,7 @@ function getSnapshot() {
 }
 
 function planSnapshot() {
-  return planesPorAnio[anioActivo] ?? {}
+  return planesPorAnio[anioActivo] ?? PLAN_VACIO
 }
 
 function marcasSnapshot() {
@@ -41,7 +43,12 @@ function marcasSnapshot() {
 }
 
 export function planParaAnio(anio: number) {
-  return planesPorAnio[anio] ?? {}
+  const plan = planesPorAnio[anio]
+  return plan ? clonarPlan(plan) : PLAN_VACIO
+}
+
+export function tienePlanParaAnio(anio: number) {
+  return Object.keys(planesPorAnio[anio] ?? {}).length > 0
 }
 
 export function usePlanAnual() {
@@ -96,19 +103,20 @@ export function usePlanAnual() {
   }
 }
 
+/** Solo rellena el año indicado si aún no existe; no toca otros años. */
 export function inicializarPlanAnual(
   agentes: Parameters<typeof generarPlanAnual>[0],
   anio = ANIO_REFERENCIA_VACACIONES_DEFECTO,
   objetivos?: Parameters<typeof generarPlanAnual>[1],
 ) {
-  if (Object.keys(planesPorAnio[anio] ?? {}).length > 0) return
+  if (tienePlanParaAnio(anio)) return
   const resultado = generarPlanAnual(
     agentes,
     objetivos,
     anio,
     planParaAnio(anio - 1),
   )
-  planesPorAnio[anio] = resultado.plan
+  planesPorAnio[anio] = clonarPlan(resultado.plan)
   marcasPorAnio[anio] = resultado.marcas
   emit()
 }

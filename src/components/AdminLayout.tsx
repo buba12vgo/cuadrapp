@@ -64,7 +64,7 @@ export function AdminLayout() {
         </div>
         {estado === 'loading' ? (
           <p className="border-t border-slate-100 px-4 py-1 text-[11px] text-slate-500">
-            Cargando puestos, mínimos y eventos desde Firestore…
+            Cargando plantilla, plan anual, puestos y eventos desde Firestore…
           </p>
         ) : null}
         {error ? (

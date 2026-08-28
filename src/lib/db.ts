@@ -235,6 +235,13 @@ export async function saveAgente(agente: FichaPolicia): Promise<FichaPolicia> {
   return payload
 }
 
+export async function deleteAgente(id: string): Promise<void> {
+  const firestore = await requireDb()
+  const docId = id.trim()
+  if (!docId) throw new Error('Identificador de agente vacío')
+  await conTiempoLimite(deleteDoc(doc(firestore, COLECCION_AGENTES, docId)))
+}
+
 const TAMANO_LOTE = 400
 
 export async function saveAgentes(

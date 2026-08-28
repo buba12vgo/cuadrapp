@@ -19,7 +19,12 @@ export interface Limitaciones {
   N: boolean
 }
 
+export type PatronPreferenciaAnual = '4-4-3' | '4-3-4' | '5-3-3'
+export type ModoPreferenciaAnual = PatronPreferenciaAnual | 'SIN_PREFERENCIA'
+
 export interface PreferenciaAnual {
+  /** Ausente en fichas legacy con objetivos personalizados. */
+  modo?: ModoPreferenciaAnual
   objetivoM: number
   objetivoT: number
   objetivoN: number

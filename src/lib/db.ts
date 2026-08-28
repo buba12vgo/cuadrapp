@@ -24,6 +24,10 @@ import {
   type CuadranteMensualFirestore,
 } from '@/lib/cuadranteFirestore'
 import { LIMITACIONES_DEFECTO, leerLimitaciones } from '@/lib/limitaciones'
+import {
+  leerPreferenciaAnual,
+  PREFERENCIA_DEFECTO,
+} from '@/lib/preferenciasAnuales'
 import { ANIO_REFERENCIA_VACACIONES_DEFECTO } from '@/lib/vacaciones'
 import type {
   EventoOperativo,
@@ -63,12 +67,6 @@ const MESES_VACACIONES: FichaPolicia['mesAnclaVacaciones'][] = [
   'AGOSTO',
 ]
 
-const PREFERENCIA_DEFECTO: PreferenciaAnual = {
-  objetivoM: 4,
-  objetivoT: 4,
-  objetivoN: 3,
-}
-
 async function requireDb() {
   const ready = await ensureFirebase()
   const firestore = getDb()
@@ -94,17 +92,7 @@ function esMesVacaciones(
 }
 
 function leerPreferencia(valor: unknown): PreferenciaAnual {
-  if (!valor || typeof valor !== 'object') return { ...PREFERENCIA_DEFECTO }
-  const raw = valor as Record<string, unknown>
-  const leerMes = (n: unknown, defecto: number) => {
-    if (typeof n !== 'number' || !Number.isFinite(n)) return defecto
-    return Math.min(12, Math.max(0, Math.round(n)))
-  }
-  return {
-    objetivoM: leerMes(raw.objetivoM, PREFERENCIA_DEFECTO.objetivoM),
-    objetivoT: leerMes(raw.objetivoT, PREFERENCIA_DEFECTO.objetivoT),
-    objetivoN: leerMes(raw.objetivoN, PREFERENCIA_DEFECTO.objetivoN),
-  }
+  return leerPreferenciaAnual(valor)
 }
 
 function leerPuestosExcluidos(valor: unknown): string[] {

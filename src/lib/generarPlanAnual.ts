@@ -1,5 +1,13 @@
 import type { FichaPolicia, RolPolicia } from '@/types'
 import { turnosLaboralesPermitidos } from '@/lib/limitaciones'
+import {
+  cuposDesdePatron,
+  esPatronFijo,
+  esSinPreferencia,
+  filaCumplePreferencia,
+  patronesCompatibles,
+  vacacionesObjetivoPreferencia,
+} from '@/lib/preferenciasAnuales'
 import { mesesVacacionesEnPlan } from '@/lib/vacaciones'
 
 export type TurnoAnual = 'M' | 'T' | 'N' | 'V'
@@ -152,11 +160,23 @@ export function cuposDesdePorcentajes(
 }
 
 /** Cupos desde la preferencia de la ficha, aplicando limitaciones. */
-function cuposLaborales(agente: FichaPolicia, libres: number): Cupos {
+function cuposLaborales(
+  agente: FichaPolicia,
+  libres: number,
+  cuposOverride?: Cupos,
+): Cupos {
+  if (cuposOverride) return cuposOverride
+
   const lim = agente.limitaciones
-  let M = lim.M ? Math.max(0, agente.preferenciaAnual.objetivoM) : 0
-  let T = lim.T ? Math.max(0, agente.preferenciaAnual.objetivoT) : 0
-  let N = lim.N ? Math.max(0, agente.preferenciaAnual.objetivoN) : 0
+  const pref = agente.preferenciaAnual
+
+  if (esPatronFijo(pref)) {
+    return cuposDesdePatron(agente, pref.modo, libres)
+  }
+
+  let M = lim.M ? Math.max(0, pref.objetivoM) : 0
+  let T = lim.T ? Math.max(0, pref.objetivoT) : 0
+  let N = lim.N ? Math.max(0, pref.objetivoN) : 0
 
   if (libres <= 0) return { M: 0, T: 0, N: 0 }
 
@@ -223,7 +243,11 @@ function capacidadN(fila: Fila, minDist: number) {
   return mejor
 }
 
-function asignarFila(agente: FichaPolicia, anio: number): TurnoAnual[] {
+function asignarFila(
+  agente: FichaPolicia,
+  anio: number,
+  cuposOverride?: Cupos,
+): TurnoAnual[] {
   const fila: Fila = Array.from({ length: MESES }, () => null)
   for (const mes of mesesVacacionesEnPlan(
     agente,
@@ -233,7 +257,7 @@ function asignarFila(agente: FichaPolicia, anio: number): TurnoAnual[] {
     fila[mes] = 'V'
   }
 
-  const cupos = cuposLaborales(agente, huecos(fila).length)
+  const cupos = cuposLaborales(agente, huecos(fila).length, cuposOverride)
   const minDists = cupos.N <= capacidadN(fila, 3) ? [3] : [2]
 
   for (const minDist of minDists) {
@@ -544,17 +568,70 @@ function equilibrarMesesPreservandoPreferencias(
   }
 }
 
+function desviacionPorcentajes(
+  pct: ObjetivosGlobales | null,
+  objetivos: ObjetivosGlobales,
+) {
+  if (!pct) return Number.POSITIVE_INFINITY
+  return (
+    Math.abs(pct.M - objetivos.M) +
+    Math.abs(pct.T - objetivos.T) +
+    Math.abs(pct.N - objetivos.N)
+  )
+}
+
+function elegirCuposSinPreferencia(
+  agente: FichaPolicia,
+  acumulado: Cupos,
+  objetivos: ObjetivosGlobales,
+  libres: number,
+): Cupos {
+  const compatibles = patronesCompatibles(agente.limitaciones)
+  if (compatibles.length === 0) {
+    return cuposLaborales(agente, libres)
+  }
+
+  let mejorCupos = cuposDesdePatron(agente, compatibles[0], libres)
+  let mejorDev = Number.POSITIVE_INFINITY
+
+  for (const patron of compatibles) {
+    const cupos = cuposDesdePatron(agente, patron, libres)
+    const nuevoTotal: Cupos = {
+      M: acumulado.M + cupos.M,
+      T: acumulado.T + cupos.T,
+      N: acumulado.N + cupos.N,
+    }
+    const dev = desviacionPorcentajes(pctDesdeCupos(nuevoTotal), objetivos)
+    if (dev < mejorDev) {
+      mejorDev = dev
+      mejorCupos = cupos
+    }
+  }
+
+  return mejorCupos
+}
+
 function cuposEsperadosTrasLimitaciones(agente: FichaPolicia): Cupos {
-  return cuposLaborales(agente, MESES - 1)
+  const libres = MESES - vacacionesObjetivo(agente)
+  if (esSinPreferencia(agente.preferenciaAnual)) {
+    const compatibles = patronesCompatibles(agente.limitaciones)
+    if (compatibles.length === 0) return cuposLaborales(agente, libres)
+    return cuposDesdePatron(agente, compatibles[0], libres)
+  }
+  return cuposLaborales(agente, libres)
 }
 
 function filaRespetaPreferencia(agente: FichaPolicia, fila: FilaPlanAnual) {
-  const real = contarFila(fila)
-  const esperado = cuposEsperadosTrasLimitaciones(agente)
-  // Tras limitaciones el objetivo de V puede ser 1 fijo en generación.
-  return (
-    real.M === esperado.M && real.T === esperado.T && real.N === esperado.N
-  )
+  return filaCumplePreferencia(agente, contarFila(fila))
+}
+
+function cuposEsperadosFlexibles(
+  agente: FichaPolicia,
+  objetivos: ObjetivosGlobales,
+  acumulado: Cupos,
+  libres: number,
+) {
+  return elegirCuposSinPreferencia(agente, acumulado, objetivos, libres)
 }
 
 function preferenciasAlcanzanObjetivo(
@@ -562,11 +639,19 @@ function preferenciasAlcanzanObjetivo(
   objetivos: ObjetivosGlobales,
 ) {
   const suma: Cupos = { M: 0, T: 0, N: 0 }
+  const acumulado: Cupos = { M: 0, T: 0, N: 0 }
+
   for (const agente of agentes) {
-    const cupos = cuposEsperadosTrasLimitaciones(agente)
+    const libres = MESES - vacacionesObjetivo(agente)
+    const cupos = esSinPreferencia(agente.preferenciaAnual)
+      ? cuposEsperadosFlexibles(agente, objetivos, acumulado, libres)
+      : cuposEsperadosTrasLimitaciones(agente)
     suma.M += cupos.M
     suma.T += cupos.T
     suma.N += cupos.N
+    acumulado.M += cupos.M
+    acumulado.T += cupos.T
+    acumulado.N += cupos.N
   }
   const pct = pctDesdeCupos(suma)
   return {
@@ -706,11 +791,45 @@ export function generarPlanAnual(
     : {}
   const objetivos = objetivosGlobales ?? { M: 34, T: 33, N: 33 }
   const agentesGenerar = agentesAutogenerables(agentes, opciones.grupo)
+  const generarIds = new Set(agentesGenerar.map((agente) => agente.id))
+  const acumulado: Cupos = { M: 0, T: 0, N: 0 }
 
-  for (const agente of agentesGenerar) {
+  for (const agente of agentes) {
+    if (generarIds.has(agente.id)) continue
+    const fila = plan[agente.id]
+    if (!fila) continue
+    const cupos = contarFila(fila)
+    acumulado.M += cupos.M
+    acumulado.T += cupos.T
+    acumulado.N += cupos.N
+  }
+
+  const fijos = agentesGenerar.filter(
+    (agente) => !esSinPreferencia(agente.preferenciaAnual),
+  )
+  const flexibles = agentesGenerar.filter((agente) =>
+    esSinPreferencia(agente.preferenciaAnual),
+  )
+
+  for (const agente of fijos) {
     const fila = asignarFila(agente, anio)
     evitarDiciembreNRepetido(agente, fila, planAnioAnterior)
     plan[agente.id] = fila
+    const cupos = contarFila(fila)
+    acumulado.M += cupos.M
+    acumulado.T += cupos.T
+    acumulado.N += cupos.N
+  }
+
+  for (const agente of flexibles) {
+    const libres = MESES - vacacionesObjetivo(agente)
+    const cupos = elegirCuposSinPreferencia(agente, acumulado, objetivos, libres)
+    const fila = asignarFila(agente, anio, cupos)
+    evitarDiciembreNRepetido(agente, fila, planAnioAnterior)
+    plan[agente.id] = fila
+    acumulado.M += cupos.M
+    acumulado.T += cupos.T
+    acumulado.N += cupos.N
   }
 
   for (const agente of agentes) {
@@ -753,6 +872,5 @@ export function siguienteTurno(
 }
 
 export function vacacionesObjetivo(agente: FichaPolicia) {
-  const { objetivoM, objetivoT, objetivoN } = agente.preferenciaAnual
-  return 12 - objetivoM - objetivoT - objetivoN
+  return vacacionesObjetivoPreferencia(agente.preferenciaAnual)
 }

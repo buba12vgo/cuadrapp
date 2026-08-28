@@ -176,6 +176,17 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     referencia: 'vacaciones.ts · mesVacacionesCiclo · anioReferenciaVacaciones',
   },
   {
+    id: 'autogenerar-solo-anio',
+    categoria: 'PLAN_ANUAL',
+    titulo: 'Autogenerar un solo año',
+    descripcion:
+      'Autogenerar Año regenera únicamente el año seleccionado en el plan anual. Los planes de años anteriores y posteriores no se modifican.',
+    estado: 'implementada',
+    detalle:
+      'Cambiar de año en el selector no crea ni borra planes. Si el año aún no tiene plan, permanece vacío hasta pulsar Autogenerar Año. Diciembre del año anterior solo se consulta (regla N), no se reescribe.',
+    referencia: 'PlanAnualPage · autogenerar · planAnualStore',
+  },
+  {
     id: 'diciembre-noche-no-repetir',
     categoria: 'PLAN_ANUAL',
     titulo: 'Diciembre noche sin repetición anual',

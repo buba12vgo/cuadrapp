@@ -16,22 +16,22 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AdminLayout />}>
-        <Route path="/" element={<Navigate to="/admin/agentes" replace />} />
-        <Route path="/admin/agentes" element={<AgentesPage />} />
-        <Route path="/admin/puestos" element={<PuestosPage />} />
-        <Route path="/admin/minimos" element={<MinimosPage />} />
-        <Route path="/admin/plan-anual" element={<PlanAnualPage />} />
-        <Route
-          path="/admin/planificacion-anual"
-          element={<Navigate to="/admin/plan-anual" replace />}
-        />
-        <Route path="/admin/cuadrante-mensual" element={<CuadranteMensualPage />} />
-        <Route
-          path="/admin/cuadrante"
-          element={<Navigate to="/admin/cuadrante-mensual" replace />}
-        />
-        <Route path="/admin/calendario" element={<CalendarioPage />} />
-        <Route path="/admin/reglas" element={<ReglasPage />} />
+          <Route path="/" element={<Navigate to="/admin/agentes" replace />} />
+          <Route path="/admin/agentes" element={<AgentesPage />} />
+          <Route path="/admin/puestos" element={<PuestosPage />} />
+          <Route path="/admin/minimos" element={<MinimosPage />} />
+          <Route path="/admin/plan-anual" element={<PlanAnualPage />} />
+          <Route
+            path="/admin/planificacion-anual"
+            element={<Navigate to="/admin/plan-anual" replace />}
+          />
+          <Route path="/admin/cuadrante-mensual" element={<CuadranteMensualPage />} />
+          <Route
+            path="/admin/cuadrante"
+            element={<Navigate to="/admin/cuadrante-mensual" replace />}
+          />
+          <Route path="/admin/calendario" element={<CalendarioPage />} />
+          <Route path="/admin/reglas" element={<ReglasPage />} />
         </Route>
       </Route>
     </Routes>

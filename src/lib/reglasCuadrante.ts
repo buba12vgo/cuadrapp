@@ -4,6 +4,11 @@ import {
   MIN_DESCANSO_TRAS_NOCHE,
   esDiaTrabajado,
 } from '@/lib/convenio'
+import {
+  MAX_FINDES_CONSECUTIVOS,
+  finDeSemanaLaboradoEnDia,
+  maxFindesConsecutivosLaborados,
+} from '@/lib/finesSemana'
 
 export type CodigoRegla =
   | 'FATIGA'
@@ -11,6 +16,7 @@ export type CodigoRegla =
   | 'T_M'
   | 'N_T'
   | 'SALIDA_NOCHE'
+  | 'FINDES_CONSECUTIVOS'
 
 export const MENSAJE_REGLA: Record<CodigoRegla, string> = {
   FATIGA: 'Más de 5 días seguidos de trabajo',
@@ -18,6 +24,7 @@ export const MENSAJE_REGLA: Record<CodigoRegla, string> = {
   T_M: 'T→M prohibido (menos de 12 h)',
   N_T: 'N→T prohibido (menos de 12 h)',
   SALIDA_NOCHE: 'Saliente de noche insuficiente (N + 3 D antes de M)',
+  FINDES_CONSECUTIVOS: 'Más de 2 fines de semana seguidos trabajados',
 }
 
 function descansoTrasUltimaNoche(fila: Turno[], diaM: number) {
@@ -34,7 +41,11 @@ function descansoTrasUltimaNoche(fila: Turno[], diaM: number) {
   return null
 }
 
-export function infraccionesCelda(fila: Turno[], dia: number): CodigoRegla[] {
+export function infraccionesCelda(
+  fila: Turno[],
+  dia: number,
+  contexto?: { anio: number; mes: number },
+): CodigoRegla[] {
   const infracciones: CodigoRegla[] = []
   const turno = fila[dia]
   if (!turno) return infracciones
@@ -64,13 +75,36 @@ export function infraccionesCelda(fila: Turno[], dia: number): CodigoRegla[] {
     }
   }
 
+  if (
+    contexto &&
+    finDeSemanaLaboradoEnDia(fila, contexto.anio, contexto.mes, dia + 1)
+  ) {
+    if (
+      maxFindesConsecutivosLaborados(fila, contexto.anio, contexto.mes) >
+      MAX_FINDES_CONSECUTIVOS
+    ) {
+      infracciones.push('FINDES_CONSECUTIVOS')
+    }
+  }
+
   return infracciones
 }
 
-export function mensajesInfraccion(fila: Turno[], dia: number) {
-  return infraccionesCelda(fila, dia).map((codigo) => MENSAJE_REGLA[codigo])
+export function mensajesInfraccion(
+  fila: Turno[],
+  dia: number,
+  contexto?: { anio: number; mes: number },
+) {
+  return infraccionesCelda(fila, dia, contexto).map(
+    (codigo) => MENSAJE_REGLA[codigo],
+  )
 }
 
-export function filaTieneInfracciones(fila: Turno[]) {
-  return fila.some((_, dia) => infraccionesCelda(fila, dia).length > 0)
+export function filaTieneInfracciones(
+  fila: Turno[],
+  contexto?: { anio: number; mes: number },
+) {
+  return fila.some(
+    (_, dia) => infraccionesCelda(fila, dia, contexto).length > 0,
+  )
 }

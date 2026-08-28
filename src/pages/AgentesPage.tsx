@@ -57,8 +57,8 @@ const TURNOS_LIMITACION: Array<'M' | 'T' | 'N'> = ['M', 'T', 'N']
 const MESES_VACACIONES: FichaPolicia['mesAnclaVacaciones'][] = [
   'JUNIO',
   'JULIO',
-  'AGOSTO',
   'SEPTIEMBRE',
+  'AGOSTO',
 ]
 
 const CAMPO =
@@ -323,7 +323,7 @@ function FichaAgenteModal({
                   ))}
                 </select>
                 <span className="text-[10px] text-slate-500">
-                  Referencia del ciclo Jun–Sep. Rota automáticamente cada año
+                  Referencia del ciclo Jun–Jul–Sep–Ago. Rota automáticamente cada año
                   en el plan anual.
                 </span>
               </label>

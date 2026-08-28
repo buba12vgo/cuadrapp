@@ -1,6 +1,8 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AdminLayout } from '@/components/AdminLayout'
+import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { AgentesPage } from '@/pages/AgentesPage'
+import { LoginPage } from '@/pages/LoginPage'
 import { CalendarioPage } from '@/pages/CalendarioPage'
 import { CuadranteMensualPage } from '@/pages/CuadranteMensualPage'
 import { MinimosPage } from '@/pages/MinimosPage'
@@ -11,7 +13,9 @@ import { ReglasPage } from '@/pages/ReglasPage'
 export default function App() {
   return (
     <Routes>
-      <Route element={<AdminLayout />}>
+      <Route path="/login" element={<LoginPage />} />
+      <Route element={<ProtectedRoute />}>
+        <Route element={<AdminLayout />}>
         <Route path="/" element={<Navigate to="/admin/agentes" replace />} />
         <Route path="/admin/agentes" element={<AgentesPage />} />
         <Route path="/admin/puestos" element={<PuestosPage />} />
@@ -28,6 +32,7 @@ export default function App() {
         />
         <Route path="/admin/calendario" element={<CalendarioPage />} />
         <Route path="/admin/reglas" element={<ReglasPage />} />
+        </Route>
       </Route>
     </Routes>
   )

@@ -14,9 +14,9 @@ export type TipoEvento =
   | 'OPERATIVA_ESPECIAL'
 
 export interface Limitaciones {
-  soloManana: boolean
-  soloMananaNoche: boolean
-  exentoNoches: boolean
+  M: boolean
+  T: boolean
+  N: boolean
 }
 
 export interface PreferenciaAnual {

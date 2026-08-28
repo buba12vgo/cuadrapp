@@ -46,6 +46,14 @@ const ROLES: RolPolicia[] = [
   'POLICIA_BOLSA',
 ]
 
+const TURNO_LIMITACION_LABEL: Record<'M' | 'T' | 'N', string> = {
+  M: 'Mañana',
+  T: 'Tarde',
+  N: 'Noche',
+}
+
+const TURNOS_LIMITACION: Array<'M' | 'T' | 'N'> = ['M', 'T', 'N']
+
 const MESES_VACACIONES: FichaPolicia['mesAnclaVacaciones'][] = [
   'JUNIO',
   'JULIO',
@@ -162,6 +170,14 @@ function FichaAgenteModal({
               a.localeCompare(b, 'es'),
             ),
       }
+    })
+  }
+
+  function alternarTurno(turno: 'M' | 'T' | 'N', habilitado: boolean) {
+    setForm((actual) => {
+      const siguiente = { ...actual.limitaciones, [turno]: habilitado }
+      if (!siguiente.M && !siguiente.T && !siguiente.N) return actual
+      return { ...actual, limitaciones: siguiente }
     })
   }
 
@@ -312,80 +328,28 @@ function FichaAgenteModal({
 
           <section className={BLOQUE}>
             <h3 className={TITULO_BLOQUE}>Limitaciones</h3>
-            <ul className="flex flex-col gap-2">
-              <li>
-                <label className="flex items-start gap-2 text-sm text-slate-800">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5"
-                    checked={form.limitaciones.soloManana}
-                    onChange={(event) =>
-                      setForm((actual) => ({
-                        ...actual,
-                        limitaciones: {
-                          ...actual.limitaciones,
-                          soloManana: event.target.checked,
-                        },
-                      }))
-                    }
-                  />
-                  <span>
-                    <span className="font-medium">Conciliación (solo mañanas)</span>
-                    <span className="block text-xs text-slate-500">
-                      El patrón anual ignora tardes y noches.
+            <ul className="flex flex-col gap-1.5">
+              {TURNOS_LIMITACION.map((turno) => (
+                <li key={turno}>
+                  <label className="flex items-center gap-2 text-sm text-slate-800">
+                    <input
+                      type="checkbox"
+                      checked={form.limitaciones[turno]}
+                      onChange={(event) =>
+                        alternarTurno(turno, event.target.checked)
+                      }
+                    />
+                    <span className="font-medium">
+                      {TURNO_LIMITACION_LABEL[turno]} ({turno})
                     </span>
-                  </span>
-                </label>
-              </li>
-              <li>
-                <label className="flex items-start gap-2 text-sm text-slate-800">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5"
-                    checked={form.limitaciones.soloMananaNoche}
-                    onChange={(event) =>
-                      setForm((actual) => ({
-                        ...actual,
-                        limitaciones: {
-                          ...actual.limitaciones,
-                          soloMananaNoche: event.target.checked,
-                        },
-                      }))
-                    }
-                  />
-                  <span>
-                    <span className="font-medium">Solo mañanas y noches</span>
-                    <span className="block text-xs text-slate-500">
-                      Exento de tardes.
-                    </span>
-                  </span>
-                </label>
-              </li>
-              <li>
-                <label className="flex items-start gap-2 text-sm text-slate-800">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5"
-                    checked={form.limitaciones.exentoNoches}
-                    onChange={(event) =>
-                      setForm((actual) => ({
-                        ...actual,
-                        limitaciones: {
-                          ...actual.limitaciones,
-                          exentoNoches: event.target.checked,
-                        },
-                      }))
-                    }
-                  />
-                  <span>
-                    <span className="font-medium">Exento de noches</span>
-                    <span className="block text-xs text-slate-500">
-                      Motivos médicos o de edad.
-                    </span>
-                  </span>
-                </label>
-              </li>
+                  </label>
+                </li>
+              ))}
             </ul>
+            <p className="mt-2 text-[11px] text-slate-500">
+              Los turnos marcados son los que puede hacer. Por defecto están
+              activos los tres.
+            </p>
           </section>
 
           <section className={BLOQUE}>

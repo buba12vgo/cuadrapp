@@ -28,6 +28,13 @@ import {
   leerPreferenciaAnual,
   PREFERENCIA_DEFECTO,
 } from '@/lib/preferenciasAnuales'
+import {
+  idDocumentoPlanAnual,
+  parsePlanAnualFirestore,
+  planDesdeFirestore,
+  planParaFirestore,
+} from '@/lib/planAnualFirestore'
+import type { ObjetivosGlobales, PlanAnual } from '@/lib/generarPlanAnual'
 import { ANIO_REFERENCIA_VACACIONES_DEFECTO } from '@/lib/vacaciones'
 import type {
   EventoOperativo,
@@ -42,6 +49,7 @@ const COLECCION_CUADRANTES = 'cuadrantes'
 const COLECCION_EVENTOS = 'eventos'
 const COLECCION_PUESTOS = 'puestos'
 const COLECCION_CONFIG = 'config'
+const COLECCION_PLANES_ANUALES = 'planesAnuales'
 const DOC_MINIMOS_SEMANA = 'minimosSemana'
 
 const TIPOS_EVENTO: TipoEvento[] = [
@@ -253,6 +261,45 @@ export async function getCuadrante(
   const snapshot = await getDoc(doc(firestore, COLECCION_CUADRANTES, docId))
   if (!snapshot.exists()) return null
   return parseCuadranteFirestore(snapshot.data())
+}
+
+export async function getPlanesAnuales(agentes: FichaPolicia[]): Promise<{
+  planes: Record<number, PlanAnual>
+  objetivos: Record<number, ObjetivosGlobales>
+}> {
+  const firestore = await requireDb()
+  const snapshot = await getDocs(
+    collection(firestore, COLECCION_PLANES_ANUALES),
+  )
+  const planes: Record<number, PlanAnual> = {}
+  const objetivos: Record<number, ObjetivosGlobales> = {}
+
+  for (const documento of snapshot.docs) {
+    const parsed = parsePlanAnualFirestore(documento.id, documento.data())
+    if (!parsed) continue
+    planes[parsed.anio] = planDesdeFirestore(parsed, agentes)
+    if (parsed.objetivos) objetivos[parsed.anio] = parsed.objetivos
+  }
+
+  return { planes, objetivos }
+}
+
+export async function savePlanAnual(
+  anio: number,
+  plan: PlanAnual,
+  objetivos: ObjetivosGlobales,
+  agentes: FichaPolicia[],
+): Promise<void> {
+  const firestore = await requireDb()
+  const docId = idDocumentoPlanAnual(anio)
+  await conTiempoLimite(
+    setDoc(doc(firestore, COLECCION_PLANES_ANUALES, docId), {
+      anio,
+      agentes: planParaFirestore(plan, agentes),
+      objetivos: { M: objetivos.M, T: objetivos.T, N: objetivos.N },
+      actualizadoEn: new Date().toISOString(),
+    }),
+  )
 }
 
 export async function saveCuadrante(

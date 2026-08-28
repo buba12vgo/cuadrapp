@@ -183,8 +183,8 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
       'Autogenerar Año regenera únicamente el año seleccionado en el plan anual. Los planes de años anteriores y posteriores no se modifican.',
     estado: 'implementada',
     detalle:
-      'Cambiar de año en el selector no crea ni borra planes. Si el año aún no tiene plan, permanece vacío hasta pulsar Autogenerar Año. Diciembre del año anterior solo se consulta (regla N), no se reescribe.',
-    referencia: 'PlanAnualPage · autogenerar · planAnualStore',
+      'Cambiar de año en el selector no crea ni borra planes. Si el año aún no tiene plan, permanece vacío hasta pulsar Autogenerar Año. Diciembre del año anterior solo se consulta (regla N), no se reescribe. El plan de cada año se guarda en Firestore (colección planesAnuales) al autogenerar o al editar una celda.',
+    referencia: 'PlanAnualPage · autogenerar · planAnualStore · planesAnuales',
   },
   {
     id: 'diciembre-noche-no-repetir',

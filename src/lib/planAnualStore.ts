@@ -1,6 +1,10 @@
 import { useCallback, useSyncExternalStore } from 'react'
-import { generarPlanAnual, type PlanAnual } from '@/lib/generarPlanAnual'
-import { mockAgentes } from '@/lib/mockData'
+import {
+  generarPlanAnual,
+  type MarcasPlanAnual,
+  type PlanAnual,
+} from '@/lib/generarPlanAnual'
+import { ANIO_REFERENCIA_VACACIONES_DEFECTO } from '@/lib/vacaciones'
 
 function clonarPlan(plan: PlanAnual): PlanAnual {
   const copia: PlanAnual = {}
@@ -10,7 +14,9 @@ function clonarPlan(plan: PlanAnual): PlanAnual {
   return copia
 }
 
-let planAnual = clonarPlan(generarPlanAnual(mockAgentes).plan)
+let anioActivo = ANIO_REFERENCIA_VACACIONES_DEFECTO
+let planesPorAnio: Record<number, PlanAnual> = {}
+let marcasPorAnio: Record<number, MarcasPlanAnual | null> = {}
 const listeners = new Set<() => void>()
 
 function emit() {
@@ -23,19 +29,81 @@ function subscribe(listener: () => void) {
 }
 
 function getSnapshot() {
-  return planAnual
+  return anioActivo
+}
+
+function planSnapshot() {
+  return planesPorAnio[anioActivo] ?? {}
+}
+
+function marcasSnapshot() {
+  return marcasPorAnio[anioActivo] ?? null
+}
+
+export function planParaAnio(anio: number) {
+  return planesPorAnio[anio] ?? {}
 }
 
 export function usePlanAnual() {
-  const plan = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+  const anio = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+  const plan = useSyncExternalStore(subscribe, planSnapshot, planSnapshot)
+  const marcas = useSyncExternalStore(subscribe, marcasSnapshot, marcasSnapshot)
+
+  const setAnio = useCallback((siguiente: number) => {
+    anioActivo = siguiente
+    emit()
+  }, [])
 
   const setPlanAnual = useCallback(
     (next: PlanAnual | ((actual: PlanAnual) => PlanAnual)) => {
-      planAnual = clonarPlan(typeof next === 'function' ? next(planAnual) : next)
+      const actual = planesPorAnio[anioActivo] ?? {}
+      planesPorAnio[anioActivo] = clonarPlan(
+        typeof next === 'function' ? next(actual) : next,
+      )
       emit()
     },
     [],
   )
 
-  return [plan, setPlanAnual] as const
+  const setMarcas = useCallback((siguiente: MarcasPlanAnual | null) => {
+    marcasPorAnio[anioActivo] = siguiente
+    emit()
+  }, [])
+
+  const registrarPlan = useCallback(
+    (
+      anioPlan: number,
+      plan: PlanAnual,
+      marcasPlan: MarcasPlanAnual,
+      activar = true,
+    ) => {
+      planesPorAnio[anioPlan] = clonarPlan(plan)
+      marcasPorAnio[anioPlan] = marcasPlan
+      if (activar) anioActivo = anioPlan
+      emit()
+    },
+    [],
+  )
+
+  return {
+    anio,
+    plan,
+    marcas,
+    setAnio,
+    setPlanAnual,
+    setMarcas,
+    registrarPlan,
+  }
+}
+
+export function inicializarPlanAnual(
+  agentes: Parameters<typeof generarPlanAnual>[0],
+  anio = ANIO_REFERENCIA_VACACIONES_DEFECTO,
+  objetivos?: Parameters<typeof generarPlanAnual>[1],
+) {
+  if (Object.keys(planesPorAnio[anio] ?? {}).length > 0) return
+  const resultado = generarPlanAnual(agentes, objetivos, anio)
+  planesPorAnio[anio] = resultado.plan
+  marcasPorAnio[anio] = resultado.marcas
+  emit()
 }

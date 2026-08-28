@@ -170,10 +170,10 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     titulo: 'Rotación de vacaciones',
     descripcion:
       'El mes de vacaciones (V) rota en ciclo Junio → Julio → Agosto → Septiembre, y vuelve a empezar cada año.',
-    estado: 'parcial',
+    estado: 'implementada',
     detalle:
-      'En la ficha de cada agente se indica el mes del ciclo que le corresponde en el año en curso; el plan anual coloca la V en ese mes. La rotación al siguiente mes del ciclo se aplica año a año.',
-    referencia: 'mesAnclaVacaciones · JUNIO / JULIO / AGOSTO / SEPTIEMBRE',
+      'En la ficha se guarda el mes del ciclo de referencia y el año de referencia. Al autogenerar el plan anual, la V se coloca en el mes efectivo del año seleccionado (y los meses adicionales según preferencia).',
+    referencia: 'vacaciones.ts · mesVacacionesCiclo · anioReferenciaVacaciones',
   },
   {
     id: 'tolerancia-plan-anual',
@@ -182,7 +182,9 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     descripcion:
       'El plan intenta cuadrar el reparto M/T/N de la plantilla con una tolerancia de ±2 puntos porcentuales.',
     estado: 'implementada',
-    referencia: 'TOLERANCIA_PCT_PLAN = 2',
+    detalle:
+      'Al editar una celda manualmente se validan turnos permitidos y separación de noches; las marcas se recalculan al instante.',
+    referencia: 'TOLERANCIA_PCT_PLAN = 2 · validarTurnoEnPlan',
   },
   {
     id: 'eventos-modifican-minimos',

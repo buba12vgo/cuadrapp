@@ -11,6 +11,7 @@ export const mockAgentes: FichaPolicia[] = [
     preferenciaAnual: { objetivoM: 11, objetivoT: 0, objetivoN: 0 },
     puestosExcluidos: [],
     mesAnclaVacaciones: 'JUNIO',
+    anioReferenciaVacaciones: 2026,
   },
   {
     id: 'ag-002',
@@ -22,6 +23,7 @@ export const mockAgentes: FichaPolicia[] = [
     preferenciaAnual: { objetivoM: 4, objetivoT: 4, objetivoN: 3 },
     puestosExcluidos: [],
     mesAnclaVacaciones: 'JULIO',
+    anioReferenciaVacaciones: 2026,
   },
   {
     id: 'ag-003',
@@ -33,5 +35,6 @@ export const mockAgentes: FichaPolicia[] = [
     preferenciaAnual: { objetivoM: 4, objetivoT: 0, objetivoN: 7 },
     puestosExcluidos: ['LONJAS'],
     mesAnclaVacaciones: 'AGOSTO',
+    anioReferenciaVacaciones: 2026,
   },
 ]

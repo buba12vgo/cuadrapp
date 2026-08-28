@@ -4,17 +4,11 @@ import { useAuth } from '@/contexts/AuthContext'
 export function LoginPage() {
   const { user, loading, signInWithGoogle, error, firebaseReady } = useAuth()
 
-  if (loading) {
-    return (
-      <div className="flex h-svh items-center justify-center bg-slate-50">
-        <p className="text-sm text-slate-600">Cargando…</p>
-      </div>
-    )
-  }
-
-  if (user) {
+  if (!loading && user) {
     return <Navigate to="/admin/agentes" replace />
   }
+
+  const puedeIniciarSesion = firebaseReady && !loading
 
   return (
     <div className="flex h-svh flex-col items-center justify-center bg-slate-50 px-4">
@@ -23,7 +17,12 @@ export function LoginPage() {
         <p className="mt-2 text-center text-sm text-slate-600">
           Inicia sesión para acceder al panel de administración.
         </p>
-        {!firebaseReady ? (
+        {loading ? (
+          <p className="mt-4 text-center text-sm text-slate-500">
+            Preparando autenticación…
+          </p>
+        ) : null}
+        {!firebaseReady && !loading ? (
           <p className="mt-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             Firebase no está configurado. Revisa las variables VITE_FIREBASE_* en
             el despliegue.
@@ -31,8 +30,9 @@ export function LoginPage() {
         ) : (
           <button
             type="button"
+            disabled={!puedeIniciarSesion}
             onClick={() => void signInWithGoogle()}
-            className="mt-6 flex w-full items-center justify-center gap-2 rounded-md bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800"
+            className="mt-6 flex w-full items-center justify-center gap-2 rounded-md bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <svg
               aria-hidden

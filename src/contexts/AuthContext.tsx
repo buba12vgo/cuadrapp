@@ -14,6 +14,8 @@ import {
 } from 'firebase/auth'
 import { ensureFirebase, getAuthClient } from '@/lib/firebase'
 
+const AUTH_INIT_TIMEOUT_MS = 8_000
+
 type AuthContextValue = {
   user: User | null
   loading: boolean
@@ -32,27 +34,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    let cancelled = false
     let unsubscribe: (() => void) | undefined
+    let settled = false
+
+    const finishLoading = () => {
+      if (cancelled || settled) return
+      settled = true
+      setLoading(false)
+    }
+
+    const timeout = window.setTimeout(() => {
+      console.warn('[auth] Tiempo de espera agotado al comprobar la sesión')
+      finishLoading()
+    }, AUTH_INIT_TIMEOUT_MS)
 
     void (async () => {
-      const ready = await ensureFirebase()
-      setFirebaseReady(ready)
-      if (!ready) {
-        setLoading(false)
-        return
+      try {
+        const ready = await ensureFirebase()
+        if (cancelled) return
+        setFirebaseReady(ready)
+        if (!ready) {
+          finishLoading()
+          return
+        }
+
+        const auth = getAuthClient()
+        if (!auth) {
+          finishLoading()
+          return
+        }
+
+        unsubscribe = onAuthStateChanged(
+          auth,
+          (u) => {
+            if (cancelled) return
+            setUser(u)
+            finishLoading()
+          },
+          (authError) => {
+            console.error('[auth] onAuthStateChanged error', authError)
+            if (!cancelled) {
+              setError(authError.message)
+            }
+            finishLoading()
+          },
+        )
+      } catch (err) {
+        console.error('[auth] Error al inicializar', err)
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Error al inicializar auth')
+        }
+        finishLoading()
       }
-      const auth = getAuthClient()
-      if (!auth) {
-        setLoading(false)
-        return
-      }
-      unsubscribe = onAuthStateChanged(auth, (u) => {
-        setUser(u)
-        setLoading(false)
-      })
     })()
 
-    return () => unsubscribe?.()
+    return () => {
+      cancelled = true
+      window.clearTimeout(timeout)
+      unsubscribe?.()
+    }
   }, [])
 
   const signInWithGoogle = async () => {

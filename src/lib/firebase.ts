@@ -34,12 +34,26 @@ const state: FirebaseState = {
 }
 
 if (isBuildTimeConfigured) {
-  state.app = initializeApp(buildTimeConfig)
-  state.auth = getAuth(state.app)
-  state.db = getFirestore(state.app)
+  try {
+    state.app = initializeApp(buildTimeConfig)
+    state.auth = getAuth(state.app)
+    state.db = getFirestore(state.app)
+  } catch (err) {
+    console.error('[firebase] No se pudo inicializar en build-time', err)
+  }
 }
 
 let initPromise: Promise<boolean> | null = null
+
+const FIREBASE_INIT_TIMEOUT_MS = 8_000
+
+function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+  return fetch(url, { cache: 'no-store', signal: controller.signal }).finally(() =>
+    clearTimeout(timeout),
+  )
+}
 
 /** @deprecated Use getDb() — kept for compatibility */
 export const firebaseApp = state.app
@@ -73,7 +87,7 @@ export async function ensureFirebase(): Promise<boolean> {
 
   initPromise = (async () => {
     try {
-      const res = await fetch('/api/firebase-config', { cache: 'no-store' })
+      const res = await fetchWithTimeout('/api/firebase-config', FIREBASE_INIT_TIMEOUT_MS)
       const body = (await res.json()) as {
         ok?: boolean
         config?: FirebaseWebConfig
@@ -85,8 +99,11 @@ export async function ensureFirebase(): Promise<boolean> {
       state.auth = getAuth(state.app)
       state.db = getFirestore(state.app)
       return true
-    } catch {
+    } catch (err) {
+      console.error('[firebase] ensureFirebase falló', err)
       return false
+    } finally {
+      initPromise = null
     }
   })()
 

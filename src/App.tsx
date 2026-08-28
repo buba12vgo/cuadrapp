@@ -34,6 +34,7 @@ export default function App() {
           <Route path="/admin/reglas" element={<ReglasPage />} />
         </Route>
       </Route>
+      <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   )
 }

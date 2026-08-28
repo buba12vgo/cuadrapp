@@ -105,6 +105,16 @@ const CLASE_TURNO: Record<Turno, string> = {
 
 const TURNOS_OP = ['M', 'T', 'N'] as const
 
+type FiltroVistaTurno = 'TODOS' | 'M' | 'T' | 'N' | 'V'
+
+const TURNOS_VISTA: Array<{ valor: FiltroVistaTurno; label: string }> = [
+  { valor: 'TODOS', label: 'Todos' },
+  { valor: 'M', label: 'M' },
+  { valor: 'T', label: 'T' },
+  { valor: 'N', label: 'N' },
+  { valor: 'V', label: 'V' },
+]
+
 function pad(n: number) {
   return String(n).padStart(2, '0')
 }
@@ -149,6 +159,8 @@ export function CuadranteMensualPage() {
   const [diaDesde, setDiaDesde] = useState(1)
   const [diaHasta, setDiaHasta] = useState(() => diasDelMes(ANIO_ACTUAL, 8))
   const [rolFiltro, setRolFiltro] = useState<'TODOS' | RolPolicia>('TODOS')
+  const [filtroVistaTurno, setFiltroVistaTurno] =
+    useState<FiltroVistaTurno>('TODOS')
   const [diaReparto, setDiaReparto] = useState<number | null>(null)
   const [asignacionesDiarias, setAsignacionesDiarias] =
     useState<AsignacionesDiarias>({})
@@ -175,10 +187,13 @@ export function CuadranteMensualPage() {
 
   const agentesVisibles = useMemo(
     () =>
-      agentesData.filter(
-        (agente) => rolFiltro === 'TODOS' || agente.rolBase === rolFiltro,
-      ),
-    [agentesData, rolFiltro],
+      agentesData.filter((agente) => {
+        if (rolFiltro !== 'TODOS' && agente.rolBase !== rolFiltro) return false
+        if (filtroVistaTurno === 'TODOS') return true
+        const turnoPlan = planAnual[agente.id]?.[mes - 1] ?? 'M'
+        return turnoPlan === filtroVistaTurno
+      }),
+    [agentesData, rolFiltro, filtroVistaTurno, planAnual, mes],
   )
 
   const diasVisibles = useMemo(() => {
@@ -533,6 +548,39 @@ export function CuadranteMensualPage() {
               ))}
             </select>
           </label>
+          <div
+            className="flex items-center gap-0.5"
+            title="Muestra solo agentes con ese turno en el plan anual de este mes. Las celdas de otros turnos se atenúan."
+          >
+            <span className="text-xs font-semibold text-slate-600">Turno</span>
+            {TURNOS_VISTA.map((opcion) => (
+              <button
+                key={opcion.valor}
+                type="button"
+                className={`h-6 min-w-7 px-1.5 text-[11px] font-bold ${
+                  filtroVistaTurno === opcion.valor
+                    ? opcion.valor === 'TODOS'
+                      ? 'bg-slate-900 text-white'
+                      : CLASE_TURNO[opcion.valor]
+                    : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
+                } ${
+                  filtroVistaTurno === opcion.valor && opcion.valor !== 'TODOS'
+                    ? 'ring-2 ring-slate-700'
+                    : ''
+                }`}
+                aria-pressed={filtroVistaTurno === opcion.valor}
+                onClick={() =>
+                  setFiltroVistaTurno((actual) =>
+                    actual === opcion.valor && opcion.valor !== 'TODOS'
+                      ? 'TODOS'
+                      : opcion.valor,
+                  )
+                }
+              >
+                {opcion.label}
+              </button>
+            ))}
+          </div>
           <button
             type="button"
             className="h-6 bg-slate-900 px-2 text-xs font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
@@ -561,6 +609,11 @@ export function CuadranteMensualPage() {
         {errorCuadrante ? (
           <p className="border-t border-red-200 bg-red-50 px-2 py-1 text-[11px] text-red-800">
             {errorCuadrante}
+          </p>
+        ) : null}
+        {agentesVisibles.length === 0 && !loadingCuadrante ? (
+          <p className="border-t border-slate-200 px-2 py-1 text-[11px] text-slate-600">
+            Ningún agente con ese rol o turno este mes.
           </p>
         ) : null}
       </div>
@@ -673,7 +726,9 @@ export function CuadranteMensualPage() {
                     const avisos = mensajesInfraccion(fila, dia - 1, { anio, mes })
                     const rota = avisos.length > 0
                     const atenuada =
-                      filtroTurno !== 'TODOS' && turno !== filtroTurno
+                      filtroVistaTurno !== 'TODOS'
+                        ? turno !== filtroVistaTurno
+                        : filtroTurno !== 'TODOS' && turno !== filtroTurno
                     const fondoSuave =
                       especial && (turno === 'D' || turno === 'V')
                         ? '!bg-amber-50'

@@ -71,21 +71,94 @@ export function finDeSemanaLaboradoEnDia(
   return esDiaTrabajado(fila[dia - 1])
 }
 
-/** Intercambia trabajo en finde por descanso entre semana, manteniendo jornadas. */
+/** Sábado+domingo del mismo finde, ambos dentro del mes. */
+export type ParFinde = { sabado: number; domingo: number }
+
+export function paresFindeCompletos(
+  anio: number,
+  mes: number,
+  nDias: number,
+): ParFinde[] {
+  const pares: ParFinde[] = []
+  for (let dia = 1; dia <= nDias; dia++) {
+    if (new Date(anio, mes - 1, dia).getDay() !== 6) continue
+    if (dia + 1 > nDias) continue
+    pares.push({ sabado: dia, domingo: dia + 1 })
+  }
+  return pares
+}
+
+function esParFindePartido(fila: Turno[], par: ParFinde) {
+  if (fila[par.sabado - 1] === 'V' || fila[par.domingo - 1] === 'V') {
+    return false
+  }
+  return (
+    esDiaTrabajado(fila[par.sabado - 1]) !==
+    esDiaTrabajado(fila[par.domingo - 1])
+  )
+}
+
+/** True si hay algún sábado laborable y domingo de descanso (o al revés). */
+export function countFindesPartidos(
+  fila: Turno[],
+  anio: number,
+  mes: number,
+) {
+  return paresFindeCompletos(anio, mes, fila.length).filter((par) =>
+    esParFindePartido(fila, par),
+  ).length
+}
+
+export function esFindePartido(
+  fila: Turno[],
+  anio: number,
+  mes: number,
+) {
+  return countFindesPartidos(fila, anio, mes) > 0
+}
+
+export function esFindePartidoEnDia(
+  fila: Turno[],
+  anio: number,
+  mes: number,
+  dia: number,
+) {
+  if (!esFinDeSemana(anio, mes, dia)) return false
+  const pares = paresFindeCompletos(anio, mes, fila.length)
+  const par = pares.find((p) => p.sabado === dia || p.domingo === dia)
+  if (!par) return false
+  return esParFindePartido(fila, par)
+}
+
+/** Intercambia un finde entero (sábado+domingo) por descanso entre semana. */
 export function equilibrarFindesConsecutivos(
   fila: Turno[],
   anio: number,
   mes: number,
   turnoTrabajo: Exclude<Turno, 'V' | 'D' | 'L'>,
+  esValida?: (prueba: Turno[], original: Turno[]) => boolean,
 ): Turno[] {
   const copia = [...fila]
   const nDias = copia.length
   const objetivoTrabajo = copia.filter((t) => esDiaTrabajado(t)).length
 
-  for (let iter = 0; iter < 60; iter++) {
-    if (maxFindesConsecutivosLaborados(copia, anio, mes) <= MAX_FINDES_CONSECUTIVOS) {
-      break
+  const valida = (prueba: Turno[]) => {
+    if (prueba.filter((t) => esDiaTrabajado(t)).length !== objetivoTrabajo) {
+      return false
     }
+    if (
+      countFindesPartidos(prueba, anio, mes) >
+      countFindesPartidos(copia, anio, mes)
+    ) {
+      return false
+    }
+    if (esValida) return esValida(prueba, copia)
+    return true
+  }
+
+  for (let iter = 0; iter < 60; iter++) {
+    const rachaMax = maxFindesConsecutivosLaborados(copia, anio, mes)
+    if (rachaMax <= MAX_FINDES_CONSECUTIVOS) break
 
     const semanas = semanasDelMes(anio, mes, nDias)
     let racha = 0
@@ -103,33 +176,44 @@ export function equilibrarFindesConsecutivos(
     }
     if (!semanaObjetivo) break
 
+    const diasFindeTrabajo: number[] = []
+    for (let dia = 1; dia <= nDias; dia++) {
+      if (semanaCalendarioId(anio, mes, dia) !== semanaObjetivo) continue
+      if (!esFinDeSemana(anio, mes, dia)) continue
+      if (esDiaTrabajado(copia[dia - 1])) diasFindeTrabajo.push(dia)
+    }
+    if (diasFindeTrabajo.length === 0) break
+
+    const huecosSemana: number[] = []
+    for (let dia = 1; dia <= nDias; dia++) {
+      if (esFinDeSemana(anio, mes, dia)) continue
+      if (copia[dia - 1] !== 'D') continue
+      huecosSemana.push(dia)
+    }
+    if (huecosSemana.length < diasFindeTrabajo.length) break
+
     let intercambiado = false
-    for (let diaFinde = 1; diaFinde <= nDias && !intercambiado; diaFinde++) {
-      if (semanaCalendarioId(anio, mes, diaFinde) !== semanaObjetivo) continue
-      if (!esFinDeSemana(anio, mes, diaFinde)) continue
-      if (!esDiaTrabajado(copia[diaFinde - 1])) continue
-
-      for (let diaSemana = 1; diaSemana <= nDias; diaSemana++) {
-        if (esFinDeSemana(anio, mes, diaSemana)) continue
-        if (copia[diaSemana - 1] !== 'D') continue
-
+    const k = diasFindeTrabajo.length
+    const elegir = (inicio: number, pendientes: number[]): void => {
+      if (intercambiado) return
+      if (pendientes.length === k) {
         const prueba = [...copia]
-        prueba[diaFinde - 1] = 'D'
-        prueba[diaSemana - 1] = turnoTrabajo
-
-        if (prueba.filter((t) => esDiaTrabajado(t)).length !== objetivoTrabajo) {
-          continue
-        }
-        if (maxFindesConsecutivosLaborados(prueba, anio, mes) >= racha) {
-          continue
-        }
-
-        copia[diaFinde - 1] = 'D'
-        copia[diaSemana - 1] = turnoTrabajo
+        for (const dia of diasFindeTrabajo) prueba[dia - 1] = 'D'
+        for (const dia of pendientes) prueba[dia - 1] = turnoTrabajo
+        if (!valida(prueba)) return
+        if (maxFindesConsecutivosLaborados(prueba, anio, mes) >= racha) return
+        for (let i = 0; i < nDias; i++) copia[i] = prueba[i]
         intercambiado = true
-        break
+        return
+      }
+      for (let i = inicio; i < huecosSemana.length; i++) {
+        pendientes.push(huecosSemana[i])
+        elegir(i + 1, pendientes)
+        pendientes.pop()
+        if (intercambiado) return
       }
     }
+    elegir(0, [])
     if (!intercambiado) break
   }
 

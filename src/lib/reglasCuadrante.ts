@@ -6,6 +6,7 @@ import {
 } from '@/lib/convenio'
 import {
   MAX_FINDES_CONSECUTIVOS,
+  esFindePartidoEnDia,
   finDeSemanaLaboradoEnDia,
   maxFindesConsecutivosLaborados,
 } from '@/lib/finesSemana'
@@ -17,6 +18,7 @@ export type CodigoRegla =
   | 'N_T'
   | 'SALIDA_NOCHE'
   | 'FINDES_CONSECUTIVOS'
+  | 'FINDE_PARTIDO'
 
 export const MENSAJE_REGLA: Record<CodigoRegla, string> = {
   FATIGA: 'Más de 5 días seguidos de trabajo',
@@ -25,6 +27,7 @@ export const MENSAJE_REGLA: Record<CodigoRegla, string> = {
   N_T: 'N→T prohibido (menos de 12 h)',
   SALIDA_NOCHE: 'Saliente de noche insuficiente (N + 3 D antes de M)',
   FINDES_CONSECUTIVOS: 'Más de 2 fines de semana seguidos trabajados',
+  FINDE_PARTIDO: 'Finde partido (sábado y domingo deben ir juntos)',
 }
 
 function descansoTrasUltimaNoche(fila: Turno[], diaM: number) {
@@ -73,6 +76,13 @@ export function infraccionesCelda(
     if (descanso != null && descanso < MIN_DESCANSO_TRAS_NOCHE) {
       infracciones.push('SALIDA_NOCHE')
     }
+  }
+
+  if (
+    contexto &&
+    esFindePartidoEnDia(fila, contexto.anio, contexto.mes, dia + 1)
+  ) {
+    infracciones.push('FINDE_PARTIDO')
   }
 
   if (

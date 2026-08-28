@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import { useAuth } from '@/context/AuthContext'
 import { useConfigOperativaBootstrap } from '@/lib/useConfigOperativaBootstrap'
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
@@ -10,14 +11,22 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
   ].join(' ')
 
 export function AdminLayout() {
+  const { user, signOut } = useAuth()
   const { estado, error, firebaseOk } = useConfigOperativaBootstrap()
 
   return (
     <div className="flex h-svh flex-col bg-slate-50 text-slate-900">
       <header className="sticky top-0 z-50 shrink-0 border-b border-slate-200 bg-white">
         <div className="flex items-center justify-between gap-4 px-4 py-3">
-          <p className="text-sm font-semibold tracking-tight">Cuadrapp</p>
-          <nav className="flex flex-wrap gap-1">
+          <div className="flex min-w-0 items-center gap-3">
+            <p className="text-sm font-semibold tracking-tight">Cuadrapp</p>
+            {user?.email ? (
+              <p className="hidden truncate text-xs text-slate-500 sm:block">
+                {user.email}
+              </p>
+            ) : null}
+          </div>
+          <nav className="flex flex-wrap items-center gap-1">
             <NavLink to="/admin/agentes" className={navClass}>
               Agentes
             </NavLink>
@@ -39,6 +48,13 @@ export function AdminLayout() {
             <NavLink to="/admin/reglas" className={navClass}>
               Reglas
             </NavLink>
+            <button
+              type="button"
+              onClick={() => void signOut()}
+              className="rounded px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+            >
+              Salir
+            </button>
           </nav>
         </div>
         {estado === 'loading' ? (

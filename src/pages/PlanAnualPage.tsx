@@ -9,7 +9,12 @@ import {
   type ObjetivosGlobales,
   type TurnoAnual,
 } from '@/lib/generarPlanAnual'
-import { filaCumplePreferencia } from '@/lib/preferenciasAnuales'
+import {
+  esSinPreferencia,
+  etiquetaPreferenciaEnPlan,
+  filaCumplePreferencia,
+  patronCumplidoEnFila,
+} from '@/lib/preferenciasAnuales'
 import {
   ETIQUETA_MES_VACACIONES,
   mesVacacionesCiclo,
@@ -33,8 +38,9 @@ const MESES = [
 
 const TOTALES = ['M', 'T', 'N', 'V'] as const
 const TOLERANCIA_PCT = 2
-const ANCHO_AGENTE = 140
+const ANCHO_AGENTE = 148
 const ANCHO_TOTAL = 28
+const ANCHO_PATRON = 44
 
 const CELDA =
   'h-6 border border-slate-400 px-1 py-0 text-xs leading-none'
@@ -54,11 +60,19 @@ function totalesFila(turnos: TurnoAnual[]) {
   return totales
 }
 
-function stickyDerecha(indice: number) {
+function stickyTotal(indice: number) {
   return {
-    right: (TOTALES.length - 1 - indice) * ANCHO_TOTAL,
+    right: ANCHO_PATRON + (TOTALES.length - 1 - indice) * ANCHO_TOTAL,
     minWidth: ANCHO_TOTAL,
     width: ANCHO_TOTAL,
+  }
+}
+
+function stickyPatron() {
+  return {
+    right: 0,
+    minWidth: ANCHO_PATRON,
+    width: ANCHO_PATRON,
   }
 }
 
@@ -92,6 +106,20 @@ function cuadraTotal(
   _clave: TurnoAnual,
 ) {
   return filaCumplePreferencia(agente, totales)
+}
+
+function tituloPreferencia(agente: FichaPolicia, totales: Record<TurnoAnual, number>) {
+  const patron = patronCumplidoEnFila(agente, totales)
+  if (esSinPreferencia(agente.preferenciaAnual)) {
+    if (patron) {
+      return `Sin preferencia · cumple patrón ${patron}`
+    }
+    return 'Sin preferencia · no encaja en 4-4-3, 4-3-4 ni 5-3-3 (según limitaciones)'
+  }
+  if (patron) {
+    return `Preferencia ${patron} cumplida`
+  }
+  return `Preferencia ${etiquetaPreferenciaEnPlan(agente)} no cumplida`
 }
 
 export function PlanAnualPage() {
@@ -264,20 +292,29 @@ export function PlanAnualPage() {
           {marcas.agentesSinCuadrar.length > 0 ? (
             <p>
               Fichas que no respetan su preferencia (p. ej. noches no
-              colocables):{' '}
+              colocables o sin patrón compatible):{' '}
               <span className="font-semibold">
                 {marcas.agentesSinCuadrar
                   .map((id) => {
                     const agente = agentesData.find((a) => a.id === id)
+                    const flex = agente
+                      ? esSinPreferencia(agente.preferenciaAnual)
+                      : false
                     return agente
-                      ? `${agente.numeroPlaca} ${agente.nombre}`
+                      ? `${agente.numeroPlaca} ${agente.nombre}${flex ? ' (Flex)' : ''}`
                       : id
                   })
                   .join(', ')}
               </span>
-              . Marcadas a la izquierda.
+              . Marcadas a la izquierda; columna Pat indica el patrón asignado.
             </p>
           ) : null}
+          <p className="text-[11px] text-slate-600">
+            <span className="font-semibold text-violet-700">Flex</span> = sin
+            preferencia (4-4-3, 4-3-4 o 5-3-3). Totales y columna{' '}
+            <span className="font-semibold">Pat</span> en verde cuando cumple
+            algún patrón compatible.
+          </p>
           {marcas.anioCuadra &&
           marcas.mesesSinCuadrar.length === 0 &&
           marcas.agentesSinCuadrar.length === 0 ? (
@@ -319,11 +356,18 @@ export function PlanAnualPage() {
                   className={`${CELDA} sticky top-0 z-30 bg-white font-bold ${
                     indice === 0 ? 'border-l-2 border-l-slate-600' : ''
                   }`}
-                  style={stickyDerecha(indice)}
+                  style={stickyTotal(indice)}
                 >
                   {clave}
                 </th>
               ))}
+              <th
+                className={`${CELDA} sticky top-0 z-30 border-l border-slate-400 bg-white font-bold`}
+                style={stickyPatron()}
+                title="Patrón asignado o preferencia flexible"
+              >
+                Pat
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -331,6 +375,9 @@ export function PlanAnualPage() {
               const fila = planAnual[agente.id] ?? []
               const totales = totalesFila(fila)
               const fichaMarcada = agentesMarcados.has(agente.id)
+              const sinPref = esSinPreferencia(agente.preferenciaAnual)
+              const patronAsignado = patronCumplidoEnFila(agente, totales)
+              const cuadra = filaCumplePreferencia(agente, totales)
 
               return (
                 <tr key={agente.id}>
@@ -343,22 +390,32 @@ export function PlanAnualPage() {
                     style={{ width: ANCHO_AGENTE, minWidth: ANCHO_AGENTE }}
                     title={
                       fichaMarcada
-                        ? 'No se ha podido respetar la preferencia M/T/N de esta ficha'
-                        : `Vacaciones ${anio}: ${ETIQUETA_MES_VACACIONES[mesVacacionesCiclo(agente, anio)]}`
+                        ? tituloPreferencia(agente, totales)
+                        : `Vacaciones ${anio}: ${ETIQUETA_MES_VACACIONES[mesVacacionesCiclo(agente, anio)]}${sinPref ? ' · Sin preferencia de turnos' : ''}`
                     }
                   >
-                    <div className="flex min-w-0 items-center gap-1">
-                      {fichaMarcada ? (
-                        <span className="shrink-0 text-amber-700" aria-hidden>
-                          !
+                    <div className="flex min-w-0 flex-col gap-0.5">
+                      <div className="flex min-w-0 items-center gap-1">
+                        {fichaMarcada ? (
+                          <span className="shrink-0 text-amber-700" aria-hidden>
+                            !
+                          </span>
+                        ) : null}
+                        <span className="shrink-0 font-mono font-semibold">
+                          {agente.numeroPlaca}
+                        </span>
+                        <span className="truncate text-slate-700">
+                          {agente.nombre} {agente.apellidos}
+                        </span>
+                      </div>
+                      {sinPref ? (
+                        <span
+                          className="truncate text-[10px] font-semibold text-violet-700"
+                          title="Sin preferencia: se asigna 4-4-3, 4-3-4 o 5-3-3"
+                        >
+                          Flex · sin preferencia
                         </span>
                       ) : null}
-                      <span className="shrink-0 font-mono font-semibold">
-                        {agente.numeroPlaca}
-                      </span>
-                      <span className="truncate text-slate-700">
-                        {agente.nombre} {agente.apellidos}
-                      </span>
                     </div>
                   </td>
                   {fila.map((turno, mes) => (
@@ -388,11 +445,46 @@ export function PlanAnualPage() {
                       className={`${CELDA} sticky z-10 text-center ${
                         indice === 0 ? 'border-l-2 border-l-slate-600' : ''
                       } ${clasePreferencia(cuadraTotal(totales, agente, clave))}`}
-                      style={stickyDerecha(indice)}
+                      style={stickyTotal(indice)}
+                      title={tituloPreferencia(agente, totales)}
                     >
                       {totales[clave]}
                     </td>
                   ))}
+                  <td
+                    className={`${CELDA} sticky z-10 border-l border-slate-400 text-center leading-tight ${
+                      patronAsignado
+                        ? 'bg-green-100 font-bold text-green-800'
+                        : sinPref
+                          ? 'bg-violet-50 font-semibold text-violet-800'
+                          : cuadra
+                            ? 'bg-green-100 font-bold text-green-800'
+                            : 'bg-red-200 font-bold text-red-900'
+                    }`}
+                    style={stickyPatron()}
+                    title={tituloPreferencia(agente, totales)}
+                  >
+                    {sinPref ? (
+                      <span className="block text-[10px]">
+                        {patronAsignado ? (
+                          <>
+                            <span className="text-violet-700">Flex</span>
+                            <span className="block text-green-800">
+                              {patronAsignado}
+                            </span>
+                          </>
+                        ) : (
+                          'Flex'
+                        )}
+                      </span>
+                    ) : patronAsignado ? (
+                      <span className="text-[10px]">{patronAsignado}</span>
+                    ) : (
+                      <span className="text-[10px]">
+                        {etiquetaPreferenciaEnPlan(agente)}
+                      </span>
+                    )}
+                  </td>
                 </tr>
               )
             })}
@@ -455,13 +547,17 @@ export function PlanAnualPage() {
                             }`
                           : 'bg-gray-200'
                       }`}
-                      style={stickyDerecha(indice)}
+                      style={stickyTotal(indice)}
                     >
                       {clave === turnoPie && pctAnio != null
                         ? `${pctAnio.toFixed(1)}%`
                         : ''}
                     </td>
                   ))}
+                  <td
+                    className={`${CELDA} sticky z-40 bg-gray-200`}
+                    style={stickyPatron()}
+                  />
                 </tr>
               )
             })}

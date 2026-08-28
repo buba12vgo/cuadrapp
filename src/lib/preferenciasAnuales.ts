@@ -191,25 +191,53 @@ export function filaCumplePreferencia(
   agente: FichaPolicia,
   totales: Cupos & { V: number },
 ) {
-  if (totales.V !== vacacionesObjetivoPreferencia(agente.preferenciaAnual)) {
+  if (patronCumplidoEnFila(agente, totales) != null) return true
+
+  const pref = agente.preferenciaAnual
+  if (esSinPreferencia(pref)) {
+    const compatibles = patronesCompatibles(agente.limitaciones)
+    if (compatibles.length === 0) {
+      return (
+        totales.V === vacacionesObjetivoPreferencia(pref) &&
+        totales.M + totales.T + totales.N === 11
+      )
+    }
     return false
+  }
+
+  if (esPatronFijo(pref)) return false
+
+  if (totales.V !== vacacionesObjetivoPreferencia(pref)) return false
+  return (
+    totales.M === pref.objetivoM &&
+    totales.T === pref.objetivoT &&
+    totales.N === pref.objetivoN
+  )
+}
+
+export function patronCumplidoEnFila(
+  agente: FichaPolicia,
+  totales: Cupos & { V: number },
+): PatronPreferenciaAnual | null {
+  if (totales.V !== vacacionesObjetivoPreferencia(agente.preferenciaAnual)) {
+    return null
   }
 
   const real: Cupos = { M: totales.M, T: totales.T, N: totales.N }
 
   if (esSinPreferencia(agente.preferenciaAnual)) {
     const compatibles = patronesCompatibles(agente.limitaciones)
-    if (compatibles.length === 0) {
-      return real.M + real.T + real.N === 11
-    }
-    return compatibles.some((patron) => {
+    for (const patron of compatibles) {
       const esperado = cuposDesdePatron(agente, patron, 11)
-      return (
+      if (
         real.M === esperado.M &&
         real.T === esperado.T &&
         real.N === esperado.N
-      )
-    })
+      ) {
+        return patron
+      }
+    }
+    return null
   }
 
   if (esPatronFijo(agente.preferenciaAnual)) {
@@ -218,16 +246,25 @@ export function filaCumplePreferencia(
       agente.preferenciaAnual.modo,
       11,
     )
-    return (
+    if (
       real.M === esperado.M &&
       real.T === esperado.T &&
       real.N === esperado.N
-    )
+    ) {
+      return agente.preferenciaAnual.modo
+    }
   }
 
-  return (
-    real.M === agente.preferenciaAnual.objetivoM &&
-    real.T === agente.preferenciaAnual.objetivoT &&
-    real.N === agente.preferenciaAnual.objetivoN
-  )
+  return null
+}
+
+export function etiquetaPreferenciaEnPlan(agente: FichaPolicia) {
+  if (esSinPreferencia(agente.preferenciaAnual)) {
+    return 'Flex'
+  }
+  const modo = modoEfectivo(agente.preferenciaAnual)
+  if (modo && modo !== 'SIN_PREFERENCIA') {
+    return ETIQUETA_PREFERENCIA[modo]
+  }
+  return 'Pers.'
 }

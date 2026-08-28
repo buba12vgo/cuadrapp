@@ -6,6 +6,8 @@ import {
 } from '@/lib/calendarioPuestos'
 import {
   deletePuesto,
+  getAgentes,
+  saveAgentes,
   saveMinimosSemana,
   savePuesto,
 } from '@/lib/db'
@@ -143,7 +145,9 @@ function EditorPuestoModal({
             {titulo}
           </h2>
           <p className="text-xs text-slate-500">
-            Nombre, código y abreviatura del puesto operativo
+            {editandoCodigo == null
+              ? 'Al crearlo se activa automáticamente para toda la plantilla.'
+              : 'Nombre, código y abreviatura del puesto operativo'}
           </p>
         </header>
 
@@ -306,6 +310,25 @@ export function PuestosPage() {
     }
   }
 
+  async function limpiarExclusionesDelPuesto(puesto: PuestoConfig) {
+    const agentes = await getAgentes()
+    const afectados = agentes.filter((agente) =>
+      agente.puestosExcluidos.some(
+        (valor) => valor === puesto.codigo || valor === puesto.nombre,
+      ),
+    )
+    if (afectados.length === 0) return
+
+    await saveAgentes(
+      afectados.map((agente) => ({
+        ...agente,
+        puestosExcluidos: agente.puestosExcluidos.filter(
+          (valor) => valor !== puesto.codigo && valor !== puesto.nombre,
+        ),
+      })),
+    )
+  }
+
   async function borrar(puesto: PuestoConfig) {
     const ok = window.confirm(
       `¿Eliminar el puesto «${puesto.nombre}»? Se quitará de los mínimos configurados.`,
@@ -323,6 +346,11 @@ export function PuestosPage() {
       const lista = puestos.filter((item) => item.codigo !== puesto.codigo)
       setPuestos(lista)
       await persistirMinimosTrasCambioPuestos(lista)
+      try {
+        await limpiarExclusionesDelPuesto(puesto)
+      } catch (err) {
+        console.warn('No se pudieron limpiar exclusiones del puesto eliminado', err)
+      }
     } catch (err) {
       const mensaje =
         err instanceof Error
@@ -341,8 +369,8 @@ export function PuestosPage() {
         <div>
           <h1 className="text-sm font-bold text-slate-900">Puestos</h1>
           <p className="text-[11px] text-slate-500">
-            Configura los puestos operativos · {puestos.length} puestos ·
-            Firestore
+            Configura los puestos operativos · {puestos.length} puestos · un
+            puesto nuevo queda activo en toda la plantilla · Firestore
           </p>
         </div>
         <button

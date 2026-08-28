@@ -11,6 +11,11 @@ import {
   fichasDesdeImportacion,
   parsearExcelAgentes,
 } from '@/lib/importarAgentes'
+import {
+  puestoExcluidoParaAgente,
+  type PuestoConfig,
+} from '@/lib/calendarioPuestos'
+import { usePuestosData } from '@/lib/puestosStore'
 import type {
   FichaPolicia,
   Limitaciones,
@@ -70,6 +75,35 @@ type FormularioFicha = {
   mesAnclaVacaciones: FichaPolicia['mesAnclaVacaciones']
   limitaciones: Limitaciones
   preferenciaAnual: PreferenciaAnual
+  puestosExcluidos: string[]
+}
+
+function normalizarExclusiones(
+  exclusiones: string[],
+  puestos: PuestoConfig[],
+): string[] {
+  const codigosValidos = new Set(puestos.map((puesto) => puesto.codigo))
+  const nombresACodigo = new Map(
+    puestos.map((puesto) => [puesto.nombre, puesto.codigo]),
+  )
+  const resultado = new Set<string>()
+
+  for (const valor of exclusiones) {
+    if (!valor) continue
+    if (codigosValidos.has(valor)) {
+      resultado.add(valor)
+      continue
+    }
+    const codigo = nombresACodigo.get(valor)
+    if (codigo) {
+      resultado.add(codigo)
+      continue
+    }
+    // Conservar códigos aún no hidratados / puestos eliminados del catálogo local.
+    resultado.add(valor)
+  }
+
+  return [...resultado].sort((a, b) => a.localeCompare(b, 'es'))
 }
 
 function formularioDesde(agente: FichaPolicia): FormularioFicha {
@@ -81,6 +115,7 @@ function formularioDesde(agente: FichaPolicia): FormularioFicha {
     mesAnclaVacaciones: agente.mesAnclaVacaciones,
     limitaciones: { ...agente.limitaciones },
     preferenciaAnual: { ...agente.preferenciaAnual },
+    puestosExcluidos: [...agente.puestosExcluidos],
   }
 }
 
@@ -97,6 +132,7 @@ function FichaAgenteModal({
   onGuardar: (ficha: FichaPolicia) => void | Promise<void>
   onCancelar: () => void
 }) {
+  const [puestos] = usePuestosData()
   const [form, setForm] = useState(() => formularioDesde(agente))
 
   useEffect(() => {
@@ -110,6 +146,27 @@ function FichaAgenteModal({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onCancelar])
+
+  function alternarPuesto(puesto: PuestoConfig, habilitado: boolean) {
+    setForm((actual) => {
+      const sinPuesto = actual.puestosExcluidos.filter(
+        (codigo) => codigo !== puesto.codigo && codigo !== puesto.nombre,
+      )
+      return {
+        ...actual,
+        puestosExcluidos: habilitado
+          ? sinPuesto
+          : [...sinPuesto, puesto.codigo].sort((a, b) =>
+              a.localeCompare(b, 'es'),
+            ),
+      }
+    })
+  }
+
+  const puestosActivos = puestos.filter(
+    (puesto) =>
+      !puestoExcluidoParaAgente(form.puestosExcluidos, puesto.nombre, puestos),
+  ).length
 
   return (
     <div
@@ -133,6 +190,10 @@ function FichaAgenteModal({
             mesAnclaVacaciones: form.mesAnclaVacaciones,
             limitaciones: form.limitaciones,
             preferenciaAnual: form.preferenciaAnual,
+            puestosExcluidos: normalizarExclusiones(
+              form.puestosExcluidos,
+              puestos,
+            ),
           })
         }}
       >
@@ -323,6 +384,54 @@ function FichaAgenteModal({
                 </label>
               </li>
             </ul>
+          </section>
+
+          <section className={BLOQUE}>
+            <div className="mb-2 flex items-baseline justify-between gap-2">
+              <h3 className={`${TITULO_BLOQUE} mb-0`}>Puestos que puede hacer</h3>
+              <span className="text-[11px] tabular-nums text-slate-500">
+                {puestosActivos}/{puestos.length} activos
+              </span>
+            </div>
+            {puestos.length === 0 ? (
+              <p className="text-xs text-slate-500">
+                No hay puestos configurados. Créalos en Administración →
+                Puestos; al crearlos se activan para toda la plantilla.
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-1.5">
+                {puestos.map((puesto) => {
+                  const habilitado = !puestoExcluidoParaAgente(
+                    form.puestosExcluidos,
+                    puesto.nombre,
+                    puestos,
+                  )
+                  return (
+                    <li key={puesto.codigo}>
+                      <label className="flex items-center gap-2 text-sm text-slate-800">
+                        <input
+                          type="checkbox"
+                          checked={habilitado}
+                          onChange={(event) =>
+                            alternarPuesto(puesto, event.target.checked)
+                          }
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="font-medium">{puesto.nombre}</span>
+                          <span className="ml-1.5 font-mono text-[11px] text-slate-500">
+                            {puesto.abreviatura}
+                          </span>
+                        </span>
+                      </label>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+            <p className="mt-2 text-[11px] text-slate-500">
+              Desmarca un puesto para que no se pueda asignar a este agente. Un
+              puesto nuevo queda activo por defecto en toda la plantilla.
+            </p>
           </section>
 
           <section className={BLOQUE}>

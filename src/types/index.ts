@@ -35,6 +35,8 @@ export interface FichaPolicia {
   preferenciaAnual: PreferenciaAnual
   puestosExcluidos: string[]
   mesAnclaVacaciones: 'JUNIO' | 'JULIO' | 'AGOSTO' | 'SEPTIEMBRE'
+  /** Año en el que `mesAnclaVacaciones` es el mes vigente del ciclo. */
+  anioReferenciaVacaciones?: number
 }
 
 export interface EventoOperativo {

@@ -1,14 +1,19 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAgentesData } from '@/lib/agentesStore'
 import { usePlanAnual } from '@/lib/planAnualStore'
 import {
+  calcularMarcas,
   generarPlanAnual,
   siguienteTurno,
+  validarTurnoEnPlan,
   vacacionesObjetivo,
-  type MarcasPlanAnual,
   type ObjetivosGlobales,
   type TurnoAnual,
 } from '@/lib/generarPlanAnual'
+import {
+  ETIQUETA_MES_VACACIONES,
+  mesVacacionesCiclo,
+} from '@/lib/vacaciones'
 import type { FichaPolicia } from '@/types'
 
 const MESES = [
@@ -97,13 +102,13 @@ function cuadraTotal(
 
 export function PlanAnualPage() {
   const [agentesData] = useAgentesData()
-  const [planAnual, setPlanAnual] = usePlanAnual()
+  const { anio, plan: planAnual, marcas, setAnio, setPlanAnual, setMarcas, registrarPlan } =
+    usePlanAnual()
   const [objetivosGlobales, setObjetivosGlobales] = useState<ObjetivosGlobales>({
     M: 34,
     T: 33,
     N: 33,
   })
-  const [marcas, setMarcas] = useState<MarcasPlanAnual | null>(null)
 
   const totalesMes = useMemo(() => {
     const columnas = MESES.map(() => ({ M: 0, T: 0, N: 0, V: 0 }))
@@ -125,27 +130,58 @@ export function PlanAnualPage() {
     [marcas],
   )
 
+  useEffect(() => {
+    if (agentesData.length === 0) return
+    if (Object.keys(planAnual).length > 0) return
+    const resultado = generarPlanAnual(agentesData, objetivosGlobales, anio)
+    registrarPlan(anio, resultado.plan, resultado.marcas)
+  }, [agentesData, anio, objetivosGlobales, planAnual, registrarPlan])
+
   function rotarCelda(agente: FichaPolicia, mes: number) {
-    setMarcas(null)
-    setPlanAnual((actual) => {
-      const fila = [...(actual[agente.id] ?? [])]
-      const actualTurno = fila[mes]
-      if (!actualTurno) return actual
-      fila[mes] = siguienteTurno(agente, actualTurno)
-      return { ...actual, [agente.id]: fila }
-    })
+    const filaActual = [...(planAnual[agente.id] ?? [])]
+    const turnoActual = filaActual[mes]
+    if (!turnoActual) return
+
+    const siguiente = siguienteTurno(agente, turnoActual)
+    const error = validarTurnoEnPlan(agente, filaActual, mes, siguiente)
+    if (error) {
+      window.alert(error)
+      return
+    }
+
+    filaActual[mes] = siguiente
+    const planActualizado = { ...planAnual, [agente.id]: filaActual }
+    setPlanAnual(planActualizado)
+    setMarcas(calcularMarcas(planActualizado, agentesData, objetivosGlobales))
   }
 
   function autogenerar() {
-    const resultado = generarPlanAnual(agentesData, objetivosGlobales)
-    setPlanAnual(resultado.plan)
-    setMarcas(resultado.marcas)
+    const resultado = generarPlanAnual(agentesData, objetivosGlobales, anio)
+    registrarPlan(anio, resultado.plan, resultado.marcas)
   }
 
   return (
     <section className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 px-1 py-1">
-        <h1 className="text-xs font-bold text-slate-900">Plan anual</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-xs font-bold text-slate-900">Plan anual</h1>
+          <label className="flex items-center gap-1 text-xs text-slate-600">
+            <span className="font-semibold">Año</span>
+            <select
+              className="h-6 border border-slate-400 bg-white px-1 text-xs"
+              value={anio}
+              onChange={(event) =>
+                setAnio(Number(event.target.value) || anio)
+              }
+            >
+              {Array.from({ length: 11 }, (_, i) => 2020 + i).map((valor) => (
+                <option key={valor} value={valor}>
+                  {valor}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-semibold text-slate-600">
             Objetivo global
@@ -298,7 +334,7 @@ export function PlanAnualPage() {
                     title={
                       fichaMarcada
                         ? 'No se ha podido respetar la preferencia M/T/N de esta ficha'
-                        : undefined
+                        : `Vacaciones ${anio}: ${ETIQUETA_MES_VACACIONES[mesVacacionesCiclo(agente, anio)]}`
                     }
                   >
                     <div className="flex min-w-0 items-center gap-1">

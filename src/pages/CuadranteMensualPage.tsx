@@ -142,7 +142,7 @@ export function CuadranteMensualPage() {
   const [eventosData] = useEventosData()
   const [puestos] = usePuestosData()
   const [minimosSemana] = useMinimosSemanaData()
-  const [planAnual] = usePlanAnual()
+  const { plan: planAnual, setAnio: setAnioPlan } = usePlanAnual()
   const [anio, setAnio] = useState(ANIO_ACTUAL)
   const [mes, setMes] = useState(8)
   const [diaDesde, setDiaDesde] = useState(1)
@@ -163,6 +163,10 @@ export function CuadranteMensualPage() {
 
   const nDias = diasDelMes(anio, mes)
   const objetivo = diasOperativosConvenio(anio, mes)
+
+  useEffect(() => {
+    setAnioPlan(anio)
+  }, [anio, setAnioPlan])
   const ids = useMemo(
     () => agentesData.map((agente) => agente.id),
     [agentesData],

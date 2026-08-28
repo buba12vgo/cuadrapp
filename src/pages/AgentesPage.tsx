@@ -303,7 +303,7 @@ function FichaAgenteModal({
               </label>
               <label className="col-span-2 flex flex-col gap-0.5">
                 <span className="text-[11px] font-semibold text-slate-600">
-                  Mes de vacaciones
+                  Mes de vacaciones (ciclo)
                 </span>
                 <select
                   className={CAMPO}
@@ -322,6 +322,10 @@ function FichaAgenteModal({
                     </option>
                   ))}
                 </select>
+                <span className="text-[10px] text-slate-500">
+                  Referencia del ciclo Jun–Sep. Rota automáticamente cada año
+                  en el plan anual.
+                </span>
               </label>
             </div>
           </section>

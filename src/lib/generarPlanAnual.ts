@@ -1,5 +1,6 @@
 import type { FichaPolicia } from '@/types'
 import { turnosLaboralesPermitidos } from '@/lib/limitaciones'
+import { mesesVacacionesEnPlan } from '@/lib/vacaciones'
 
 export type TurnoAnual = 'M' | 'T' | 'N' | 'V'
 export type ObjetivosGlobales = { M: number; T: number; N: number }
@@ -32,13 +33,6 @@ export const TOLERANCIA_PCT_PLAN = 2
 const MESES = 12
 const TURNOS_ACTIVOS = ['M', 'T', 'N'] as const
 type TurnoActivo = (typeof TURNOS_ACTIVOS)[number]
-
-const MES_ANCLA: Record<FichaPolicia['mesAnclaVacaciones'], number> = {
-  JUNIO: 5,
-  JULIO: 6,
-  AGOSTO: 7,
-  SEPTIEMBRE: 8,
-}
 
 type Cupos = { M: number; T: number; N: number }
 type Fila = (TurnoAnual | null)[]
@@ -180,9 +174,15 @@ function capacidadN(fila: Fila, minDist: number) {
   return mejor
 }
 
-function asignarFila(agente: FichaPolicia): TurnoAnual[] {
+function asignarFila(agente: FichaPolicia, anio: number): TurnoAnual[] {
   const fila: Fila = Array.from({ length: MESES }, () => null)
-  fila[MES_ANCLA[agente.mesAnclaVacaciones]] = 'V'
+  for (const mes of mesesVacacionesEnPlan(
+    agente,
+    anio,
+    vacacionesObjetivo(agente),
+  )) {
+    fila[mes] = 'V'
+  }
 
   const cupos = cuposLaborales(agente, huecos(fila).length)
   const minDists = cupos.N <= capacidadN(fila, 3) ? [3] : [2]
@@ -524,7 +524,7 @@ function preferenciasAlcanzanObjetivo(
   }
 }
 
-function calcularMarcas(
+export function calcularMarcas(
   plan: PlanAnual,
   agentes: FichaPolicia[],
   objetivos: ObjetivosGlobales,
@@ -568,13 +568,32 @@ function calcularMarcas(
   }
 }
 
+export function validarTurnoEnPlan(
+  agente: FichaPolicia,
+  fila: TurnoAnual[],
+  mes: number,
+  turno: TurnoAnual,
+): string | null {
+  if (turno === 'V') return null
+  if (turno === 'M' || turno === 'T' || turno === 'N') {
+    if (!permiteTurno(agente, turno)) {
+      return `El agente no puede hacer turno ${turno}`
+    }
+    if (turno === 'N' && !puedeColocarNoche(fila, mes, 2)) {
+      return 'Separación insuficiente entre noches en el plan anual'
+    }
+  }
+  return null
+}
+
 export function generarPlanAnual(
   agentes: FichaPolicia[],
   objetivosGlobales?: ObjetivosGlobales,
+  anio = new Date().getFullYear(),
 ): ResultadoGeneracionPlanAnual {
   const plan: PlanAnual = {}
   for (const agente of agentes) {
-    plan[agente.id] = asignarFila(agente)
+    plan[agente.id] = asignarFila(agente, anio)
   }
 
   const objetivos = objetivosGlobales ?? { M: 34, T: 33, N: 33 }

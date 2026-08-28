@@ -24,6 +24,7 @@ import {
   type CuadranteMensualFirestore,
 } from '@/lib/cuadranteFirestore'
 import { LIMITACIONES_DEFECTO, leerLimitaciones } from '@/lib/limitaciones'
+import { ANIO_REFERENCIA_VACACIONES_DEFECTO } from '@/lib/vacaciones'
 import type {
   EventoOperativo,
   FichaPolicia,
@@ -132,6 +133,11 @@ function agenteDesdeFirestore(
     mesAnclaVacaciones: esMesVacaciones(data.mesAnclaVacaciones)
       ? data.mesAnclaVacaciones
       : 'AGOSTO',
+    anioReferenciaVacaciones:
+      typeof data.anioReferenciaVacaciones === 'number' &&
+      Number.isFinite(data.anioReferenciaVacaciones)
+        ? Math.round(data.anioReferenciaVacaciones)
+        : ANIO_REFERENCIA_VACACIONES_DEFECTO,
   }
 }
 
@@ -153,6 +159,7 @@ function agenteParaFirestore(agente: FichaPolicia): FichaPolicia {
     preferenciaAnual: { ...agente.preferenciaAnual },
     puestosExcluidos: [...agente.puestosExcluidos],
     mesAnclaVacaciones: agente.mesAnclaVacaciones,
+    anioReferenciaVacaciones: agente.anioReferenciaVacaciones,
   }
 }
 
@@ -167,6 +174,7 @@ export function agenteNuevo(): FichaPolicia {
     preferenciaAnual: { ...PREFERENCIA_DEFECTO },
     puestosExcluidos: [],
     mesAnclaVacaciones: 'AGOSTO',
+    anioReferenciaVacaciones: ANIO_REFERENCIA_VACACIONES_DEFECTO,
   }
 }
 

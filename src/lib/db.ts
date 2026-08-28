@@ -59,8 +59,8 @@ const ROLES: RolPolicia[] = [
 const MESES_VACACIONES: FichaPolicia['mesAnclaVacaciones'][] = [
   'JUNIO',
   'JULIO',
-  'AGOSTO',
   'SEPTIEMBRE',
+  'AGOSTO',
 ]
 
 const PREFERENCIA_DEFECTO: PreferenciaAnual = {

@@ -3,8 +3,8 @@ import type { FichaPolicia } from '@/types'
 export const MESES_VACACIONES_CICLO = [
   'JUNIO',
   'JULIO',
-  'AGOSTO',
   'SEPTIEMBRE',
+  'AGOSTO',
 ] as const satisfies ReadonlyArray<FichaPolicia['mesAnclaVacaciones']>
 
 export const ANIO_REFERENCIA_VACACIONES_DEFECTO = 2026
@@ -24,7 +24,7 @@ export function anioReferenciaVacaciones(agente: FichaPolicia) {
   return agente.anioReferenciaVacaciones ?? ANIO_REFERENCIA_VACACIONES_DEFECTO
 }
 
-/** Mes del ciclo Jun–Sep que corresponde al año indicado. */
+/** Mes del ciclo Jun–Jul–Sep–Ago que corresponde al año indicado. */
 export function mesVacacionesCiclo(
   agente: FichaPolicia,
   anio: number,

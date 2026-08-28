@@ -167,11 +167,13 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
   {
     id: 'mes-ancla-vacaciones',
     categoria: 'PLANTILLA',
-    titulo: 'Mes de vacaciones',
+    titulo: 'Rotación de vacaciones',
     descripcion:
-      'Mes ancla (junio–septiembre) en el que el plan anual coloca la V del agente.',
-    estado: 'implementada',
-    referencia: 'mesAnclaVacaciones',
+      'El mes de vacaciones (V) rota en ciclo Junio → Julio → Agosto → Septiembre, y vuelve a empezar cada año.',
+    estado: 'parcial',
+    detalle:
+      'En la ficha de cada agente se indica el mes del ciclo que le corresponde en el año en curso; el plan anual coloca la V en ese mes. La rotación al siguiente mes del ciclo se aplica año a año.',
+    referencia: 'mesAnclaVacaciones · JUNIO / JULIO / AGOSTO / SEPTIEMBRE',
   },
   {
     id: 'tolerancia-plan-anual',
@@ -181,15 +183,6 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
       'El plan intenta cuadrar el reparto M/T/N de la plantilla con una tolerancia de ±2 puntos porcentuales.',
     estado: 'implementada',
     referencia: 'TOLERANCIA_PCT_PLAN = 2',
-  },
-  {
-    id: 'minimo-agentes-turno',
-    categoria: 'CUADRANTE',
-    titulo: 'Mínimo de agentes por turno y día',
-    descripcion:
-      'Debe haber al menos 10 agentes por turno operativo en cada día (regla de convenio pendiente de aplicar en generación).',
-    estado: 'planificada',
-    referencia: 'MINIMO_AGENTES_TURNO = 10',
   },
   {
     id: 'eventos-modifican-minimos',

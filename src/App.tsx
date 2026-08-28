@@ -6,6 +6,7 @@ import { CuadranteMensualPage } from '@/pages/CuadranteMensualPage'
 import { MinimosPage } from '@/pages/MinimosPage'
 import { PlanAnualPage } from '@/pages/PlanAnualPage'
 import { PuestosPage } from '@/pages/PuestosPage'
+import { ReglasPage } from '@/pages/ReglasPage'
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
           element={<Navigate to="/admin/cuadrante-mensual" replace />}
         />
         <Route path="/admin/calendario" element={<CalendarioPage />} />
+        <Route path="/admin/reglas" element={<ReglasPage />} />
       </Route>
     </Routes>
   )

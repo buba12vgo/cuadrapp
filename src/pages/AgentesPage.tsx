@@ -16,9 +16,18 @@ import {
   type PuestoConfig,
 } from '@/lib/calendarioPuestos'
 import { usePuestosData } from '@/lib/puestosStore'
+import {
+  ETIQUETA_PREFERENCIA,
+  esSinPreferencia,
+  inferirModoDesdeObjetivos,
+  modoEfectivo,
+  objetivosDesdeModo,
+  PATRONES_FIJOS,
+} from '@/lib/preferenciasAnuales'
 import type {
   FichaPolicia,
   Limitaciones,
+  ModoPreferenciaAnual,
   PreferenciaAnual,
   RolPolicia,
 } from '@/types'
@@ -53,6 +62,15 @@ const TURNO_LIMITACION_LABEL: Record<'M' | 'T' | 'N', string> = {
 }
 
 const TURNOS_LIMITACION: Array<'M' | 'T' | 'N'> = ['M', 'T', 'N']
+
+function esPreferenciaPersonalizada(pref: PreferenciaAnual) {
+  return !pref.modo && inferirModoDesdeObjetivos(pref) == null
+}
+
+const OPCIONES_PREFERENCIA: ModoPreferenciaAnual[] = [
+  ...PATRONES_FIJOS,
+  'SIN_PREFERENCIA',
+]
 
 const MESES_VACACIONES: FichaPolicia['mesAnclaVacaciones'][] = [
   'JUNIO',
@@ -406,47 +424,86 @@ function FichaAgenteModal({
 
           <section className={BLOQUE}>
             <h3 className={TITULO_BLOQUE}>Preferencia anual</h3>
-            <div className="flex flex-wrap gap-3">
-              {(['objetivoM', 'objetivoT', 'objetivoN'] as const).map(
-                (clave) => {
-                  const turno = clave.replace('objetivo', '') as 'M' | 'T' | 'N'
-                  return (
-                    <label key={clave} className="flex items-center gap-1.5">
-                      <span className="text-[11px] font-semibold text-slate-600">
-                        Objetivo {turno}
+            <ul className="flex flex-col gap-1.5">
+              {OPCIONES_PREFERENCIA.map((modo) => (
+                <li key={modo}>
+                  <label className="flex items-center gap-2 text-sm text-slate-800">
+                    <input
+                      type="radio"
+                      name="preferenciaAnual"
+                      checked={modoEfectivo(form.preferenciaAnual) === modo}
+                      onChange={() =>
+                        setForm((actual) => ({
+                          ...actual,
+                          preferenciaAnual: objetivosDesdeModo(modo),
+                        }))
+                      }
+                    />
+                    <span className="font-medium">{ETIQUETA_PREFERENCIA[modo]}</span>
+                    {modo !== 'SIN_PREFERENCIA' ? (
+                      <span className="text-[11px] text-slate-500">
+                        ({objetivosDesdeModo(modo).objetivoM}M ·{' '}
+                        {objetivosDesdeModo(modo).objetivoT}T ·{' '}
+                        {objetivosDesdeModo(modo).objetivoN}N)
                       </span>
-                      <input
-                        type="number"
-                        min={0}
-                        max={12}
-                        className={CAMPO_NUM}
-                        value={form.preferenciaAnual[clave]}
-                        onChange={(event) =>
-                          setForm((actual) => ({
-                            ...actual,
-                            preferenciaAnual: {
-                              ...actual.preferenciaAnual,
-                              [clave]: leerMeses(event.target.value),
-                            },
-                          }))
-                        }
-                      />
-                    </label>
-                  )
-                },
-              )}
-            </div>
+                    ) : (
+                      <span className="text-[11px] text-slate-500">
+                        (cualquiera de los tres patrones, según limitaciones)
+                      </span>
+                    )}
+                  </label>
+                </li>
+              ))}
+            </ul>
+            {esPreferenciaPersonalizada(form.preferenciaAnual) ? (
+              <div className="mt-3 flex flex-wrap gap-3 border-t border-slate-200 pt-3">
+                {(['objetivoM', 'objetivoT', 'objetivoN'] as const).map(
+                  (clave) => {
+                    const turno = clave.replace('objetivo', '') as 'M' | 'T' | 'N'
+                    return (
+                      <label key={clave} className="flex items-center gap-1.5">
+                        <span className="text-[11px] font-semibold text-slate-600">
+                          Objetivo {turno}
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={12}
+                          className={CAMPO_NUM}
+                          value={form.preferenciaAnual[clave]}
+                          onChange={(event) =>
+                            setForm((actual) => ({
+                              ...actual,
+                              preferenciaAnual: {
+                                ...actual.preferenciaAnual,
+                                [clave]: leerMeses(event.target.value),
+                              },
+                            }))
+                          }
+                        />
+                      </label>
+                    )
+                  },
+                )}
+              </div>
+            ) : null}
             <p className="mt-1.5 text-[11px] text-slate-500">
-              Suma{' '}
-              {form.preferenciaAnual.objetivoM +
-                form.preferenciaAnual.objetivoT +
-                form.preferenciaAnual.objetivoN}{' '}
-              meses operativos · V{' '}
-              {12 -
-                form.preferenciaAnual.objetivoM -
-                form.preferenciaAnual.objetivoT -
-                form.preferenciaAnual.objetivoN}
-              .
+              {esSinPreferencia(form.preferenciaAnual) ? (
+                <>11 meses operativos · 1 mes de vacaciones (V).</>
+              ) : (
+                <>
+                  Suma{' '}
+                  {form.preferenciaAnual.objetivoM +
+                    form.preferenciaAnual.objetivoT +
+                    form.preferenciaAnual.objetivoN}{' '}
+                  meses operativos · V{' '}
+                  {12 -
+                    form.preferenciaAnual.objetivoM -
+                    form.preferenciaAnual.objetivoT -
+                    form.preferenciaAnual.objetivoN}
+                  .
+                </>
+              )}
             </p>
           </section>
         </div>

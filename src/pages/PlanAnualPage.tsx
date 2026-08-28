@@ -6,10 +6,10 @@ import {
   generarPlanAnual,
   siguienteTurno,
   validarTurnoEnPlan,
-  vacacionesObjetivo,
   type ObjetivosGlobales,
   type TurnoAnual,
 } from '@/lib/generarPlanAnual'
+import { filaCumplePreferencia } from '@/lib/preferenciasAnuales'
 import {
   ETIQUETA_MES_VACACIONES,
   mesVacacionesCiclo,
@@ -89,15 +89,9 @@ function leerPorcentaje(valor: string) {
 function cuadraTotal(
   totales: Record<TurnoAnual, number>,
   agente: FichaPolicia,
-  clave: TurnoAnual,
+  _clave: TurnoAnual,
 ) {
-  if (clave === 'V') return totales.V === vacacionesObjetivo(agente)
-  const objetivos = {
-    M: agente.preferenciaAnual.objetivoM,
-    T: agente.preferenciaAnual.objetivoT,
-    N: agente.preferenciaAnual.objetivoN,
-  }
-  return totales[clave] === objetivos[clave]
+  return filaCumplePreferencia(agente, totales)
 }
 
 export function PlanAnualPage() {

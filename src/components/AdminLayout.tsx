@@ -36,6 +36,9 @@ export function AdminLayout() {
             <NavLink to="/admin/calendario" className={navClass}>
               Calendario
             </NavLink>
+            <NavLink to="/admin/reglas" className={navClass}>
+              Reglas
+            </NavLink>
           </nav>
         </div>
         {estado === 'loading' ? (

@@ -16,6 +16,7 @@ function clonarAgentes(agentes: FichaPolicia[]) {
 }
 
 let agentesData = clonarAgentes(mockAgentes)
+let agentesCargados = false
 const listeners = new Set<() => void>()
 
 function emit() {
@@ -29,6 +30,16 @@ function subscribe(listener: () => void) {
 
 function getSnapshot() {
   return agentesData
+}
+
+export function agentesEstanCargados() {
+  return agentesCargados
+}
+
+export function hydrateAgentes(agentes: FichaPolicia[]) {
+  agentesData = clonarAgentes(agentes)
+  agentesCargados = true
+  emit()
 }
 
 export function useAgentesData() {

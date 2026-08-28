@@ -202,6 +202,19 @@ export function minimosParaFecha(
   return base
 }
 
+/** Suma de mínimos de todos los puestos para un turno. */
+export function totalMinimosTurno(
+  minimos: MinimosDia,
+  turno: TurnoOperativo,
+  puestos: PuestoConfig[],
+) {
+  let total = 0
+  for (const puesto of puestos) {
+    total += minimos[puesto.nombre]?.[turno] ?? 0
+  }
+  return total
+}
+
 export function puestoExcluidoParaAgente(
   puestosExcluidos: string[],
   puesto: PuestoBase,

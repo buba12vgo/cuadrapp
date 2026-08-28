@@ -133,9 +133,9 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     categoria: 'PUESTOS',
     titulo: 'Mínimos de cobertura por puesto',
     descripcion:
-      'Cada puesto tiene un mínimo de agentes por turno (M/T/N) configurable por día de la semana.',
+      'Cada puesto tiene un mínimo de agentes por turno (M/T/N) configurable por día de la semana. El cuadrante mensual pinta en rojo el total M/T/N si no llega a la suma de esos mínimos (con eventos del calendario).',
     estado: 'implementada',
-    referencia: 'MinimosPage · minimosSemana',
+    referencia: 'MinimosPage · minimosSemana · totalMinimosTurno',
   },
   {
     id: 'puesto-nuevo-plantilla',

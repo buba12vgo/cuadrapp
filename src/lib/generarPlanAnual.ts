@@ -1,4 +1,5 @@
 import type { FichaPolicia } from '@/types'
+import { turnosLaboralesPermitidos } from '@/lib/limitaciones'
 
 export type TurnoAnual = 'M' | 'T' | 'N' | 'V'
 export type ObjetivosGlobales = { M: number; T: number; N: number }
@@ -110,31 +111,51 @@ export function cuposDesdePorcentajes(
 /** Cupos desde la preferencia de la ficha, aplicando limitaciones. */
 function cuposLaborales(agente: FichaPolicia, libres: number): Cupos {
   const lim = agente.limitaciones
-  let M = Math.max(0, agente.preferenciaAnual.objetivoM)
-  let T = Math.max(0, agente.preferenciaAnual.objetivoT)
-  let N = Math.max(0, agente.preferenciaAnual.objetivoN)
+  let M = lim.M ? Math.max(0, agente.preferenciaAnual.objetivoM) : 0
+  let T = lim.T ? Math.max(0, agente.preferenciaAnual.objetivoT) : 0
+  let N = lim.N ? Math.max(0, agente.preferenciaAnual.objetivoN) : 0
 
   if (libres <= 0) return { M: 0, T: 0, N: 0 }
-  if (lim.soloManana) return { M: libres, T: 0, N: 0 }
 
-  if (lim.soloMananaNoche) {
+  const permitidos = turnosLaboralesPermitidos(lim)
+  if (permitidos.length === 0) return { M: 0, T: 0, N: 0 }
+  if (permitidos.length === 1) {
+    const turno = permitidos[0]
+    return { M: turno === 'M' ? libres : 0, T: turno === 'T' ? libres : 0, N: turno === 'N' ? libres : 0 }
+  }
+
+  if (lim.M && lim.N && !lim.T) {
     N = Math.min(Math.max(0, N), libres)
     return { M: libres - N, T: 0, N }
   }
 
-  if (lim.exentoNoches) {
+  if (lim.M && lim.T && !lim.N) {
     T = Math.min(Math.max(0, T), libres)
     return { M: libres - T, T, N: 0 }
   }
 
+  if (lim.T && lim.N && !lim.M) {
+    N = Math.min(Math.max(0, N), libres)
+    return { M: 0, T: libres - N, N }
+  }
+
   const suma = M + T + N
-  if (suma === 0) return { M: libres, T: 0, N: 0 }
+  if (suma === 0) {
+    const reparto = cuposDesdePorcentajes(libres, { M: 34, T: 33, N: 33 })
+    return {
+      M: lim.M ? reparto.M : 0,
+      T: lim.T ? reparto.T : 0,
+      N: lim.N ? reparto.N : 0,
+    }
+  }
   if (suma > libres) {
-    N = Math.min(N, libres)
-    T = Math.min(T, libres - N)
-    M = libres - N - T
+    N = lim.N ? Math.min(N, libres) : 0
+    T = lim.T ? Math.min(T, libres - N) : 0
+    M = lim.M ? libres - N - T : 0
   } else if (suma < libres) {
-    M += libres - suma
+    if (lim.M) M += libres - suma
+    else if (lim.T) T += libres - suma
+    else if (lim.N) N += libres - suma
   }
   return { M, T, N }
 }
@@ -197,11 +218,7 @@ function asignarFila(agente: FichaPolicia): TurnoAnual[] {
 }
 
 function permiteTurno(agente: FichaPolicia, turno: TurnoActivo) {
-  const lim = agente.limitaciones
-  if (lim.soloManana) return turno === 'M'
-  if (lim.soloMananaNoche) return turno === 'M' || turno === 'N'
-  if (lim.exentoNoches) return turno === 'M' || turno === 'T'
-  return true
+  return agente.limitaciones[turno]
 }
 
 function contarFlota(plan: PlanAnual, agentes: FichaPolicia[]): Cupos {
@@ -570,10 +587,12 @@ export function generarPlanAnual(
 }
 
 export function cicloRotacion(agente: FichaPolicia): TurnoAnual[] {
-  if (agente.limitaciones.soloManana) return ['M', 'V']
-  if (agente.limitaciones.soloMananaNoche) return ['M', 'N', 'V']
-  if (agente.limitaciones.exentoNoches) return ['M', 'T', 'V']
-  return ['M', 'T', 'N', 'V']
+  const ciclo: TurnoAnual[] = []
+  if (agente.limitaciones.M) ciclo.push('M')
+  if (agente.limitaciones.T) ciclo.push('T')
+  if (agente.limitaciones.N) ciclo.push('N')
+  ciclo.push('V')
+  return ciclo.length > 1 ? ciclo : ['M', 'T', 'N', 'V']
 }
 
 export function siguienteTurno(agente: FichaPolicia, actual: TurnoAnual) {

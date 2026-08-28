@@ -23,10 +23,10 @@ import {
   parseCuadranteFirestore,
   type CuadranteMensualFirestore,
 } from '@/lib/cuadranteFirestore'
+import { LIMITACIONES_DEFECTO, leerLimitaciones } from '@/lib/limitaciones'
 import type {
   EventoOperativo,
   FichaPolicia,
-  Limitaciones,
   PreferenciaAnual,
   RolPolicia,
   TipoEvento,
@@ -62,12 +62,6 @@ const MESES_VACACIONES: FichaPolicia['mesAnclaVacaciones'][] = [
   'SEPTIEMBRE',
 ]
 
-const LIMITACIONES_DEFECTO: Limitaciones = {
-  soloManana: false,
-  soloMananaNoche: false,
-  exentoNoches: false,
-}
-
 const PREFERENCIA_DEFECTO: PreferenciaAnual = {
   objetivoM: 4,
   objetivoT: 4,
@@ -96,16 +90,6 @@ function esMesVacaciones(
     typeof valor === 'string' &&
     MESES_VACACIONES.includes(valor as FichaPolicia['mesAnclaVacaciones'])
   )
-}
-
-function leerLimitaciones(valor: unknown): Limitaciones {
-  if (!valor || typeof valor !== 'object') return { ...LIMITACIONES_DEFECTO }
-  const raw = valor as Record<string, unknown>
-  return {
-    soloManana: raw.soloManana === true,
-    soloMananaNoche: raw.soloMananaNoche === true,
-    exentoNoches: raw.exentoNoches === true,
-  }
 }
 
 function leerPreferencia(valor: unknown): PreferenciaAnual {

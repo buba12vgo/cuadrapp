@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
+import { getFirebaseProjectId } from '@/lib/firebase'
 
 export function LoginPage() {
   const { user, loading, signInWithGoogle, error, firebaseReady } = useAuth()
@@ -9,6 +10,12 @@ export function LoginPage() {
   }
 
   const puedeIniciarSesion = firebaseReady && !loading
+  const unauthorizedDomain =
+    error?.includes('no está autorizado en Firebase') ?? false
+  const projectId = getFirebaseProjectId()
+  const firebaseAuthSettingsUrl = projectId
+    ? `https://console.firebase.google.com/project/${projectId}/authentication/settings`
+    : null
 
   return (
     <div className="flex h-svh flex-col items-center justify-center bg-slate-50 px-4">
@@ -61,7 +68,36 @@ export function LoginPage() {
           </button>
         )}
         {error ? (
-          <p className="mt-3 text-center text-sm text-red-600">{error}</p>
+          <div className="mt-3 space-y-2 text-sm text-red-600">
+            <p className="text-center">{error}</p>
+            {unauthorizedDomain && firebaseAuthSettingsUrl ? (
+              <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-left text-red-900">
+                <p className="font-medium">Pasos en Firebase Console</p>
+                <ol className="mt-1 list-decimal space-y-1 pl-4 text-xs">
+                  <li>
+                    Abre{' '}
+                    <a
+                      href={firebaseAuthSettingsUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline"
+                    >
+                      Authentication → Configuración
+                    </a>
+                    .
+                  </li>
+                  <li>
+                    En «Dominios autorizados», pulsa «Añadir dominio» e introduce{' '}
+                    <code className="rounded bg-red-100 px-1">
+                      {window.location.hostname}
+                    </code>
+                    .
+                  </li>
+                  <li>Vuelve aquí y recarga la página.</li>
+                </ol>
+              </div>
+            ) : null}
+          </div>
         ) : null}
       </div>
     </div>

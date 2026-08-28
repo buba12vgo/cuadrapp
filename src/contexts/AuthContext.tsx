@@ -12,7 +12,8 @@ import {
   signOut as firebaseSignOut,
   type User,
 } from 'firebase/auth'
-import { ensureFirebase, getAuthClient } from '@/lib/firebase'
+import { formatAuthError } from '@/lib/authErrors'
+import { ensureFirebase, getAuthClient, getFirebaseProjectId } from '@/lib/firebase'
 
 const AUTH_INIT_TIMEOUT_MS = 8_000
 
@@ -75,7 +76,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           (authError) => {
             console.error('[auth] onAuthStateChanged error', authError)
             if (!cancelled) {
-              setError(authError.message)
+              setError(
+                formatAuthError(authError, {
+                  projectId: getFirebaseProjectId(),
+                }),
+              )
             }
             finishLoading()
           },
@@ -109,8 +114,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const provider = new GoogleAuthProvider()
       await signInWithPopup(auth, provider)
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Error al iniciar sesión'
-      setError(msg)
+      setError(
+        formatAuthError(e, {
+          projectId: getFirebaseProjectId(),
+        }),
+      )
     }
   }
 

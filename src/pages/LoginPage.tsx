@@ -1,10 +1,11 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
+import { isAllowedAdmin } from '@/lib/authAllowlist'
 
 export function LoginPage() {
   const { user, loading, signInWithGoogle, error, firebaseReady } = useAuth()
 
-  if (!loading && user) {
+  if (!loading && user && isAllowedAdmin(user)) {
     return <Navigate to="/admin/agentes" replace />
   }
 
@@ -15,7 +16,7 @@ export function LoginPage() {
       <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
         <h1 className="text-center text-lg font-semibold tracking-tight">Cuadrapp</h1>
         <p className="mt-2 text-center text-sm text-slate-600">
-          Inicia sesión para acceder al panel de administración.
+          Acceso restringido. Entra con tu cuenta de Google.
         </p>
         {loading ? (
           <p className="mt-4 text-center text-sm text-slate-500">

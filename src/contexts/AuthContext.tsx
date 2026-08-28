@@ -13,6 +13,7 @@ import {
   type User,
 } from 'firebase/auth'
 import { ensureFirebase, getAuthClient } from '@/lib/firebase'
+import { isAllowedAdmin, mensajeNoAutorizado } from '@/lib/authAllowlist'
 
 const AUTH_INIT_TIMEOUT_MS = 8_000
 
@@ -69,6 +70,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           auth,
           (u) => {
             if (cancelled) return
+            if (u && !isAllowedAdmin(u)) {
+              void firebaseSignOut(auth)
+                .catch((err) => {
+                  console.error('[auth] No se pudo cerrar sesión no autorizada', err)
+                })
+                .finally(() => {
+                  if (cancelled) return
+                  setUser(null)
+                  setError(mensajeNoAutorizado())
+                  finishLoading()
+                })
+              return
+            }
             setUser(u)
             finishLoading()
           },
@@ -107,7 +121,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!auth) return
     try {
       const provider = new GoogleAuthProvider()
-      await signInWithPopup(auth, provider)
+      provider.setCustomParameters({ prompt: 'select_account' })
+      const result = await signInWithPopup(auth, provider)
+      if (!isAllowedAdmin(result.user)) {
+        await firebaseSignOut(auth)
+        setUser(null)
+        setError(mensajeNoAutorizado())
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Error al iniciar sesión'
       setError(msg)

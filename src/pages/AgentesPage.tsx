@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { agenteNuevo, getAgentes, saveAgente, saveAgentes } from '@/lib/db'
+import { agenteNuevo, deleteAgente, getAgentes, saveAgente, saveAgentes } from '@/lib/db'
 import { ensureFirebase, isFirebaseReady } from '@/lib/firebase'
 import {
   fetchFirebaseStatus,
@@ -124,12 +124,14 @@ function FichaAgenteModal({
   esNuevo,
   guardando,
   onGuardar,
+  onEliminar,
   onCancelar,
 }: {
   agente: FichaPolicia
   esNuevo?: boolean
   guardando?: boolean
   onGuardar: (ficha: FichaPolicia) => void | Promise<void>
+  onEliminar?: () => void | Promise<void>
   onCancelar: () => void
 }) {
   const [puestos] = usePuestosData()
@@ -481,21 +483,35 @@ function FichaAgenteModal({
           </section>
         </div>
 
-        <footer className="flex justify-end gap-2 border-t border-slate-200 bg-white px-4 py-3">
-          <button
-            type="button"
-            className="h-8 px-3 text-xs font-semibold text-slate-600 hover:bg-slate-100"
-            onClick={onCancelar}
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            disabled={guardando}
-            className="h-8 bg-slate-900 px-3 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-wait disabled:opacity-60"
-          >
-            {guardando ? 'Guardando…' : 'Guardar'}
-          </button>
+        <footer className="flex items-center justify-between gap-2 border-t border-slate-200 bg-white px-4 py-3">
+          <div>
+            {!esNuevo && onEliminar ? (
+              <button
+                type="button"
+                className="h-8 px-3 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:cursor-wait disabled:opacity-50"
+                disabled={guardando}
+                onClick={() => void onEliminar()}
+              >
+                Eliminar agente
+              </button>
+            ) : null}
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="h-8 px-3 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+              onClick={onCancelar}
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={guardando}
+              className="h-8 bg-slate-900 px-3 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-wait disabled:opacity-60"
+            >
+              {guardando ? 'Guardando…' : 'Guardar'}
+            </button>
+          </div>
         </footer>
       </form>
     </div>
@@ -591,6 +607,39 @@ export function AgentesPage() {
         err instanceof Error
           ? err.message
           : 'No se pudo guardar el agente en Firestore'
+      setError(mensaje)
+      window.alert(mensaje)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  async function eliminarAgente(agente: FichaPolicia) {
+    const etiqueta = `${agente.numeroPlaca} · ${agente.nombre} ${agente.apellidos}`.trim()
+    const ok = window.confirm(
+      `¿Eliminar al agente «${etiqueta}»? Se quitará de la plantilla en Firestore.`,
+    )
+    if (!ok) return
+    if (!firebaseOk) {
+      window.alert('Firebase no está configurado; no se puede eliminar.')
+      return
+    }
+
+    setGuardando(true)
+    setError(null)
+    try {
+      await deleteAgente(agente.id)
+      setAgentesData((actual) =>
+        actual.filter((item) => item.id !== agente.id),
+      )
+      setAgenteModal(null)
+      setEsNuevo(false)
+      void getAgentes().then(setAgentesData).catch(() => undefined)
+    } catch (err) {
+      const mensaje =
+        err instanceof Error
+          ? err.message
+          : 'No se pudo eliminar el agente en Firestore'
       setError(mensaje)
       window.alert(mensaje)
     } finally {
@@ -740,13 +789,21 @@ export function AgentesPage() {
                     <td className="px-3 py-2 text-right">
                       <button
                         type="button"
-                        className="border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                        className="mr-2 border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
                         onClick={() => {
                           setEsNuevo(false)
                           setAgenteModal(agente)
                         }}
                       >
                         Editar
+                      </button>
+                      <button
+                        type="button"
+                        disabled={guardando || !firebaseOk}
+                        className="text-xs font-semibold text-red-700 hover:underline disabled:cursor-not-allowed disabled:opacity-40"
+                        onClick={() => void eliminarAgente(agente)}
+                      >
+                        Eliminar
                       </button>
                     </td>
                   </tr>
@@ -768,6 +825,9 @@ export function AgentesPage() {
             setEsNuevo(false)
           }}
           onGuardar={guardarFicha}
+          onEliminar={
+            esNuevo ? undefined : () => eliminarAgente(agenteModal)
+          }
         />
       ) : null}
     </section>

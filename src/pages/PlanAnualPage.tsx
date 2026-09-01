@@ -156,6 +156,12 @@ export function PlanAnualPage() {
   const [guardadoOk, setGuardadoOk] = useState(false)
   const [errorGuardado, setErrorGuardado] = useState<string | null>(null)
   const persistTimer = useRef(0)
+  const pendienteRef = useRef<{
+    anio: number
+    plan: PlanAnual
+    objetivos: ObjetivosGlobales
+    agentes: typeof agentesData
+  } | null>(null)
 
   const agentesVisibles = useMemo(
     () => agentesData.filter((agente) => agentePerteneceGrupo(agente, grupoVista)),
@@ -190,10 +196,24 @@ export function PlanAnualPage() {
   )
 
   useEffect(() => {
-    return () => window.clearTimeout(persistTimer.current)
+    return () => {
+      window.clearTimeout(persistTimer.current)
+      const pendiente = pendienteRef.current
+      pendienteRef.current = null
+      if (!pendiente) return
+      void savePlanAnual(
+        pendiente.anio,
+        pendiente.plan,
+        pendiente.objetivos,
+        pendiente.agentes,
+      ).catch((err) => {
+        console.error('[plan-anual] No se pudo guardar al salir', err)
+      })
+    }
   }, [])
 
   async function persistir(plan: PlanAnual, objetivos: ObjetivosGlobales) {
+    pendienteRef.current = null
     const ready = await ensureFirebase()
     if (!ready) return
     setGuardando(true)
@@ -214,15 +234,22 @@ export function PlanAnualPage() {
   }
 
   function persistirYa(plan: PlanAnual, objetivos: ObjetivosGlobales) {
+    pendienteRef.current = null
     window.clearTimeout(persistTimer.current)
     void persistir(plan, objetivos)
   }
 
   function persistirLuego(plan: PlanAnual, objetivos: ObjetivosGlobales) {
+    pendienteRef.current = {
+      anio,
+      plan,
+      objetivos,
+      agentes: agentesData,
+    }
     window.clearTimeout(persistTimer.current)
     persistTimer.current = window.setTimeout(() => {
       void persistir(plan, objetivos)
-    }, 500)
+    }, 400)
   }
 
   function rotarCelda(agente: FichaPolicia, mes: number) {
@@ -316,13 +343,14 @@ export function PlanAnualPage() {
                 max={100}
                 className={CAMPO_PCT}
                 value={objetivosGlobales[turno]}
+                disabled={!cargado}
                 onChange={(event) => {
                   const siguientes = {
                     ...objetivosGlobales,
                     [turno]: leerPorcentaje(event.target.value),
                   }
                   setObjetivos(siguientes)
-                  if (hayPlanAnio) persistirLuego(planAnual, siguientes)
+                  persistirLuego(planAnual, siguientes)
                 }}
               />
             </label>

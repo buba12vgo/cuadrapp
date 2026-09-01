@@ -1,5 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAgentesData } from '@/lib/agentesStore'
+import { savePlanAnual } from '@/lib/db'
+import { ensureFirebase } from '@/lib/firebase'
 import { usePlanAnual, planParaAnio } from '@/lib/planAnualStore'
 import {
   agentePerteneceGrupo,
@@ -11,6 +13,7 @@ import {
   type CeldaPlanAnual,
   type GrupoPlanAnual,
   type ObjetivosGlobales,
+  type PlanAnual,
   type TurnoAnual,
 } from '@/lib/generarPlanAnual'
 import {
@@ -137,14 +140,28 @@ function tituloPreferencia(agente: FichaPolicia, totales: Record<TurnoAnual, num
 
 export function PlanAnualPage() {
   const [agentesData] = useAgentesData()
-  const { anio, plan: planAnual, setAnio, setPlanAnual, setMarcas, registrarPlan } =
-    usePlanAnual()
+  const {
+    anio,
+    plan: planAnual,
+    objetivos: objetivosGlobales,
+    cargado,
+    setAnio,
+    setPlanAnual,
+    setObjetivos,
+    setMarcas,
+    registrarPlan,
+  } = usePlanAnual()
   const [grupoVista, setGrupoVista] = useState<GrupoPlanAnual>('OPERATIVO')
-  const [objetivosGlobales, setObjetivosGlobales] = useState<ObjetivosGlobales>({
-    M: 34,
-    T: 33,
-    N: 33,
-  })
+  const [guardando, setGuardando] = useState(false)
+  const [guardadoOk, setGuardadoOk] = useState(false)
+  const [errorGuardado, setErrorGuardado] = useState<string | null>(null)
+  const persistTimer = useRef(0)
+  const pendienteRef = useRef<{
+    anio: number
+    plan: PlanAnual
+    objetivos: ObjetivosGlobales
+    agentes: typeof agentesData
+  } | null>(null)
 
   const agentesVisibles = useMemo(
     () => agentesData.filter((agente) => agentePerteneceGrupo(agente, grupoVista)),
@@ -178,7 +195,65 @@ export function PlanAnualPage() {
     [hayPlanAnio, marcas],
   )
 
+  useEffect(() => {
+    return () => {
+      window.clearTimeout(persistTimer.current)
+      const pendiente = pendienteRef.current
+      pendienteRef.current = null
+      if (!pendiente) return
+      void savePlanAnual(
+        pendiente.anio,
+        pendiente.plan,
+        pendiente.objetivos,
+        pendiente.agentes,
+      ).catch((err) => {
+        console.error('[plan-anual] No se pudo guardar al salir', err)
+      })
+    }
+  }, [])
+
+  async function persistir(plan: PlanAnual, objetivos: ObjetivosGlobales) {
+    pendienteRef.current = null
+    const ready = await ensureFirebase()
+    if (!ready) return
+    setGuardando(true)
+    setGuardadoOk(false)
+    try {
+      await savePlanAnual(anio, plan, objetivos, agentesData)
+      setErrorGuardado(null)
+      setGuardadoOk(true)
+    } catch (err) {
+      setErrorGuardado(
+        err instanceof Error
+          ? err.message
+          : 'No se pudo guardar el plan anual en Firestore',
+      )
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  function persistirYa(plan: PlanAnual, objetivos: ObjetivosGlobales) {
+    pendienteRef.current = null
+    window.clearTimeout(persistTimer.current)
+    void persistir(plan, objetivos)
+  }
+
+  function persistirLuego(plan: PlanAnual, objetivos: ObjetivosGlobales) {
+    pendienteRef.current = {
+      anio,
+      plan,
+      objetivos,
+      agentes: agentesData,
+    }
+    window.clearTimeout(persistTimer.current)
+    persistTimer.current = window.setTimeout(() => {
+      void persistir(plan, objetivos)
+    }, 400)
+  }
+
   function rotarCelda(agente: FichaPolicia, mes: number) {
+    if (!cargado) return
     const filaActual = [...(planAnual[agente.id] ?? filaVaciaPlanAnual())]
     const turnoActual = filaActual[mes] ?? null
     const siguiente = siguienteTurno(agente, turnoActual)
@@ -198,10 +273,12 @@ export function PlanAnualPage() {
     const planActualizado = { ...planAnual, [agente.id]: filaActual }
     setPlanAnual(planActualizado)
     setMarcas(calcularMarcas(planActualizado, agentesVisibles, objetivosGlobales))
+    persistirYa(planActualizado, objetivosGlobales)
   }
 
   /** Regenera solo el año del selector; no escribe años vecinos. */
   function autogenerar() {
+    if (!cargado) return
     const resultado = generarPlanAnual(
       agentesData,
       objetivosGlobales,
@@ -210,6 +287,7 @@ export function PlanAnualPage() {
       { grupo: grupoVista, planBase: planAnual },
     )
     registrarPlan(anio, resultado.plan, resultado.marcas)
+    persistirYa(resultado.plan, objetivosGlobales)
   }
 
   return (
@@ -265,27 +343,49 @@ export function PlanAnualPage() {
                 max={100}
                 className={CAMPO_PCT}
                 value={objetivosGlobales[turno]}
-                onChange={(event) =>
-                  setObjetivosGlobales((actual) => ({
-                    ...actual,
+                disabled={!cargado}
+                onChange={(event) => {
+                  const siguientes = {
+                    ...objetivosGlobales,
                     [turno]: leerPorcentaje(event.target.value),
-                  }))
-                }
+                  }
+                  setObjetivos(siguientes)
+                  persistirLuego(planAnual, siguientes)
+                }}
               />
             </label>
           ))}
           <button
             type="button"
-            className="h-6 bg-slate-900 px-2 text-xs font-semibold text-white hover:bg-slate-700"
+            className="h-6 bg-slate-900 px-2 text-xs font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
             title={`Regenera solo ${anio}. Los demás años no se modifican.`}
+            disabled={!cargado}
             onClick={autogenerar}
           >
             Autogenerar Año
           </button>
+          {guardando ? (
+            <span className="text-[11px] text-slate-500">Guardando…</span>
+          ) : null}
+          {guardadoOk && !guardando ? (
+            <span className="text-[11px] text-green-700">Guardado</span>
+          ) : null}
         </div>
       </div>
 
-      {!hayPlanAnio ? (
+      {errorGuardado ? (
+        <div className="mx-1 mb-1 border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-800">
+          {errorGuardado}
+        </div>
+      ) : null}
+
+      {!cargado ? (
+        <div className="mx-1 mb-1 border border-slate-300 bg-slate-50 px-2 py-1 text-xs text-slate-700">
+          Cargando plan anual desde Firestore…
+        </div>
+      ) : null}
+
+      {cargado && !hayPlanAnio ? (
         <div className="mx-1 mb-1 border border-slate-300 bg-slate-50 px-2 py-1 text-xs text-slate-700">
           <p>
             {anio} no tiene plan. Pulsa <span className="font-semibold">Autogenerar Año</span> para

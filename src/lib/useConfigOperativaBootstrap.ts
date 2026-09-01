@@ -1,18 +1,20 @@
 import { useEffect, useState } from 'react'
-import { cargarConfigOperativa } from '@/lib/db'
+import { hydrateAgentes } from '@/lib/agentesStore'
+import { cargarConfigOperativa, getAgentes, getPlanesAnuales } from '@/lib/db'
 import { hydrateEventos } from '@/lib/eventosStore'
 import { ensureFirebase, isFirebaseReady } from '@/lib/firebase'
 import {
   fetchFirebaseStatus,
   formatFirebaseStatus,
 } from '@/lib/firebaseStatus'
+import { hydratePlanesAnuales } from '@/lib/planAnualStore'
 import { hydratePuestosYMinimos } from '@/lib/puestosStore'
 
 type EstadoCarga = 'idle' | 'loading' | 'ready' | 'error'
 
 /**
- * Carga puestos, mínimos semanales y eventos desde Firestore una vez
- * por sesión de admin. Siembra puestos/mínimos por defecto si están vacíos.
+ * Carga plantilla, plan anual, puestos, mínimos y eventos desde Firestore
+ * una vez por sesión de admin.
  */
 export function useConfigOperativaBootstrap() {
   const [estado, setEstado] = useState<EstadoCarga>(() =>
@@ -35,6 +37,7 @@ export function useConfigOperativaBootstrap() {
       if (!ready) {
         const status = await fetchFirebaseStatus()
         if (cancelado) return
+        hydratePlanesAnuales({}, {})
         setError(
           status
             ? `Firebase no configurado. ${formatFirebaseStatus(status)}`
@@ -45,13 +48,34 @@ export function useConfigOperativaBootstrap() {
       }
 
       try {
-        const config = await cargarConfigOperativa()
+        const [config, agentes] = await Promise.all([
+          cargarConfigOperativa(),
+          getAgentes(),
+        ])
         if (cancelado) return
         hydratePuestosYMinimos(config.puestos, config.minimosSemana)
         hydrateEventos(config.eventos)
+        hydrateAgentes(agentes)
+
+        try {
+          const planes = await getPlanesAnuales(agentes)
+          if (cancelado) return
+          hydratePlanesAnuales(planes.planes, planes.objetivos)
+        } catch (err) {
+          if (cancelado) return
+          hydratePlanesAnuales({}, {})
+          console.error('[bootstrap] No se pudo cargar el plan anual', err)
+          setError(
+            err instanceof Error
+              ? err.message
+              : 'No se pudo cargar el plan anual desde Firestore',
+          )
+        }
+
         setEstado('ready')
       } catch (err) {
         if (cancelado) return
+        hydratePlanesAnuales({}, {})
         setError(
           err instanceof Error
             ? err.message

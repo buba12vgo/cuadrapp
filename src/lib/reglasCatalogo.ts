@@ -124,9 +124,11 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     categoria: 'TURNOS',
     titulo: 'Separación entre noches en el plan anual',
     descripcion:
-      'Las noches del plan anual se separan al menos 2–3 meses según la capacidad de la fila.',
+      'Tras un mes de noche no se puede volver a hacer noche en los dos meses siguientes del mismo año. Marzo N no permite noche otra vez hasta junio como muy pronto.',
     estado: 'implementada',
-    referencia: 'generarPlanAnual · puedeNoche',
+    detalle:
+      'La separación es lineal y solo dentro del año: no se envuelve a enero. Si alguien acaba diciembre en N, en el año siguiente puede hacer enero o febrero N si hace falta para cuadrar sus preferencias. Diciembre N dos años seguidos sigue prohibido por otra regla.',
+    referencia: 'generarPlanAnual · puedeNoche · MESES_SIN_N_TRAS_NOCHE = 2',
   },
   {
     id: 'minimos-puesto-turno',

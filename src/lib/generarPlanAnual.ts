@@ -53,6 +53,12 @@ export const TOLERANCIA_PCT_PLAN = 2
 const MESES = 12
 const TURNOS_ACTIVOS = ['M', 'T', 'N'] as const
 const MES_DICIEMBRE = 11
+/**
+ * Tras un mes de noche, los dos meses siguientes del mismo año no pueden ser N.
+ * Marzo N → abril y mayo bloqueados; junio es lo más pronto. Solo lineal
+ * dentro del año: diciembre N no impide enero/febrero del año siguiente.
+ */
+const MESES_SIN_N_TRAS_NOCHE = 2
 type TurnoActivo = (typeof TURNOS_ACTIVOS)[number]
 
 export function filaVaciaPlanAnual(): FilaPlanAnual {
@@ -94,11 +100,6 @@ function clonarPlan(plan: PlanAnual): PlanAnual {
 type Cupos = { M: number; T: number; N: number }
 type Fila = (TurnoAnual | null)[]
 
-function distCircular(a: number, b: number) {
-  const d = Math.abs(a - b)
-  return Math.min(d, MESES - d)
-}
-
 function huecos(fila: Fila) {
   const meses: number[] = []
   for (let mes = 0; mes < MESES; mes++) {
@@ -107,20 +108,24 @@ function huecos(fila: Fila) {
   return meses
 }
 
-function puedeNoche(fila: Fila, mes: number, minDist: number) {
+function nochesDemasiadoCercanas(a: number, b: number) {
+  return a !== b && Math.abs(a - b) <= MESES_SIN_N_TRAS_NOCHE
+}
+
+function puedeNoche(fila: Fila, mes: number) {
   if (fila[mes] != null) return false
   for (let otro = 0; otro < MESES; otro++) {
     if (fila[otro] !== 'N') continue
-    if (distCircular(mes, otro) < minDist) return false
+    if (nochesDemasiadoCercanas(mes, otro)) return false
   }
   return true
 }
 
-function puedeColocarNoche(fila: FilaPlanAnual, mes: number, minDist: number) {
+function puedeColocarNoche(fila: FilaPlanAnual, mes: number) {
   for (let otro = 0; otro < MESES; otro++) {
     if (otro === mes) continue
     if (fila[otro] !== 'N') continue
-    if (distCircular(mes, otro) < minDist) return false
+    if (nochesDemasiadoCercanas(mes, otro)) return false
   }
   return true
 }
@@ -223,26 +228,6 @@ function cuposLaborales(
   return { M, T, N }
 }
 
-function capacidadN(fila: Fila, minDist: number) {
-  let mejor = 0
-  for (const invertido of [false, true]) {
-    for (let fase = 0; fase < minDist; fase++) {
-      const copia = [...fila]
-      let n = 0
-      for (let k = 0; k < MESES; k++) {
-        const mes = invertido
-          ? (fase - k + MESES * 2) % MESES
-          : (fase + k) % MESES
-        if (!puedeNoche(copia, mes, minDist)) continue
-        copia[mes] = 'N'
-        n += 1
-      }
-      mejor = Math.max(mejor, n)
-    }
-  }
-  return mejor
-}
-
 function asignarFila(
   agente: FichaPolicia,
   anio: number,
@@ -258,18 +243,15 @@ function asignarFila(
   }
 
   const cupos = cuposLaborales(agente, huecos(fila).length, cuposOverride)
-  const minDists = cupos.N <= capacidadN(fila, 3) ? [3] : [2]
 
-  for (const minDist of minDists) {
-    for (const invertido of [false, true]) {
+  for (const invertido of [false, true]) {
+    if (cupos.N <= 0) break
+    const candidatos = invertido ? [...huecos(fila)].reverse() : huecos(fila)
+    for (const mes of candidatos) {
       if (cupos.N <= 0) break
-      const candidatos = invertido ? [...huecos(fila)].reverse() : huecos(fila)
-      for (const mes of candidatos) {
-        if (cupos.N <= 0) break
-        if (!puedeNoche(fila, mes, minDist)) continue
-        fila[mes] = 'N'
-        cupos.N -= 1
-      }
+      if (!puedeNoche(fila, mes)) continue
+      fila[mes] = 'N'
+      cupos.N -= 1
     }
   }
 
@@ -399,8 +381,8 @@ function intentarSwapMismaFila(
   const copia = [...fila]
   copia[mesA] = turnoB
   copia[mesB] = turnoA
-  if (turnoB === 'N' && !puedeColocarNoche(copia, mesA, 2)) return false
-  if (turnoA === 'N' && !puedeColocarNoche(copia, mesB, 2)) return false
+  if (turnoB === 'N' && !puedeColocarNoche(copia, mesA)) return false
+  if (turnoA === 'N' && !puedeColocarNoche(copia, mesB)) return false
 
   plan[id] = copia
   return true
@@ -449,10 +431,7 @@ function intentarDobleSwapPreservandoCupos(
     [agenteB, copiaB, mes2, b1],
   ] as const) {
     if (!permiteTurno(agente, turno as TurnoActivo)) return false
-    if (
-      turno === 'N' &&
-      !puedeColocarNoche(copia, mes as number, 2)
-    ) {
+    if (turno === 'N' && !puedeColocarNoche(copia, mes as number)) {
       return false
     }
   }
@@ -737,8 +716,8 @@ export function validarTurnoEnPlan(
     if (!permiteTurno(agente, turno)) {
       return `El agente no puede hacer turno ${turno}`
     }
-    if (turno === 'N' && !puedeColocarNoche(fila, mes, 2)) {
-      return 'Separación insuficiente entre noches en el plan anual'
+    if (turno === 'N' && !puedeColocarNoche(fila, mes)) {
+      return 'No se puede repetir noche en los dos meses siguientes (mismo año)'
     }
     if (
       mes === MES_DICIEMBRE &&

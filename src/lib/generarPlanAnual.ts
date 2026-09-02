@@ -52,11 +52,13 @@ export const TOLERANCIA_PCT_PLAN = 2
 
 const MESES = 12
 const TURNOS_ACTIVOS = ['M', 'T', 'N'] as const
+const MES_ENERO = 0
 const MES_DICIEMBRE = 11
 /**
  * Tras un mes de noche, los dos meses siguientes del mismo año no pueden ser N.
- * Marzo N → abril y mayo bloqueados; junio es lo más pronto. Solo lineal
- * dentro del año: diciembre N no impide enero/febrero del año siguiente.
+ * Marzo N → abril y mayo bloqueados; junio es lo más pronto.
+ * Entre años, dos meses seguidos sí están prohibidos: diciembre N bloquea enero.
+ * Febrero del año siguiente puede ser N para cuadrar preferencias.
  */
 const MESES_SIN_N_TRAS_NOCHE = 2
 type TurnoActivo = (typeof TURNOS_ACTIVOS)[number]
@@ -112,8 +114,16 @@ function nochesDemasiadoCercanas(a: number, b: number) {
   return a !== b && Math.abs(a - b) <= MESES_SIN_N_TRAS_NOCHE
 }
 
-function puedeNoche(fila: Fila, mes: number) {
+function eneroBloqueadoPorDiciembreAnterior(
+  mes: number,
+  diciembreAnteriorN: boolean,
+) {
+  return diciembreAnteriorN && mes === MES_ENERO
+}
+
+function puedeNoche(fila: Fila, mes: number, diciembreAnteriorN: boolean) {
   if (fila[mes] != null) return false
+  if (eneroBloqueadoPorDiciembreAnterior(mes, diciembreAnteriorN)) return false
   for (let otro = 0; otro < MESES; otro++) {
     if (fila[otro] !== 'N') continue
     if (nochesDemasiadoCercanas(mes, otro)) return false
@@ -121,7 +131,12 @@ function puedeNoche(fila: Fila, mes: number) {
   return true
 }
 
-function puedeColocarNoche(fila: FilaPlanAnual, mes: number) {
+function puedeColocarNoche(
+  fila: FilaPlanAnual,
+  mes: number,
+  diciembreAnteriorN: boolean,
+) {
+  if (eneroBloqueadoPorDiciembreAnterior(mes, diciembreAnteriorN)) return false
   for (let otro = 0; otro < MESES; otro++) {
     if (otro === mes) continue
     if (fila[otro] !== 'N') continue
@@ -232,6 +247,7 @@ function asignarFila(
   agente: FichaPolicia,
   anio: number,
   cuposOverride?: Cupos,
+  planAnioAnterior?: PlanAnual,
 ): TurnoAnual[] {
   const fila: Fila = Array.from({ length: MESES }, () => null)
   for (const mes of mesesVacacionesEnPlan(
@@ -243,13 +259,14 @@ function asignarFila(
   }
 
   const cupos = cuposLaborales(agente, huecos(fila).length, cuposOverride)
+  const diciembreAnteriorN = diciembreNProhibido(agente.id, planAnioAnterior)
 
   for (const invertido of [false, true]) {
     if (cupos.N <= 0) break
     const candidatos = invertido ? [...huecos(fila)].reverse() : huecos(fila)
     for (const mes of candidatos) {
       if (cupos.N <= 0) break
-      if (!puedeNoche(fila, mes)) continue
+      if (!puedeNoche(fila, mes, diciembreAnteriorN)) continue
       fila[mes] = 'N'
       cupos.N -= 1
     }
@@ -364,6 +381,7 @@ function intentarSwapMismaFila(
   id: string,
   mesA: number,
   mesB: number,
+  planAnioAnterior?: PlanAnual,
 ) {
   if (mesA === mesB) return false
   const fila = plan[id]
@@ -378,11 +396,16 @@ function intentarSwapMismaFila(
     return false
   }
 
+  const dicAnteriorN = diciembreNProhibido(id, planAnioAnterior)
   const copia = [...fila]
   copia[mesA] = turnoB
   copia[mesB] = turnoA
-  if (turnoB === 'N' && !puedeColocarNoche(copia, mesA)) return false
-  if (turnoA === 'N' && !puedeColocarNoche(copia, mesB)) return false
+  if (turnoB === 'N' && !puedeColocarNoche(copia, mesA, dicAnteriorN)) {
+    return false
+  }
+  if (turnoA === 'N' && !puedeColocarNoche(copia, mesB, dicAnteriorN)) {
+    return false
+  }
 
   plan[id] = copia
   return true
@@ -399,6 +422,7 @@ function intentarDobleSwapPreservandoCupos(
   idB: string,
   mes1: number,
   mes2: number,
+  planAnioAnterior?: PlanAnual,
 ) {
   if (idA === idB || mes1 === mes2) return false
   const filaA = plan[idA]
@@ -431,7 +455,14 @@ function intentarDobleSwapPreservandoCupos(
     [agenteB, copiaB, mes2, b1],
   ] as const) {
     if (!permiteTurno(agente, turno as TurnoActivo)) return false
-    if (turno === 'N' && !puedeColocarNoche(copia, mes as number)) {
+    if (
+      turno === 'N' &&
+      !puedeColocarNoche(
+        copia,
+        mes as number,
+        diciembreNProhibido(agente.id, planAnioAnterior),
+      )
+    ) {
       return false
     }
   }
@@ -449,6 +480,7 @@ function equilibrarMesesPreservandoPreferencias(
   plan: PlanAnual,
   agentes: FichaPolicia[],
   objetivos: ObjetivosGlobales,
+  planAnioAnterior?: PlanAnual,
 ) {
   if (agentes.length === 0) return
 
@@ -478,12 +510,28 @@ function equilibrarMesesPreservandoPreferencias(
             for (let mesB = 0; mesB < MESES; mesB++) {
               if (mesB === mes) continue
               if (plan[id]?.[mesB] !== deficit) continue
-              if (!intentarSwapMismaFila(plan, agentesById, id, mes, mesB)) {
+              if (
+                !intentarSwapMismaFila(
+                  plan,
+                  agentesById,
+                  id,
+                  mes,
+                  mesB,
+                  planAnioAnterior,
+                )
+              ) {
                 continue
               }
               const devDesp = desviacionMeses(plan, ids, objetivos)
               if (devDesp >= devAntes) {
-                intentarSwapMismaFila(plan, agentesById, id, mes, mesB)
+                intentarSwapMismaFila(
+                  plan,
+                  agentesById,
+                  id,
+                  mes,
+                  mesB,
+                  planAnioAnterior,
+                )
                 continue
               }
               conteo[surplus] -= 1
@@ -513,6 +561,7 @@ function equilibrarMesesPreservandoPreferencias(
                       idB,
                       mes,
                       mesB,
+                      planAnioAnterior,
                     )
                   ) {
                     continue
@@ -526,6 +575,7 @@ function equilibrarMesesPreservandoPreferencias(
                       idB,
                       mes,
                       mesB,
+                      planAnioAnterior,
                     )
                     continue
                   }
@@ -690,6 +740,17 @@ export function diciembreNProhibido(
   return planAnioAnterior?.[agenteId]?.[MES_DICIEMBRE] === 'N'
 }
 
+function sustituirNochePorAlternativa(
+  agente: FichaPolicia,
+  fila: FilaPlanAnual,
+  mes: number,
+) {
+  const alternativas: TurnoAnual[] = []
+  if (agente.limitaciones.T) alternativas.push('T')
+  if (agente.limitaciones.M) alternativas.push('M')
+  fila[mes] = alternativas[0] ?? 'M'
+}
+
 function evitarDiciembreNRepetido(
   agente: FichaPolicia,
   fila: FilaPlanAnual,
@@ -697,11 +758,26 @@ function evitarDiciembreNRepetido(
 ) {
   if (fila[MES_DICIEMBRE] !== 'N') return
   if (!diciembreNProhibido(agente.id, planAnioAnterior)) return
+  sustituirNochePorAlternativa(agente, fila, MES_DICIEMBRE)
+}
 
-  const alternativas: TurnoAnual[] = []
-  if (agente.limitaciones.M) alternativas.push('M')
-  if (agente.limitaciones.T) alternativas.push('T')
-  fila[MES_DICIEMBRE] = alternativas[0] ?? 'M'
+function evitarEneroNTrasDiciembre(
+  agente: FichaPolicia,
+  fila: FilaPlanAnual,
+  planAnioAnterior?: PlanAnual,
+) {
+  if (fila[MES_ENERO] !== 'N') return
+  if (!diciembreNProhibido(agente.id, planAnioAnterior)) return
+  sustituirNochePorAlternativa(agente, fila, MES_ENERO)
+}
+
+function corregirNochesCruceAnio(
+  agente: FichaPolicia,
+  fila: FilaPlanAnual,
+  planAnioAnterior?: PlanAnual,
+) {
+  evitarEneroNTrasDiciembre(agente, fila, planAnioAnterior)
+  evitarDiciembreNRepetido(agente, fila, planAnioAnterior)
 }
 
 export function validarTurnoEnPlan(
@@ -716,14 +792,14 @@ export function validarTurnoEnPlan(
     if (!permiteTurno(agente, turno)) {
       return `El agente no puede hacer turno ${turno}`
     }
-    if (turno === 'N' && !puedeColocarNoche(fila, mes)) {
+    const dicAnteriorN = diciembreNProhibido(agente.id, planAnioAnterior)
+    if (turno === 'N' && mes === MES_ENERO && dicAnteriorN) {
+      return 'No puede hacer noche en enero si diciembre del año anterior fue noche'
+    }
+    if (turno === 'N' && !puedeColocarNoche(fila, mes, dicAnteriorN)) {
       return 'No se puede repetir noche en los dos meses siguientes (mismo año)'
     }
-    if (
-      mes === MES_DICIEMBRE &&
-      turno === 'N' &&
-      diciembreNProhibido(agente.id, planAnioAnterior)
-    ) {
+    if (mes === MES_DICIEMBRE && turno === 'N' && dicAnteriorN) {
       return 'No puede repetir noche en diciembre respecto al año anterior'
     }
   }
@@ -791,8 +867,8 @@ export function generarPlanAnual(
   )
 
   for (const agente of fijos) {
-    const fila = asignarFila(agente, anio)
-    evitarDiciembreNRepetido(agente, fila, planAnioAnterior)
+    const fila = asignarFila(agente, anio, undefined, planAnioAnterior)
+    corregirNochesCruceAnio(agente, fila, planAnioAnterior)
     plan[agente.id] = fila
     const cupos = contarFila(fila)
     acumulado.M += cupos.M
@@ -803,8 +879,8 @@ export function generarPlanAnual(
   for (const agente of flexibles) {
     const libres = MESES - vacacionesObjetivo(agente)
     const cupos = elegirCuposSinPreferencia(agente, acumulado, objetivos, libres)
-    const fila = asignarFila(agente, anio, cupos)
-    evitarDiciembreNRepetido(agente, fila, planAnioAnterior)
+    const fila = asignarFila(agente, anio, cupos, planAnioAnterior)
+    corregirNochesCruceAnio(agente, fila, planAnioAnterior)
     plan[agente.id] = fila
     acumulado.M += cupos.M
     acumulado.T += cupos.T
@@ -818,10 +894,15 @@ export function generarPlanAnual(
     }
   }
 
-  equilibrarMesesPreservandoPreferencias(plan, agentesGenerar, objetivos)
+  equilibrarMesesPreservandoPreferencias(
+    plan,
+    agentesGenerar,
+    objetivos,
+    planAnioAnterior,
+  )
   for (const agente of agentesGenerar) {
     const fila = plan[agente.id]
-    if (fila) evitarDiciembreNRepetido(agente, fila, planAnioAnterior)
+    if (fila) corregirNochesCruceAnio(agente, fila, planAnioAnterior)
   }
 
   return {

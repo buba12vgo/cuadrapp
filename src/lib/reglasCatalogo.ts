@@ -124,10 +124,10 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     categoria: 'TURNOS',
     titulo: 'Separación entre noches en el plan anual',
     descripcion:
-      'Tras un mes de noche no se puede volver a hacer noche en los dos meses siguientes del mismo año. Marzo N no permite noche otra vez hasta junio como muy pronto.',
+      'Tras un mes de noche no se puede volver a hacer noche en los dos meses siguientes del mismo año. Marzo N no permite noche otra vez hasta junio como muy pronto. Diciembre N bloquea enero del año siguiente (meses seguidos); febrero sí puede ser N si hace falta para las preferencias.',
     estado: 'implementada',
     detalle:
-      'La separación es lineal y solo dentro del año: no se envuelve a enero. Si alguien acaba diciembre en N, en el año siguiente puede hacer enero o febrero N si hace falta para cuadrar sus preferencias. Diciembre N dos años seguidos sigue prohibido por otra regla.',
+      'La separación de dos meses es lineal y solo dentro del año. Entre años solo se prohíben meses consecutivos: diciembre N impide enero N. Febrero del año siguiente puede ser N. Diciembre N dos años seguidos sigue prohibido por otra regla.',
     referencia: 'generarPlanAnual · puedeNoche · MESES_SIN_N_TRAS_NOCHE = 2',
   },
   {

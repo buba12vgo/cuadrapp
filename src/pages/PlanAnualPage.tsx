@@ -46,11 +46,14 @@ const MESES = [
 const TOTALES = ['M', 'T', 'N', 'V'] as const
 const TOLERANCIA_PCT = 2
 const ANCHO_AGENTE = 148
+const ANCHO_MES = 48
 const ANCHO_TOTAL = 28
 const ANCHO_PATRON = 44
 
 const CELDA =
   'h-6 border border-slate-400 px-1 py-0 text-xs leading-none'
+const CELDA_PIE =
+  'h-8 border border-slate-400 px-0.5 py-0 text-[11px] leading-none'
 const CAMPO_PCT =
   'h-6 w-11 border border-slate-400 bg-white px-1 text-center text-xs text-slate-900 outline-none focus:border-slate-700'
 const CAMPO =
@@ -481,6 +484,7 @@ export function PlanAnualPage() {
                       ? 'bg-amber-200 text-amber-950 ring-2 ring-inset ring-amber-500'
                       : 'bg-white'
                   }`}
+                  style={{ minWidth: 48 }}
                   title={
                     mesesMarcados.has(indiceMes)
                       ? `${mes}: no se ha podido cuadrar el % del selector`
@@ -568,6 +572,7 @@ export function PlanAnualPage() {
                       } ${
                         mesesMarcados.has(mes) ? 'outline outline-1 outline-amber-400' : ''
                       }`}
+                      style={{ minWidth: ANCHO_MES }}
                       title={
                         turno
                           ? `${MESES[mes]} · ${turno}`
@@ -650,7 +655,7 @@ export function PlanAnualPage() {
               return (
                 <tr key={turnoPie}>
                   <td
-                    className={`${CELDA} sticky left-0 z-40 text-left ${
+                    className={`${CELDA_PIE} sticky left-0 z-40 text-left ${
                       hayPlanAnio && marcas && !marcas.anioCuadra
                         ? 'bg-amber-200 text-amber-950'
                         : 'bg-gray-200'
@@ -662,11 +667,12 @@ export function PlanAnualPage() {
                   </td>
                   {totalesMes.map((columna, mes) => {
                     const activos = columna.M + columna.T + columna.N
-                    const real = porcentaje(columna[turnoPie], activos)
+                    const cantidad = columna[turnoPie]
+                    const real = porcentaje(cantidad, activos)
                     return (
                       <td
                         key={MESES[mes]}
-                        className={`${CELDA} text-center tabular-nums ${claseSemaforo(
+                        className={`${CELDA_PIE} text-center tabular-nums ${claseSemaforo(
                           real,
                           objetivosGlobales[turnoPie],
                         )} ${
@@ -674,15 +680,28 @@ export function PlanAnualPage() {
                             ? 'ring-2 ring-inset ring-amber-500'
                             : ''
                         }`}
+                        style={{ minWidth: ANCHO_MES }}
+                        title={
+                          real == null
+                            ? undefined
+                            : `${cantidad} en ${turnoPie} · ${real.toFixed(1)}%`
+                        }
                       >
-                        {real == null ? '—' : `${real.toFixed(1)}%`}
+                        {real == null ? (
+                          '—'
+                        ) : (
+                          <span className="flex flex-col items-center justify-center gap-0.5">
+                            <span>{cantidad}</span>
+                            <span>{real.toFixed(1)}%</span>
+                          </span>
+                        )}
                       </td>
                     )
                   })}
                   {TOTALES.map((clave, indice) => (
                     <td
                       key={clave}
-                      className={`${CELDA} sticky z-40 text-center tabular-nums ${
+                      className={`${CELDA_PIE} sticky z-40 text-center tabular-nums ${
                         indice === 0 ? 'border-l-2 border-l-slate-600' : ''
                       } ${
                         clave === turnoPie
@@ -701,7 +720,7 @@ export function PlanAnualPage() {
                     </td>
                   ))}
                   <td
-                    className={`${CELDA} sticky z-40 bg-gray-200`}
+                    className={`${CELDA_PIE} sticky z-40 bg-gray-200`}
                     style={stickyPatron()}
                   />
                 </tr>

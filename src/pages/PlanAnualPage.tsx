@@ -484,7 +484,7 @@ export function PlanAnualPage() {
                       ? 'bg-amber-200 text-amber-950 ring-2 ring-inset ring-amber-500'
                       : 'bg-white'
                   }`}
-                  style={{ minWidth: 48 }}
+                  style={{ minWidth: ANCHO_MES }}
                   title={
                     mesesMarcados.has(indiceMes)
                       ? `${mes}: no se ha podido cuadrar el % del selector`

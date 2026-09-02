@@ -81,6 +81,10 @@ export function isFirebaseReady() {
   return Boolean(state.db)
 }
 
+export function getFirebaseProjectId(): string | undefined {
+  return state.app?.options.projectId
+}
+
 export async function ensureFirebase(): Promise<boolean> {
   if (state.db) return true
   if (initPromise) return initPromise

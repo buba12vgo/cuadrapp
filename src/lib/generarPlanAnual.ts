@@ -1,10 +1,10 @@
 import type { FichaPolicia, RolPolicia } from '@/types'
 import { turnosLaboralesPermitidos } from '@/lib/limitaciones'
 import {
+  agenteSinLimitacionesTurno,
   cuposDesdePatron,
   esPatronFijo,
-  esSinPreferencia,
-  filaCumplePreferencia,
+  filaCumplePatronObligatorio,
   patronesCompatibles,
   vacacionesObjetivoPreferencia,
 } from '@/lib/preferenciasAnuales'
@@ -35,8 +35,8 @@ export type MarcasPlanAnual = {
   /** Meses cuyo % queda fuera de tolerancia. */
   mesesSinCuadrar: number[]
   /**
-   * Agentes cuya fila no respeta su preferencia anual
-   * (tras limitaciones / separación de noches).
+   * Agentes con infracciones graves o sin patrón obligatorio (4-4-3 / 4-3-4 / 5-3-3
+   * si no tienen limitación de turnos).
    */
   agentesSinCuadrar: string[]
   /** El mix de preferencias de la plantilla no puede alcanzar el % del selector. */
@@ -829,7 +829,7 @@ function intentarDobleSwapPreservandoCupos(
 
 /**
  * Reordena meses sin cambiar los cupos de cada ficha, para acercar el % mensual
- * al selector. El % anual queda fijado por la suma de preferencias.
+ * al selector.
  */
 function equilibrarMesesPreservandoPreferencias(
   plan: PlanAnual,
@@ -889,14 +889,94 @@ function elegirCuposSinPreferencia(
   return mejorCupos
 }
 
-function cuposEsperadosTrasLimitaciones(agente: FichaPolicia): Cupos {
-  const libres = MESES - vacacionesObjetivo(agente)
-  if (esSinPreferencia(agente.preferenciaAnual)) {
-    const compatibles = patronesCompatibles(agente.limitaciones)
-    if (compatibles.length === 0) return cuposLaborales(agente, libres)
-    return cuposDesdePatron(agente, compatibles[0], libres)
+function cuposCandidatosLimitados(agente: FichaPolicia, libres: number): Cupos[] {
+  const lim = agente.limitaciones
+  if (!lim.M && !lim.T && !lim.N) return [{ M: 0, T: 0, N: 0 }]
+
+  const permitidos =
+    (lim.M ? 1 : 0) + (lim.T ? 1 : 0) + (lim.N ? 1 : 0)
+  if (permitidos === 1) {
+    if (lim.M) return [{ M: libres, T: 0, N: 0 }]
+    if (lim.T) return [{ M: 0, T: libres, N: 0 }]
+    return [{ M: 0, T: 0, N: libres }]
   }
-  return cuposLaborales(agente, libres)
+
+  const candidatos: Cupos[] = []
+  if (lim.M && lim.T && !lim.N) {
+    for (let t = 0; t <= libres; t++) {
+      candidatos.push({ M: libres - t, T: t, N: 0 })
+    }
+    return candidatos
+  }
+  if (lim.M && lim.N && !lim.T) {
+    for (let n = 0; n <= libres; n++) {
+      candidatos.push({ M: libres - n, T: 0, N: n })
+    }
+    return candidatos
+  }
+  if (lim.T && lim.N && !lim.M) {
+    for (let n = 0; n <= libres; n++) {
+      candidatos.push({ M: 0, T: libres - n, N: n })
+    }
+    return candidatos
+  }
+
+  return [cuposLaborales(agente, libres)]
+}
+
+function elegirCuposConLimitaciones(
+  agente: FichaPolicia,
+  acumulado: Cupos,
+  objetivos: ObjetivosGlobales,
+  libres: number,
+): Cupos {
+  let mejorCupos = cuposLaborales(agente, libres)
+  let mejorDev = Number.POSITIVE_INFINITY
+
+  for (const cupos of cuposCandidatosLimitados(agente, libres)) {
+    const nuevoTotal: Cupos = {
+      M: acumulado.M + cupos.M,
+      T: acumulado.T + cupos.T,
+      N: acumulado.N + cupos.N,
+    }
+    const dev = desviacionPorcentajes(pctDesdeCupos(nuevoTotal), objetivos)
+    if (dev < mejorDev) {
+      mejorDev = dev
+      mejorCupos = cupos
+    }
+  }
+
+  return mejorCupos
+}
+
+function elegirCuposParaObjetivos(
+  agente: FichaPolicia,
+  acumulado: Cupos,
+  objetivos: ObjetivosGlobales,
+  libres: number,
+): Cupos {
+  if (agenteSinLimitacionesTurno(agente.limitaciones)) {
+    return elegirCuposSinPreferencia(agente, acumulado, objetivos, libres)
+  }
+  return elegirCuposConLimitaciones(agente, acumulado, objetivos, libres)
+}
+
+function acumuladoSinAgente(
+  plan: PlanAnual,
+  agentes: FichaPolicia[],
+  excluirId: string,
+): Cupos {
+  const total: Cupos = { M: 0, T: 0, N: 0 }
+  for (const agente of agentes) {
+    if (agente.id === excluirId) continue
+    const fila = plan[agente.id]
+    if (!fila) continue
+    const cupos = contarFila(fila)
+    total.M += cupos.M
+    total.T += cupos.T
+    total.N += cupos.N
+  }
+  return total
 }
 
 function agentesParaMarcasPlan(agentes: FichaPolicia[]) {
@@ -940,7 +1020,7 @@ function filaCuadraAgente(
   fila: FilaPlanAnual,
   planAnioAnterior?: PlanAnual,
 ) {
-  if (!filaCumplePreferencia(agente, contarFila(fila))) return false
+  if (!filaCumplePatronObligatorio(agente, contarFila(fila))) return false
   for (let mes = 0; mes < MESES; mes++) {
     const turno = fila[mes]
     if (!turno) return false
@@ -954,15 +1034,6 @@ function filaCuadraAgente(
   return true
 }
 
-function cuposEsperadosFlexibles(
-  agente: FichaPolicia,
-  objetivos: ObjetivosGlobales,
-  acumulado: Cupos,
-  libres: number,
-) {
-  return elegirCuposSinPreferencia(agente, acumulado, objetivos, libres)
-}
-
 function preferenciasAlcanzanObjetivo(
   agentes: FichaPolicia[],
   objetivos: ObjetivosGlobales,
@@ -972,9 +1043,7 @@ function preferenciasAlcanzanObjetivo(
 
   for (const agente of agentes) {
     const libres = MESES - vacacionesObjetivo(agente)
-    const cupos = esSinPreferencia(agente.preferenciaAnual)
-      ? cuposEsperadosFlexibles(agente, objetivos, acumulado, libres)
-      : cuposEsperadosTrasLimitaciones(agente)
+    const cupos = elegirCuposParaObjetivos(agente, acumulado, objetivos, libres)
     suma.M += cupos.M
     suma.T += cupos.T
     suma.N += cupos.N
@@ -1088,9 +1157,9 @@ function agentesAutogenerables(
 
 function puntajeMarcasPlan(marcas: MarcasPlanAnual) {
   return (
-    marcas.agentesSinCuadrar.length * 1000 +
-    marcas.mesesSinCuadrar.length * 10 +
-    (marcas.anioCuadra ? 0 : 1)
+    marcas.mesesSinCuadrar.length * 10000 +
+    (marcas.anioCuadra ? 0 : 1000) +
+    marcas.agentesSinCuadrar.length * 10
   )
 }
 
@@ -1121,7 +1190,7 @@ function cuentaProblemasFila(
       problemas += 1
     }
   }
-  if (!filaCumplePreferencia(agente, contarFila(fila))) problemas += 1
+  if (!filaCumplePatronObligatorio(agente, contarFila(fila))) problemas += 1
   return problemas
 }
 
@@ -1289,15 +1358,73 @@ function refinarFilasConErrores(
     if (filaCuadraAgente(agente, fila, planAnioAnterior)) continue
 
     const libres = MESES - vacacionesObjetivo(agente)
-    const cupos = esSinPreferencia(agente.preferenciaAnual)
-      ? cuposLaborales(agente, libres)
-      : undefined
+    const acumulado = acumuladoSinAgente(plan, agentes, id)
+    const cupos = elegirCuposParaObjetivos(agente, acumulado, objetivos, libres)
     const nueva = asignarFila(agente, anio, cupos, planAnioAnterior)
     const probNueva = cuentaProblemasFila(agente, nueva, planAnioAnterior)
     const probActual = cuentaProblemasFila(agente, fila, planAnioAnterior)
     if (probNueva < probActual) {
       plan[id] = nueva
     }
+  }
+}
+
+function intentarAjustarCuposParaPorcentajes(
+  plan: PlanAnual,
+  agentes: FichaPolicia[],
+  objetivos: ObjetivosGlobales,
+  anio: number,
+  planAnioAnterior?: PlanAnual,
+) {
+  for (let pase = 0; pase < 5; pase++) {
+    const puntajeInicial = puntajeMarcasPlan(
+      calcularMarcas(plan, agentes, objetivos, planAnioAnterior),
+    )
+    if (puntajeInicial === 0) break
+
+    let mejorado = false
+    for (const agente of agentes) {
+      const fila = plan[agente.id]
+      if (!fila) continue
+
+      const puntajeAntes = puntajeMarcasPlan(
+        calcularMarcas(plan, agentes, objetivos, planAnioAnterior),
+      )
+
+      const libres = MESES - vacacionesObjetivo(agente)
+      const acumulado = acumuladoSinAgente(plan, agentes, agente.id)
+      const cuposOpt = elegirCuposParaObjetivos(
+        agente,
+        acumulado,
+        objetivos,
+        libres,
+      )
+      const actual = contarFila(fila)
+      if (
+        cuposOpt.M === actual.M &&
+        cuposOpt.T === actual.T &&
+        cuposOpt.N === actual.N
+      ) {
+        continue
+      }
+
+      const filaAnterior = [...fila]
+      const nueva = asignarFila(agente, anio, cuposOpt, planAnioAnterior)
+      plan[agente.id] = nueva
+      const marcasDesp = calcularMarcas(
+        plan,
+        agentes,
+        objetivos,
+        planAnioAnterior,
+      )
+      const puntajeDesp = puntajeMarcasPlan(marcasDesp)
+      if (puntajeDesp > puntajeAntes) {
+        plan[agente.id] = filaAnterior
+        continue
+      }
+      mejorado = true
+    }
+    if (!mejorado) break
   }
 }
 
@@ -1376,25 +1503,36 @@ export function generarPlanAnual(
     acumulado.N += cupos.N
   }
 
-  const fijos = agentesGenerar.filter(
-    (agente) => !esSinPreferencia(agente.preferenciaAnual),
+  const conLimitaciones = agentesGenerar.filter(
+    (agente) => !agenteSinLimitacionesTurno(agente.limitaciones),
   )
-  const flexibles = agentesGenerar.filter((agente) =>
-    esSinPreferencia(agente.preferenciaAnual),
+  const sinLimitaciones = agentesGenerar.filter((agente) =>
+    agenteSinLimitacionesTurno(agente.limitaciones),
   )
 
-  for (const agente of fijos) {
-    const fila = asignarFila(agente, anio, undefined, planAnioAnterior)
+  for (const agente of conLimitaciones) {
+    const libres = MESES - vacacionesObjetivo(agente)
+    const cupos = elegirCuposConLimitaciones(
+      agente,
+      acumulado,
+      objetivos,
+      libres,
+    )
+    const fila = asignarFila(agente, anio, cupos, planAnioAnterior)
     plan[agente.id] = fila
-    const cupos = contarFila(fila)
     acumulado.M += cupos.M
     acumulado.T += cupos.T
     acumulado.N += cupos.N
   }
 
-  for (const agente of flexibles) {
+  for (const agente of sinLimitaciones) {
     const libres = MESES - vacacionesObjetivo(agente)
-    const cupos = elegirCuposSinPreferencia(agente, acumulado, objetivos, libres)
+    const cupos = elegirCuposSinPreferencia(
+      agente,
+      acumulado,
+      objetivos,
+      libres,
+    )
     const fila = asignarFila(agente, anio, cupos, planAnioAnterior)
     plan[agente.id] = fila
     acumulado.M += cupos.M
@@ -1409,6 +1547,13 @@ export function generarPlanAnual(
     }
   }
 
+  intentarAjustarCuposParaPorcentajes(
+    plan,
+    agentesGenerar,
+    objetivos,
+    anio,
+    planAnioAnterior,
+  )
   equilibrarMesesPreservandoPreferencias(
     plan,
     agentesGenerar,

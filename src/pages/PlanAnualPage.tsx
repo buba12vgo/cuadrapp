@@ -18,8 +18,10 @@ import {
   type TurnoAnual,
 } from '@/lib/generarPlanAnual'
 import {
+  agenteSinLimitacionesTurno,
   esSinPreferencia,
   etiquetaPreferenciaEnPlan,
+  filaCumplePatronObligatorio,
   filaCumplePreferencia,
   patronCumplidoEnFila,
 } from '@/lib/preferenciasAnuales'
@@ -124,7 +126,8 @@ function cuadraTotal(
   agente: FichaPolicia,
   _clave: TurnoAnual,
 ) {
-  return filaCumplePreferencia(agente, totales)
+  if (!agenteSinLimitacionesTurno(agente.limitaciones)) return true
+  return filaCumplePatronObligatorio(agente, totales)
 }
 
 function tituloPreferencia(agente: FichaPolicia, totales: Record<TurnoAnual, number>) {
@@ -447,7 +450,8 @@ export function PlanAnualPage() {
         >
           {marcas.preferenciasIncompatibles ? (
             <p>
-              Las preferencias de las fichas no suman el % global del selector
+              La plantilla (con limitaciones y patrones obligatorios) no alcanza
+              el % global del selector
               {marcas.pctAnio
                 ? ` (real ≈ ${marcas.pctAnio.M.toFixed(1)}/${marcas.pctAnio.T.toFixed(1)}/${marcas.pctAnio.N.toFixed(1)}%). Ajusta objetivos M/T/N en Agentes.`
                 : '. Ajusta objetivos M/T/N en Agentes.'}
@@ -455,7 +459,7 @@ export function PlanAnualPage() {
           ) : null}
           {!marcas.anioCuadra && !marcas.preferenciasIncompatibles ? (
             <p>
-              No se ha podido cuadrar el % anual sin tocar preferencias
+              No se ha podido cuadrar el % anual con la plantilla y limitaciones
               {marcas.pctAnio
                 ? ` (queda ${marcas.pctAnio.M.toFixed(1)}/${marcas.pctAnio.T.toFixed(1)}/${marcas.pctAnio.N.toFixed(1)}%).`
                 : '.'}
@@ -472,8 +476,8 @@ export function PlanAnualPage() {
           ) : null}
           {marcas.agentesSinCuadrar.length > 0 ? (
             <p>
-              Fichas que no respetan su preferencia (p. ej. noches no
-              colocables o sin patrón compatible):{' '}
+              Fichas con infracciones graves o sin patrón obligatorio (4-4-3 /
+              4-3-4 / 5-3-3 si no tienen limitación de turnos):{' '}
               <span className="font-semibold">
                 {marcas.agentesSinCuadrar
                   .map((id) => {
@@ -491,15 +495,18 @@ export function PlanAnualPage() {
             </p>
           ) : null}
           <p className="text-[11px] text-slate-600">
+            El generador prioriza el % global y mensual por encima de la
+            preferencia de la ficha (con limitaciones). Sin limitación de turnos
+            siempre se asigna 4-4-3, 4-3-4 o 5-3-3.{' '}
             <span className="font-semibold text-violet-700">Flex</span> = sin
-            preferencia (4-4-3, 4-3-4 o 5-3-3). Totales y columna{' '}
+            preferencia. Totales y columna{' '}
             <span className="font-semibold">Pat</span> en verde cuando cumple
-            algún patrón compatible.
+            patrón obligatorio o asignado.
           </p>
           {marcas.anioCuadra &&
           marcas.mesesSinCuadrar.length === 0 &&
           marcas.agentesSinCuadrar.length === 0 ? (
-            <p>Plan cuadrado con las preferencias de cada ficha.</p>
+            <p>Plan cuadrado (% global, meses y patrones obligatorios).</p>
           ) : null}
         </div>
       ) : null}
@@ -558,8 +565,13 @@ export function PlanAnualPage() {
               const totales = totalesFila(fila)
               const fichaMarcada = agentesMarcados.has(agente.id)
               const sinPref = esSinPreferencia(agente.preferenciaAnual)
+              const sinLimitaciones = agenteSinLimitacionesTurno(
+                agente.limitaciones,
+              )
               const patronAsignado = patronCumplidoEnFila(agente, totales)
               const cuadra = filaCumplePreferencia(agente, totales)
+              const patObligatorio =
+                sinLimitaciones && patronAsignado != null
 
               return (
                 <tr key={agente.id}>
@@ -662,9 +674,13 @@ export function PlanAnualPage() {
                         ? 'bg-green-100 font-bold text-green-800'
                         : sinPref
                           ? 'bg-violet-50 font-semibold text-violet-800'
-                          : cuadra
+                          : patObligatorio
                             ? 'bg-green-100 font-bold text-green-800'
-                            : 'bg-red-200 font-bold text-red-900'
+                            : sinLimitaciones
+                              ? 'bg-red-200 font-bold text-red-900'
+                              : cuadra
+                                ? 'bg-slate-100 font-semibold text-slate-700'
+                                : 'bg-slate-100 text-slate-600'
                     }`}
                     style={stickyPatron()}
                     title={tituloPreferencia(agente, totales)}

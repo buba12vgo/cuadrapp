@@ -6,6 +6,11 @@ import type {
   PreferenciaAnual,
 } from '@/types'
 
+/** Puede hacer mañana, tarde y noche (sin limitación de turnos). */
+export function agenteSinLimitacionesTurno(lim: Limitaciones) {
+  return lim.M && lim.T && lim.N
+}
+
 export const PATRONES_FIJOS: PatronPreferenciaAnual[] = [
   '4-4-3',
   '4-3-4',
@@ -185,6 +190,15 @@ export function cuposDesdePatron(
   }
 
   return { M, T, N }
+}
+
+/** Sin limitaciones de turno: debe cumplir 4-4-3, 4-3-4 o 5-3-3. */
+export function filaCumplePatronObligatorio(
+  agente: FichaPolicia,
+  totales: Cupos & { V: number },
+) {
+  if (!agenteSinLimitacionesTurno(agente.limitaciones)) return true
+  return patronCumplidoEnFila(agente, totales) != null
 }
 
 export function filaCumplePreferencia(

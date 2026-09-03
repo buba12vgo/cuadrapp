@@ -174,7 +174,7 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     categoria: 'PLANTILLA',
     titulo: 'Preferencia anual M / T / N',
     descripcion:
-      'Cada agente define objetivos de meses en mañana, tarde y noche; el resto son vacaciones (V).',
+      'Cada agente define objetivos de meses en mañana, tarde y noche; el resto son vacaciones (V). El generador prioriza el % global por encima de la preferencia de la ficha si hay limitaciones; sin limitación de turnos siempre asigna 4-4-3, 4-3-4 o 5-3-3.',
     estado: 'implementada',
     referencia: 'preferenciaAnual · objetivoM/T/N',
   },
@@ -197,7 +197,7 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
       'Autogenerar Año regenera únicamente el año seleccionado en el plan anual. Los planes de años anteriores y posteriores no se modifican.',
     estado: 'implementada',
     detalle:
-      'Cambiar de año en el selector no crea ni borra planes. Autogenerar Año hace hasta 3 pasadas de refinado (swaps, reasignación parcial y equilibrio mensual) antes de mostrar el resultado. Limpiar año vacía solo el año seleccionado (dos confirmaciones). Diciembre del año anterior solo se consulta (regla N), no se reescribe.',
+      'Cambiar de año en el selector no crea ni borra planes. Autogenerar asigna cupos M/T/N priorizando el % global y mensual por encima de la preferencia de la ficha (con limitaciones); sin limitación de turnos siempre usa 4-4-3, 4-3-4 o 5-3-3. Hasta 3 pasadas de refinado (swaps, reasignación parcial y equilibrio mensual). Limpiar año vacía solo el año seleccionado (dos confirmaciones). Diciembre del año anterior solo se consulta (regla N), no se reescribe.',
     referencia: 'PlanAnualPage · autogenerar · planAnualStore · planesAnuales',
   },
   {

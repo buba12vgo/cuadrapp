@@ -8,6 +8,7 @@ import { MinimosPage } from '@/pages/MinimosPage'
 import { PlanAnualPage } from '@/pages/PlanAnualPage'
 import { PuestosPage } from '@/pages/PuestosPage'
 import { LoginPage } from '@/pages/LoginPage'
+import { ListadosPage } from '@/pages/ListadosPage'
 import { ReglasPage } from '@/pages/ReglasPage'
 
 export default function App() {
@@ -31,6 +32,7 @@ export default function App() {
             element={<Navigate to="/admin/cuadrante-mensual" replace />}
           />
           <Route path="/admin/calendario" element={<CalendarioPage />} />
+          <Route path="/admin/listados" element={<ListadosPage />} />
           <Route path="/admin/reglas" element={<ReglasPage />} />
         </Route>
       </Route>

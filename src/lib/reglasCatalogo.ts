@@ -6,6 +6,7 @@ export type CategoriaRegla =
   | 'PLAN_ANUAL'
   | 'CUADRANTE'
   | 'CALENDARIO'
+  | 'VARIABLES_COBRO'
 
 export type EstadoRegla = 'implementada' | 'parcial' | 'planificada'
 
@@ -27,6 +28,7 @@ export const CATEGORIA_LABEL: Record<CategoriaRegla, string> = {
   PLAN_ANUAL: 'Plan anual',
   CUADRANTE: 'Cuadrante mensual',
   CALENDARIO: 'Calendario y eventos',
+  VARIABLES_COBRO: 'Variables de cobro y listados',
 }
 
 export const ESTADO_LABEL: Record<EstadoRegla, string> = {
@@ -43,6 +45,7 @@ export const ORDEN_CATEGORIAS: CategoriaRegla[] = [
   'PLAN_ANUAL',
   'CUADRANTE',
   'CALENDARIO',
+  'VARIABLES_COBRO',
 ]
 
 /** Catálogo vivo de reglas y condicionantes del cuadrante. */
@@ -263,6 +266,82 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
       'Festivos, cruceros, conciertos y operativas especiales pueden alterar los mínimos del día en el calendario.',
     estado: 'implementada',
     referencia: 'CalendarioPage · modificadoresMinimos',
+  },
+  {
+    id: 'variable-conciliacion-viernes-noche',
+    categoria: 'VARIABLES_COBRO',
+    titulo: 'Conciliación viernes noche',
+    descripcion:
+      'Cada jornada de noche (N) en viernes genera una unidad de conciliación viernes noche en el listado mensual.',
+    estado: 'implementada',
+    referencia: 'variablesCobro · ListadosPage',
+  },
+  {
+    id: 'variable-conciliacion-sabado-manana',
+    categoria: 'VARIABLES_COBRO',
+    titulo: 'Conciliación sábado mañana',
+    descripcion:
+      'Cada jornada de mañana (M) en sábado genera una unidad de conciliación sábado mañana.',
+    estado: 'implementada',
+    referencia: 'variablesCobro · ListadosPage',
+  },
+  {
+    id: 'variable-conciliacion-domingo-manana',
+    categoria: 'VARIABLES_COBRO',
+    titulo: 'Conciliación domingo mañana',
+    descripcion:
+      'Cada jornada de mañana (M) en domingo genera una unidad de conciliación domingo mañana.',
+    estado: 'implementada',
+    referencia: 'variablesCobro · ListadosPage',
+  },
+  {
+    id: 'variable-festivo-manana',
+    categoria: 'VARIABLES_COBRO',
+    titulo: 'Festivo mañana',
+    descripcion:
+      'Cada jornada M en día festivo (calendario nacional/gallego o evento FESTIVO) suma festivo mañana.',
+    estado: 'implementada',
+    detalle:
+      'Además, si hay noche sábado (N) y el domingo siguiente es festivo, se suma festivo mañana por las 2 horas del turno 22–06 que caen en domingo.',
+    referencia: 'variablesCobro · diaEsFestivoCobro',
+  },
+  {
+    id: 'variable-festivo-tarde',
+    categoria: 'VARIABLES_COBRO',
+    titulo: 'Festivo tarde',
+    descripcion:
+      'Cada jornada T en día festivo suma festivo tarde.',
+    estado: 'implementada',
+    referencia: 'variablesCobro · ListadosPage',
+  },
+  {
+    id: 'variable-festivo-noche',
+    categoria: 'VARIABLES_COBRO',
+    titulo: 'Festivo noche',
+    descripcion:
+      'Cada jornada N en día festivo suma festivo noche (6 horas del turno 22–06 en ese día festivo).',
+    estado: 'implementada',
+    detalle:
+      'Si el sábado es festivo y hay turno N sábado, se cobra festivo noche; si además el domingo es festivo, también festivo mañana por el tramo en domingo.',
+    referencia: 'variablesCobro · ListadosPage',
+  },
+  {
+    id: 'variables-conciliacion-festivo-compatibles',
+    categoria: 'VARIABLES_COBRO',
+    titulo: 'Conciliaciones y festivos compatibles',
+    descripcion:
+      'Las conciliaciones de finde y los festivos se suman: un sábado festivo con turno M genera conciliación sábado mañana y festivo mañana.',
+    estado: 'implementada',
+    referencia: 'variablesCobro · contarVariablesCobroAgente',
+  },
+  {
+    id: 'listados-variables-mensuales',
+    categoria: 'VARIABLES_COBRO',
+    titulo: 'Listado mensual de variables',
+    descripcion:
+      'La página Listados muestra y exporta a Excel las variables de cobro de cada policía a mes vencido, calculadas desde el cuadrante mensual guardado.',
+    estado: 'implementada',
+    referencia: 'ListadosPage · exportarVariablesCobroExcel',
   },
 ]
 

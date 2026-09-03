@@ -40,7 +40,10 @@ export interface FichaPolicia {
   preferenciaAnual: PreferenciaAnual
   puestosExcluidos: string[]
   mesAnclaVacaciones: 'JUNIO' | 'JULIO' | 'AGOSTO' | 'SEPTIEMBRE'
-  /** Año en el que `mesAnclaVacaciones` es el mes vigente del ciclo. */
+  /**
+   * Año de referencia del mes ancla. El mes de la ficha es el de 2026;
+   * los demás años rotan Jun → Jul → Sep → Ago.
+   */
   anioReferenciaVacaciones?: number
 }
 

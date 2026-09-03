@@ -24,6 +24,11 @@ import {
   objetivosDesdeModo,
   PATRONES_FIJOS,
 } from '@/lib/preferenciasAnuales'
+import {
+  ANIO_REFERENCIA_VACACIONES_DEFECTO,
+  ETIQUETA_MES_VACACIONES,
+  mesSiguienteCicloVacaciones,
+} from '@/lib/vacaciones'
 import type {
   FichaPolicia,
   Limitaciones,
@@ -321,7 +326,7 @@ function FichaAgenteModal({
               </label>
               <label className="col-span-2 flex flex-col gap-0.5">
                 <span className="text-[11px] font-semibold text-slate-600">
-                  Mes de vacaciones (ciclo)
+                  Mes de vacaciones {ANIO_REFERENCIA_VACACIONES_DEFECTO}
                 </span>
                 <select
                   className={CAMPO}
@@ -341,8 +346,14 @@ function FichaAgenteModal({
                   ))}
                 </select>
                 <span className="text-[10px] text-slate-500">
-                  Referencia del ciclo Jun–Jul–Sep–Ago. Rota automáticamente cada año
-                  en el plan anual.
+                  Ciclo Jun → Jul → Sep → Ago. En{' '}
+                  {ANIO_REFERENCIA_VACACIONES_DEFECTO + 1}:{' '}
+                  {
+                    ETIQUETA_MES_VACACIONES[
+                      mesSiguienteCicloVacaciones(form.mesAnclaVacaciones)
+                    ]
+                  }
+                  .
                 </span>
               </label>
             </div>
@@ -781,7 +792,9 @@ export function AgentesPage() {
                 <th className="px-3 py-2">Placa</th>
                 <th className="px-3 py-2">Nombre</th>
                 <th className="px-3 py-2">Rol base</th>
-                <th className="px-3 py-2">Mes de vacaciones</th>
+                <th className="px-3 py-2">
+                  Vacaciones {ANIO_REFERENCIA_VACACIONES_DEFECTO}
+                </th>
                 <th className="px-3 py-2 text-right">Acciones</th>
               </tr>
             </thead>

@@ -155,7 +155,7 @@ function agenteParaFirestore(agente: FichaPolicia): FichaPolicia {
     preferenciaAnual: { ...agente.preferenciaAnual },
     puestosExcluidos: [...agente.puestosExcluidos],
     mesAnclaVacaciones: agente.mesAnclaVacaciones,
-    anioReferenciaVacaciones: agente.anioReferenciaVacaciones,
+    anioReferenciaVacaciones: ANIO_REFERENCIA_VACACIONES_DEFECTO,
   }
 }
 

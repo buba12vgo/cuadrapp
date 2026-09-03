@@ -20,8 +20,17 @@ export const INDICE_MES_VACACIONES: Record<
   SEPTIEMBRE: 8,
 }
 
-export function anioReferenciaVacaciones(agente: FichaPolicia) {
-  return agente.anioReferenciaVacaciones ?? ANIO_REFERENCIA_VACACIONES_DEFECTO
+/** El mes de la ficha es siempre el de 2026; el resto de años rota desde ahí. */
+export function anioReferenciaVacaciones(_agente?: FichaPolicia) {
+  return ANIO_REFERENCIA_VACACIONES_DEFECTO
+}
+
+export function mesSiguienteCicloVacaciones(
+  mes: FichaPolicia['mesAnclaVacaciones'],
+): FichaPolicia['mesAnclaVacaciones'] {
+  const base = MESES_VACACIONES_CICLO.indexOf(mes)
+  const indice = base < 0 ? 0 : (base + 1) % MESES_VACACIONES_CICLO.length
+  return MESES_VACACIONES_CICLO[indice]
 }
 
 /** Mes del ciclo Jun–Jul–Sep–Ago que corresponde al año indicado. */
@@ -30,9 +39,10 @@ export function mesVacacionesCiclo(
   anio: number,
 ): FichaPolicia['mesAnclaVacaciones'] {
   const base = MESES_VACACIONES_CICLO.indexOf(agente.mesAnclaVacaciones)
+  const origen = base < 0 ? 0 : base
   const anioRef = anioReferenciaVacaciones(agente)
   const offset = ((anio - anioRef) % 4 + 4) % 4
-  return MESES_VACACIONES_CICLO[(base + offset) % 4]
+  return MESES_VACACIONES_CICLO[(origen + offset) % 4]
 }
 
 /** Índice 0–11 del primer mes de vacaciones en el año del plan. */

@@ -171,10 +171,10 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     categoria: 'PLANTILLA',
     titulo: 'Rotación de vacaciones',
     descripcion:
-      'El mes de vacaciones (V) rota en ciclo Junio → Julio → Septiembre → Agosto, y vuelve a empezar cada año.',
+      'El mes de la ficha es el de 2026. En 2027 toca el siguiente del ciclo Junio → Julio → Septiembre → Agosto (y vuelve a Junio).',
     estado: 'implementada',
     detalle:
-      'En la ficha se guarda el mes del ciclo de referencia y el año de referencia. Al autogenerar el plan anual, la V se coloca en el mes efectivo del año seleccionado (y los meses adicionales según preferencia).',
+      'Autogenerar coloca la V en el mes efectivo de ese año. El año de referencia del ancla es siempre 2026, aunque la ficha tuviera otro valor guardado.',
     referencia: 'vacaciones.ts · mesVacacionesCiclo · anioReferenciaVacaciones',
   },
   {

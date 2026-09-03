@@ -172,10 +172,17 @@ export function PlanAnualPage() {
   )
 
   const hayPlanAnio = Object.keys(planAnual).length > 0
+  const planAnioAnterior = planParaAnio(anio - 1)
 
   const marcas = useMemo(
-    () => calcularMarcas(planAnual, agentesVisibles, objetivosGlobales),
-    [planAnual, agentesVisibles, objetivosGlobales],
+    () =>
+      calcularMarcas(
+        planAnual,
+        agentesVisibles,
+        objetivosGlobales,
+        planAnioAnterior,
+      ),
+    [planAnual, agentesVisibles, objetivosGlobales, planAnioAnterior],
   )
 
   const totalesMes = useMemo(() => {
@@ -197,7 +204,6 @@ export function PlanAnualPage() {
     () => new Set(hayPlanAnio ? (marcas?.agentesSinCuadrar ?? []) : []),
     [hayPlanAnio, marcas],
   )
-  const planAnioAnterior = planParaAnio(anio - 1)
 
   useEffect(() => {
     return () => {
@@ -263,7 +269,14 @@ export function PlanAnualPage() {
     filaActual[mes] = siguienteTurno(agente, turnoActual)
     const planActualizado = { ...planAnual, [agente.id]: filaActual }
     setPlanAnual(planActualizado)
-    setMarcas(calcularMarcas(planActualizado, agentesVisibles, objetivosGlobales))
+    setMarcas(
+      calcularMarcas(
+        planActualizado,
+        agentesVisibles,
+        objetivosGlobales,
+        planAnioAnterior,
+      ),
+    )
     persistirYa(planActualizado, objetivosGlobales)
   }
 

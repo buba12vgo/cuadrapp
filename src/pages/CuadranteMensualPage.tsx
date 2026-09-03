@@ -47,6 +47,11 @@ import {
   generarCuadranteMensual,
   type CuadranteMensual,
 } from '@/lib/generarCuadranteMensual'
+import {
+  esPoliciaBolsa,
+  type PlanAnual,
+  type TurnoAnual,
+} from '@/lib/generarPlanAnual'
 import { mensajesInfraccion } from '@/lib/reglasCuadrante'
 import { MAX_FINDES_CONSECUTIVOS, maxFindesConsecutivosLaborados } from '@/lib/finesSemana'
 import type { RolPolicia, Turno } from '@/types'
@@ -117,6 +122,17 @@ const TURNOS_VISTA: Array<{ valor: FiltroVistaTurno; label: string }> = [
 
 function pad(n: number) {
   return String(n).padStart(2, '0')
+}
+
+function turnoPlanMes(
+  agente: { rolBase: RolPolicia; id: string },
+  planAnual: PlanAnual,
+  mes: number,
+): TurnoAnual | null {
+  const turno = planAnual[agente.id]?.[mes - 1]
+  if (turno != null) return turno
+  if (esPoliciaBolsa(agente.rolBase)) return null
+  return 'M'
 }
 
 function isoFecha(anio: number, mes: number, dia: number) {
@@ -190,7 +206,8 @@ export function CuadranteMensualPage() {
       agentesData.filter((agente) => {
         if (rolFiltro !== 'TODOS' && agente.rolBase !== rolFiltro) return false
         if (filtroVistaTurno === 'TODOS') return true
-        const turnoPlan = planAnual[agente.id]?.[mes - 1] ?? 'M'
+        const turnoPlan = turnoPlanMes(agente, planAnual, mes)
+        if (!turnoPlan) return false
         return turnoPlan === filtroVistaTurno
       }),
     [agentesData, rolFiltro, filtroVistaTurno, planAnual, mes],
@@ -630,7 +647,7 @@ export function CuadranteMensualPage() {
                 Día
               </th>
               {agentesVisibles.map((agente) => {
-                const turnoPlan = planAnual[agente.id]?.[mes - 1] ?? 'M'
+                const turnoPlan = turnoPlanMes(agente, planAnual, mes)
                 const nombre = `${agente.nombre} ${agente.apellidos}`
                 return (
                   <th
@@ -652,7 +669,7 @@ export function CuadranteMensualPage() {
                   >
                     {agente.numeroPlaca}
                     <span className="pointer-events-none absolute top-full left-1/2 z-50 hidden -translate-x-1/2 whitespace-nowrap border border-slate-300 bg-white px-1.5 py-0.5 text-[10px] font-sans font-medium text-slate-800 shadow group-hover:block">
-                      {nombre} · {turnoPlan}
+                      {nombre} · {turnoPlan ?? '—'}
                     </span>
                   </th>
                 )
@@ -830,11 +847,12 @@ export function CuadranteMensualPage() {
               </td>
               {agentesVisibles.map((agente) => {
                 const fila = cuadrante[agente.id] ?? []
-                const turnoPlan = planAnual[agente.id]?.[mes - 1] ?? 'M'
+                const turnoPlan = turnoPlanMes(agente, planAnual, mes)
                 const trabajados = totalTrabajados(fila)
                 const findes = totalFindesTrabajados(fila, anio, mes)
                 const findesConsec = maxFindesConsecutivosLaborados(fila, anio, mes)
-                const objetivoFila = turnoPlan === 'V' ? 0 : objetivo
+                const objetivoFila =
+                  turnoPlan === 'V' || turnoPlan == null ? 0 : objetivo
                 return (
                   <td
                     key={agente.id}

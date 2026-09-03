@@ -126,9 +126,17 @@ function eneroBloqueadoPorDiciembreAnterior(
   return diciembreAnteriorN && mes === MES_ENERO
 }
 
+function diciembreNProhibidoEsteAnio(
+  mes: number,
+  diciembreAnteriorN: boolean,
+) {
+  return mes === MES_DICIEMBRE && diciembreAnteriorN
+}
+
 function puedeNoche(fila: Fila, mes: number, diciembreAnteriorN: boolean) {
   if (fila[mes] != null) return false
   if (eneroBloqueadoPorDiciembreAnterior(mes, diciembreAnteriorN)) return false
+  if (diciembreNProhibidoEsteAnio(mes, diciembreAnteriorN)) return false
   for (let otro = 0; otro < MESES; otro++) {
     if (fila[otro] !== 'N') continue
     if (nochesDemasiadoCercanas(mes, otro)) return false
@@ -142,6 +150,7 @@ function puedeColocarNoche(
   diciembreAnteriorN: boolean,
 ) {
   if (eneroBloqueadoPorDiciembreAnterior(mes, diciembreAnteriorN)) return false
+  if (diciembreNProhibidoEsteAnio(mes, diciembreAnteriorN)) return false
   for (let otro = 0; otro < MESES; otro++) {
     if (otro === mes) continue
     if (fila[otro] !== 'N') continue
@@ -295,12 +304,26 @@ function cuposLaborales(
   return { M, T, N }
 }
 
+function reasignarNochesNoColocables(
+  agente: FichaPolicia,
+  cupos: Cupos,
+) {
+  const nRestantes = cupos.N
+  if (nRestantes <= 0) return
+  if (agente.limitaciones.T) {
+    cupos.T += nRestantes
+  } else if (agente.limitaciones.M) {
+    cupos.M += nRestantes
+  }
+  cupos.N = 0
+}
+
 function asignarFila(
   agente: FichaPolicia,
   anio: number,
   cuposOverride?: Cupos,
   planAnioAnterior?: PlanAnual,
-): TurnoAnual[] {
+): FilaPlanAnual {
   const fila: Fila = Array.from({ length: MESES }, () => null)
   for (const mes of mesesVacacionesEnPlan(
     agente,
@@ -325,16 +348,15 @@ function asignarFila(
     }
   }
 
-  // N no colocables por separación → pasan a T (se marcará la ficha).
-  cupos.T += cupos.N
-  cupos.N = 0
+  reasignarNochesNoColocables(agente, cupos)
 
-  for (const maxRacha of [1, MAX_TARDES_SEGUIDAS, MESES]) {
+  for (const maxRacha of [1, MAX_TARDES_SEGUIDAS]) {
     for (const invertido of [false, true]) {
       if (cupos.T <= 0) break
       const candidatos = invertido ? [...huecos(fila)].reverse() : huecos(fila)
       for (const mes of candidatos) {
         if (cupos.T <= 0) break
+        if (!agente.limitaciones.T) continue
         if (!puedeTarde(fila, mes, diciembreAnteriorT, maxRacha)) continue
         fila[mes] = 'T'
         cupos.T -= 1
@@ -343,10 +365,10 @@ function asignarFila(
   }
 
   for (const mes of huecos(fila)) {
-    fila[mes] = 'M'
+    if (agente.limitaciones.M) fila[mes] = 'M'
   }
 
-  return fila.map((turno) => turno ?? 'M')
+  return fila
 }
 
 function permiteTurno(agente: FichaPolicia, turno: TurnoActivo) {
@@ -727,8 +749,59 @@ function cuposEsperadosTrasLimitaciones(agente: FichaPolicia): Cupos {
   return cuposLaborales(agente, libres)
 }
 
-function filaRespetaPreferencia(agente: FichaPolicia, fila: FilaPlanAnual) {
-  return filaCumplePreferencia(agente, contarFila(fila))
+function agentesParaMarcasPlan(agentes: FichaPolicia[]) {
+  return agentes.filter((agente) => !esPoliciaBolsa(agente.rolBase))
+}
+
+function infraccionGraveTurnoEnPlan(
+  agente: FichaPolicia,
+  fila: FilaPlanAnual,
+  mes: number,
+  turno: TurnoAnual,
+  planAnioAnterior?: PlanAnual,
+): string | null {
+  if (turno === 'V') return null
+  if (turno !== 'M' && turno !== 'T' && turno !== 'N') return null
+  if (!permiteTurno(agente, turno)) {
+    return `El agente no puede hacer turno ${turno}`
+  }
+  const dicAnteriorN = diciembreNProhibido(agente.id, planAnioAnterior)
+  const dicAnteriorT = diciembreAnteriorTarde(agente.id, planAnioAnterior)
+  if (turno === 'N' && mes === MES_ENERO && dicAnteriorN) {
+    return 'No puede hacer noche en enero si diciembre del año anterior fue noche'
+  }
+  if (turno === 'N' && !puedeColocarNoche(fila, mes, dicAnteriorN)) {
+    return 'No se puede repetir noche en los dos meses siguientes (mismo año)'
+  }
+  if (mes === MES_DICIEMBRE && turno === 'N' && dicAnteriorN) {
+    return 'No puede repetir noche en diciembre respecto al año anterior'
+  }
+  if (turno === 'T') {
+    const racha = rachaTardeSiColoca(fila, mes, dicAnteriorT)
+    if (racha > MAX_TARDES_SEGUIDAS) {
+      return 'No se deben hacer más de dos tardes seguidas'
+    }
+  }
+  return null
+}
+
+function filaCuadraAgente(
+  agente: FichaPolicia,
+  fila: FilaPlanAnual,
+  planAnioAnterior?: PlanAnual,
+) {
+  if (!filaCumplePreferencia(agente, contarFila(fila))) return false
+  for (let mes = 0; mes < MESES; mes++) {
+    const turno = fila[mes]
+    if (!turno) return false
+    if (turno === 'V') continue
+    if (
+      infraccionGraveTurnoEnPlan(agente, fila, mes, turno, planAnioAnterior)
+    ) {
+      return false
+    }
+  }
+  return true
 }
 
 function cuposEsperadosFlexibles(
@@ -770,18 +843,18 @@ export function calcularMarcas(
   plan: PlanAnual,
   agentes: FichaPolicia[],
   objetivos: ObjetivosGlobales,
+  planAnioAnterior?: PlanAnual,
 ): MarcasPlanAnual {
-  const flota = contarFlota(plan, agentes)
+  const agentesCuadre = agentesParaMarcasPlan(agentes)
+  const idsCuadre = agentesCuadre.map((agente) => agente.id)
+
+  const flota = contarFlota(plan, agentesCuadre)
   const pctAnio = pctDesdeCupos(flota)
   const anioCuadra = cuadraPorcentajes(pctAnio, objetivos)
 
   const mesesSinCuadrar: number[] = []
   for (let mes = 0; mes < MESES; mes++) {
-    const conteo = conteoMes(
-      plan,
-      agentes.map((a) => a.id),
-      mes,
-    )
+    const conteo = conteoMes(plan, idsCuadre, mes)
     const activos = conteo.M + conteo.T + conteo.N
     if (activos <= 0) {
       mesesSinCuadrar.push(mes)
@@ -791,15 +864,15 @@ export function calcularMarcas(
     if (!cuadraPorcentajes(pctMes, objetivos)) mesesSinCuadrar.push(mes)
   }
 
-  const agentesSinCuadrar = agentes
+  const agentesSinCuadrar = agentesCuadre
     .filter((agente) => {
       const fila = plan[agente.id]
       if (!fila) return true
-      return !filaRespetaPreferencia(agente, fila)
+      return !filaCuadraAgente(agente, fila, planAnioAnterior)
     })
     .map((agente) => agente.id)
 
-  const compat = preferenciasAlcanzanObjetivo(agentes, objetivos)
+  const compat = preferenciasAlcanzanObjetivo(agentesCuadre, objetivos)
 
   return {
     anioCuadra,
@@ -815,46 +888,6 @@ export function diciembreNProhibido(
   planAnioAnterior?: PlanAnual,
 ) {
   return planAnioAnterior?.[agenteId]?.[MES_DICIEMBRE] === 'N'
-}
-
-function sustituirNochePorAlternativa(
-  agente: FichaPolicia,
-  fila: FilaPlanAnual,
-  mes: number,
-) {
-  const alternativas: TurnoAnual[] = []
-  if (agente.limitaciones.T) alternativas.push('T')
-  if (agente.limitaciones.M) alternativas.push('M')
-  fila[mes] = alternativas[0] ?? 'M'
-}
-
-function evitarDiciembreNRepetido(
-  agente: FichaPolicia,
-  fila: FilaPlanAnual,
-  planAnioAnterior?: PlanAnual,
-) {
-  if (fila[MES_DICIEMBRE] !== 'N') return
-  if (!diciembreNProhibido(agente.id, planAnioAnterior)) return
-  sustituirNochePorAlternativa(agente, fila, MES_DICIEMBRE)
-}
-
-function evitarEneroNTrasDiciembre(
-  agente: FichaPolicia,
-  fila: FilaPlanAnual,
-  planAnioAnterior?: PlanAnual,
-) {
-  if (fila[MES_ENERO] !== 'N') return
-  if (!diciembreNProhibido(agente.id, planAnioAnterior)) return
-  sustituirNochePorAlternativa(agente, fila, MES_ENERO)
-}
-
-function corregirNochesCruceAnio(
-  agente: FichaPolicia,
-  fila: FilaPlanAnual,
-  planAnioAnterior?: PlanAnual,
-) {
-  evitarEneroNTrasDiciembre(agente, fila, planAnioAnterior)
-  evitarDiciembreNRepetido(agente, fila, planAnioAnterior)
 }
 
 export function validarTurnoEnPlan(
@@ -955,7 +988,6 @@ export function generarPlanAnual(
 
   for (const agente of fijos) {
     const fila = asignarFila(agente, anio, undefined, planAnioAnterior)
-    corregirNochesCruceAnio(agente, fila, planAnioAnterior)
     plan[agente.id] = fila
     const cupos = contarFila(fila)
     acumulado.M += cupos.M
@@ -967,7 +999,6 @@ export function generarPlanAnual(
     const libres = MESES - vacacionesObjetivo(agente)
     const cupos = elegirCuposSinPreferencia(agente, acumulado, objetivos, libres)
     const fila = asignarFila(agente, anio, cupos, planAnioAnterior)
-    corregirNochesCruceAnio(agente, fila, planAnioAnterior)
     plan[agente.id] = fila
     acumulado.M += cupos.M
     acumulado.T += cupos.T
@@ -987,14 +1018,9 @@ export function generarPlanAnual(
     objetivos,
     planAnioAnterior,
   )
-  for (const agente of agentesGenerar) {
-    const fila = plan[agente.id]
-    if (fila) corregirNochesCruceAnio(agente, fila, planAnioAnterior)
-  }
-
   return {
     plan,
-    marcas: calcularMarcas(plan, agentesGenerar, objetivos),
+    marcas: calcularMarcas(plan, agentesGenerar, objetivos, planAnioAnterior),
   }
 }
 

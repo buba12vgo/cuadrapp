@@ -29,6 +29,7 @@ import {
   ETIQUETA_MES_VACACIONES,
   mesVacacionesCiclo,
 } from '@/lib/vacaciones'
+import { exportarPlanAnualExcel } from '@/lib/exportarPlanAnualExcel'
 import type { FichaPolicia } from '@/types'
 
 const MESES = [
@@ -382,6 +383,28 @@ export function PlanAnualPage() {
               />
             </label>
           ))}
+          <button
+            type="button"
+            className="h-6 border border-slate-400 bg-white px-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            title={`Exporta la tabla visible a Excel (${anio}, vista actual)`}
+            disabled={!hayPlanAnio}
+            onClick={() =>
+              exportarPlanAnualExcel({
+                anio,
+                grupoLabel:
+                  GRUPOS_PLAN.find((g) => g.valor === grupoVista)?.label ??
+                  grupoVista,
+                objetivos: objetivosGlobales,
+                agentes: agentesVisibles,
+                plan: planAnual,
+                totalesMes,
+                mesesMarcados,
+                anioCuadra: marcas?.anioCuadra ?? true,
+              })
+            }
+          >
+            Exportar Excel
+          </button>
           <button
             type="button"
             className="h-6 bg-slate-900 px-2 text-xs font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"

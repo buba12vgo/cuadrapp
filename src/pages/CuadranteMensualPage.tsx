@@ -26,6 +26,10 @@ import {
   cuadranteParaFirestore,
   cuadranteVacio,
 } from '@/lib/cuadranteFirestore'
+import {
+  colaMesAnteriorPorAgente,
+  mesCalendarioAnterior,
+} from '@/lib/cuadranteBordeMes'
 import { getAgentes, getCuadrante, saveCuadrante } from '@/lib/db'
 import { useEventosData } from '@/lib/eventosStore'
 import type { FiltroTurnoBolsa } from '@/lib/bolsaPuestosPreferencias'
@@ -181,7 +185,11 @@ export function CuadranteMensualPage() {
   const [asignacionesDiarias, setAsignacionesDiarias] =
     useState<AsignacionesDiarias>({})
   const [cuadrante, setCuadrante] = useState<CuadranteMensual>({})
+  const [colaMesAnterior, setColaMesAnterior] = useState<
+    Record<string, Turno[]>
+  >({})
   const [loadingCuadrante, setLoadingCuadrante] = useState(true)
+  const [cuadranteCargaFallida, setCuadranteCargaFallida] = useState(false)
   const [guardandoCuadrante, setGuardandoCuadrante] = useState(false)
   const [guardadoOk, setGuardadoOk] = useState(false)
   const [errorCuadrante, setErrorCuadrante] = useState<string | null>(null)
@@ -192,6 +200,7 @@ export function CuadranteMensualPage() {
 
   const nDias = diasDelMes(anio, mes)
   const objetivo = diasOperativosConvenio(anio, mes)
+  const cuadranteListo = !loadingCuadrante && !cuadranteCargaFallida
 
   useEffect(() => {
     setAnioPlan(anio)
@@ -256,21 +265,42 @@ export function CuadranteMensualPage() {
       setLoadingCuadrante(true)
       setErrorCuadrante(null)
       setGuardadoOk(false)
+      setCuadranteCargaFallida(false)
+      setCuadrante({})
+      setColaMesAnterior({})
+      setAsignacionesDiarias({})
 
       const ready = await ensureFirebase()
       if (cancelado) return
       setFirebaseOk(ready)
 
       if (!ready) {
-        setCuadrante(cuadranteVacio(agentesData, nDias))
-        setAsignacionesDiarias({})
         setLoadingCuadrante(false)
         return
       }
 
+      const prev = mesCalendarioAnterior(anio, mes)
+      const nDiasPrev = diasDelMes(prev.anio, prev.mes)
+
       try {
-        const datos = await getCuadrante(mes, anio)
+        const [datos, datosPrev] = await Promise.all([
+          getCuadrante(mes, anio),
+          getCuadrante(prev.mes, prev.anio).catch(() => null),
+        ])
         if (cancelado) return
+
+        if (datosPrev && agentesData.length > 0) {
+          const { cuadrante: prevCuad } = cuadranteDesdeFirestore(
+            datosPrev,
+            agentesData,
+            prev.anio,
+            prev.mes,
+            nDiasPrev,
+          )
+          setColaMesAnterior(
+            colaMesAnteriorPorAgente(prevCuad, ids, prev.anio, prev.mes),
+          )
+        }
 
         if (datos && agentesData.length > 0) {
           const { cuadrante: cargado, asignaciones } = cuadranteDesdeFirestore(
@@ -284,17 +314,15 @@ export function CuadranteMensualPage() {
           setAsignacionesDiarias(asignaciones)
         } else {
           setCuadrante(cuadranteVacio(agentesData, nDias))
-          setAsignacionesDiarias({})
         }
       } catch (err) {
         if (!cancelado) {
+          setCuadranteCargaFallida(true)
           setErrorCuadrante(
             err instanceof Error
               ? err.message
               : 'No se pudo cargar el cuadrante desde Firestore',
           )
-          setCuadrante(cuadranteVacio(agentesData, nDias))
-          setAsignacionesDiarias({})
         }
       } finally {
         if (!cancelado) setLoadingCuadrante(false)
@@ -305,7 +333,7 @@ export function CuadranteMensualPage() {
     return () => {
       cancelado = true
     }
-  }, [mes, anio, nDias, agentesData, agentesCargados])
+  }, [mes, anio, nDias, agentesData, agentesCargados, ids])
 
   function aplicarMes(siguienteAnio: number, siguienteMes: number) {
     const dias = diasDelMes(siguienteAnio, siguienteMes)
@@ -316,10 +344,17 @@ export function CuadranteMensualPage() {
   }
 
   function autogenerar() {
+    if (!cuadranteListo) return
     setCuadrante(generarCuadranteMensual(planAnual, ids, anio, mes))
   }
 
   async function guardarCuadranteEnFirestore() {
+    if (cuadranteCargaFallida) {
+      window.alert(
+        'No se puede guardar: el cuadrante no se cargó correctamente desde Firestore.',
+      )
+      return
+    }
     const ready = await ensureFirebase()
     setFirebaseOk(ready)
     if (!ready) {
@@ -601,7 +636,7 @@ export function CuadranteMensualPage() {
           <button
             type="button"
             className="h-6 bg-slate-900 px-2 text-xs font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={loadingCuadrante}
+            disabled={!cuadranteListo}
             onClick={autogenerar}
           >
             Autogenerar mes
@@ -610,7 +645,7 @@ export function CuadranteMensualPage() {
             type="button"
             className="h-6 bg-emerald-700 px-2 text-xs font-semibold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={
-              loadingCuadrante || guardandoCuadrante || !firebaseOk
+              !cuadranteListo || guardandoCuadrante || !firebaseOk
             }
             onClick={() => void guardarCuadranteEnFirestore()}
           >
@@ -623,6 +658,11 @@ export function CuadranteMensualPage() {
           ) : null}
         </div>
         </div>
+        {cuadranteCargaFallida ? (
+          <p className="border-t border-red-200 bg-red-50 px-2 py-1 text-[11px] text-red-800">
+            No se puede editar ni guardar este mes hasta recargar la página.
+          </p>
+        ) : null}
         {errorCuadrante ? (
           <p className="border-t border-red-200 bg-red-50 px-2 py-1 text-[11px] text-red-800">
             {errorCuadrante}
@@ -747,7 +787,11 @@ export function CuadranteMensualPage() {
                           )
                         : null
                     const operativo = esTurnoOperativo(turno)
-                    const avisos = mensajesInfraccion(fila, dia - 1, { anio, mes })
+                    const avisos = mensajesInfraccion(fila, dia - 1, {
+                      anio,
+                      mes,
+                      colaMesAnterior: colaMesAnterior[agente.id],
+                    })
                     const rota = avisos.length > 0
                     const atenuada =
                       filtroVistaTurno !== 'TODOS'

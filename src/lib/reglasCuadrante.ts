@@ -30,7 +30,18 @@ export const MENSAJE_REGLA: Record<CodigoRegla, string> = {
   FINDE_PARTIDO: 'Finde partido (sábado y domingo deben ir juntos)',
 }
 
-function descansoTrasUltimaNoche(fila: Turno[], diaM: number) {
+export type ContextoReglasCuadrante = {
+  anio: number
+  mes: number
+  /** Últimos días del mes anterior (orden cronológico) para este agente. */
+  colaMesAnterior?: Turno[]
+}
+
+function descansoTrasUltimaNoche(
+  fila: Turno[],
+  diaM: number,
+  colaMesAnterior?: Turno[],
+) {
   let descanso = 0
   for (let i = diaM - 1; i >= 0; i--) {
     const turno = fila[i]
@@ -41,21 +52,58 @@ function descansoTrasUltimaNoche(fila: Turno[], diaM: number) {
     if (turno === 'N') return descanso
     return null
   }
+  if (colaMesAnterior) {
+    for (let i = colaMesAnterior.length - 1; i >= 0; i--) {
+      const turno = colaMesAnterior[i]
+      if (turno === 'D' || turno === 'V') {
+        descanso += 1
+        continue
+      }
+      if (turno === 'N') return descanso
+      return null
+    }
+  }
   return null
+}
+
+function rachaTrabajoHaciaAtras(
+  fila: Turno[],
+  dia: number,
+  colaMesAnterior?: Turno[],
+) {
+  let racha = 0
+  for (let i = dia; i >= 0 && esDiaTrabajado(fila[i]); i--) racha += 1
+  if (colaMesAnterior) {
+    for (let i = colaMesAnterior.length - 1; i >= 0 && esDiaTrabajado(colaMesAnterior[i]); i--) {
+      racha += 1
+    }
+  }
+  return racha
+}
+
+function turnoPrevioDia(
+  fila: Turno[],
+  dia: number,
+  colaMesAnterior?: Turno[],
+): Turno | undefined {
+  if (dia > 0) return fila[dia - 1]
+  if (!colaMesAnterior?.length) return undefined
+  return colaMesAnterior[colaMesAnterior.length - 1]
 }
 
 export function infraccionesCelda(
   fila: Turno[],
   dia: number,
-  contexto?: { anio: number; mes: number },
-): CodigoRegla[] {
+  contexto?: ContextoReglasCuadrante,
+) {
   const infracciones: CodigoRegla[] = []
   const turno = fila[dia]
   if (!turno) return infracciones
 
+  const cola = contexto?.colaMesAnterior
+
   if (esDiaTrabajado(turno)) {
-    let racha = 0
-    for (let i = dia; i >= 0 && esDiaTrabajado(fila[i]); i--) racha += 1
+    const racha = rachaTrabajoHaciaAtras(fila, dia, cola)
     if (racha > MAX_DIAS_CONTINUOS) infracciones.push('FATIGA')
   }
 
@@ -65,14 +113,12 @@ export function infraccionesCelda(
     if (!previoD && !siguienteD) infracciones.push('DESCANSO_SUELTO')
   }
 
-  if (dia > 0) {
-    const previo = fila[dia - 1]
-    if (previo === 'T' && turno === 'M') infracciones.push('T_M')
-    if (previo === 'N' && turno === 'T') infracciones.push('N_T')
-  }
+  const previo = turnoPrevioDia(fila, dia, cola)
+  if (previo === 'T' && turno === 'M') infracciones.push('T_M')
+  if (previo === 'N' && turno === 'T') infracciones.push('N_T')
 
   if (turno === 'M') {
-    const descanso = descansoTrasUltimaNoche(fila, dia)
+    const descanso = descansoTrasUltimaNoche(fila, dia, cola)
     if (descanso != null && descanso < MIN_DESCANSO_TRAS_NOCHE) {
       infracciones.push('SALIDA_NOCHE')
     }
@@ -103,7 +149,7 @@ export function infraccionesCelda(
 export function mensajesInfraccion(
   fila: Turno[],
   dia: number,
-  contexto?: { anio: number; mes: number },
+  contexto?: ContextoReglasCuadrante,
 ) {
   return infraccionesCelda(fila, dia, contexto).map(
     (codigo) => MENSAJE_REGLA[codigo],
@@ -112,7 +158,7 @@ export function mensajesInfraccion(
 
 export function filaTieneInfracciones(
   fila: Turno[],
-  contexto?: { anio: number; mes: number },
+  contexto?: ContextoReglasCuadrante,
 ) {
   return fila.some(
     (_, dia) => infraccionesCelda(fila, dia, contexto).length > 0,

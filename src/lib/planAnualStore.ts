@@ -29,6 +29,7 @@ let planesPorAnio: Record<number, PlanAnual> = {}
 let marcasPorAnio: Record<number, MarcasPlanAnual | null> = {}
 let objetivosPorAnio: Record<number, ObjetivosGlobales> = {}
 let planCargado = false
+let errorCargaPlan: string | null = null
 const listeners = new Set<() => void>()
 
 function emit() {
@@ -60,6 +61,10 @@ function cargadoSnapshot() {
   return planCargado
 }
 
+function errorCargaSnapshot() {
+  return errorCargaPlan
+}
+
 export function planParaAnio(anio: number) {
   const plan = planesPorAnio[anio]
   return plan ? clonarPlan(plan) : PLAN_VACIO
@@ -71,6 +76,12 @@ export function tienePlanParaAnio(anio: number) {
 
 export function planAnualEstaCargado() {
   return planCargado
+}
+
+export function marcarErrorCargaPlan(mensaje: string) {
+  errorCargaPlan = mensaje
+  planCargado = true
+  emit()
 }
 
 export function hydratePlanesAnuales(
@@ -87,6 +98,7 @@ export function hydratePlanesAnuales(
   }
   planesPorAnio = siguientesPlanes
   objetivosPorAnio = siguientesObjetivos
+  errorCargaPlan = null
   planCargado = true
   emit()
 }
@@ -104,6 +116,11 @@ export function usePlanAnual() {
     subscribe,
     cargadoSnapshot,
     cargadoSnapshot,
+  )
+  const errorCarga = useSyncExternalStore(
+    subscribe,
+    errorCargaSnapshot,
+    errorCargaSnapshot,
   )
 
   const setAnio = useCallback((siguiente: number) => {
@@ -153,6 +170,7 @@ export function usePlanAnual() {
     marcas,
     objetivos,
     cargado,
+    errorCarga,
     setAnio,
     setPlanAnual,
     setObjetivos,

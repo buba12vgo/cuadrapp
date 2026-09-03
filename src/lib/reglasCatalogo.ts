@@ -55,7 +55,7 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
       'No deben trabajar más de 5 días seguidos. Excepcionalmente puede llegar a 6; a partir del sexto día operativo seguido se marca infracción.',
     estado: 'implementada',
     detalle:
-      'El generador mensual reparte bloques de trabajo con tope de 5 jornadas. El cuadrante avisa si la racha supera 5 días.',
+      'El generador mensual reparte bloques de trabajo con tope de 5 jornadas. El cuadrante avisa si la racha supera 5 días, incluyendo días del mes anterior.',
     referencia: 'MAX_DIAS_CONTINUOS = 5',
   },
   {
@@ -96,8 +96,8 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     descripcion:
       'Prohibido encadenar tarde (T) y mañana (M) del día siguiente con menos de 12 horas de descanso.',
     estado: 'implementada',
-    detalle: 'Se señala en el cuadrante mensual al editar la celda.',
-    referencia: 'reglasCuadrante · T_M',
+    detalle:
+      'Se señala en el cuadrante mensual. El día 1 consulta el último turno del mes anterior.',
   },
   {
     id: 'transicion-n-t',
@@ -106,7 +106,8 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     descripcion:
       'Prohibido encadenar noche (N) y tarde (T) del día siguiente con menos de 12 horas de descanso.',
     estado: 'implementada',
-    detalle: 'Se señala en el cuadrante mensual al editar la celda.',
+    detalle:
+      'Se señala en el cuadrante mensual. El día 1 consulta el último turno del mes anterior.',
     referencia: 'reglasCuadrante · N_T',
   },
   {

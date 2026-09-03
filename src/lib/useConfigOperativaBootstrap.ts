@@ -7,7 +7,10 @@ import {
   fetchFirebaseStatus,
   formatFirebaseStatus,
 } from '@/lib/firebaseStatus'
-import { hydratePlanesAnuales } from '@/lib/planAnualStore'
+import {
+  hydratePlanesAnuales,
+  marcarErrorCargaPlan,
+} from '@/lib/planAnualStore'
 import { hydratePuestosYMinimos } from '@/lib/puestosStore'
 
 type EstadoCarga = 'idle' | 'loading' | 'ready' | 'error'
@@ -63,24 +66,24 @@ export function useConfigOperativaBootstrap() {
           hydratePlanesAnuales(planes.planes, planes.objetivos)
         } catch (err) {
           if (cancelado) return
-          hydratePlanesAnuales({}, {})
-          console.error('[bootstrap] No se pudo cargar el plan anual', err)
-          setError(
+          const mensaje =
             err instanceof Error
               ? err.message
-              : 'No se pudo cargar el plan anual desde Firestore',
-          )
+              : 'No se pudo cargar el plan anual desde Firestore'
+          marcarErrorCargaPlan(mensaje)
+          console.error('[bootstrap] No se pudo cargar el plan anual', err)
+          setError(mensaje)
         }
 
         setEstado('ready')
       } catch (err) {
         if (cancelado) return
-        hydratePlanesAnuales({}, {})
-        setError(
+        const mensaje =
           err instanceof Error
             ? err.message
-            : 'No se pudo cargar la configuración operativa desde Firestore',
-        )
+            : 'No se pudo cargar la configuración operativa desde Firestore'
+        marcarErrorCargaPlan(mensaje)
+        setError(mensaje)
         setEstado('error')
       }
     }

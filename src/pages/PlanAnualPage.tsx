@@ -153,6 +153,7 @@ export function PlanAnualPage() {
     plan: planAnual,
     objetivos: objetivosGlobales,
     cargado,
+    errorCarga,
     setAnio,
     setPlanAnual,
     setObjetivos,
@@ -178,6 +179,7 @@ export function PlanAnualPage() {
 
   const hayPlanAnio = Object.keys(planAnual).length > 0
   const planAnioAnterior = planParaAnio(anio - 1)
+  const planListo = cargado && !errorCarga
 
   const marcas = useMemo(
     () =>
@@ -268,7 +270,7 @@ export function PlanAnualPage() {
   }
 
   function rotarCelda(agente: FichaPolicia, mes: number) {
-    if (!cargado) return
+    if (!planListo) return
     const filaActual = [...(planAnual[agente.id] ?? filaVaciaPlanAnual())]
     const turnoActual = filaActual[mes] ?? null
     filaActual[mes] = siguienteTurno(agente, turnoActual)
@@ -287,7 +289,7 @@ export function PlanAnualPage() {
 
   /** Regenera solo el año del selector; no escribe años vecinos. */
   function autogenerar() {
-    if (!cargado) return
+    if (!planListo) return
     const resultado = generarPlanAnual(
       agentesData,
       objetivosGlobales,
@@ -301,7 +303,7 @@ export function PlanAnualPage() {
 
   /** Vacía solo el año del selector, tras dos confirmaciones. */
   function limpiarAnio() {
-    if (!cargado || !hayPlanAnio) return
+    if (!planListo || !hayPlanAnio) return
     const seguir = window.confirm(
       `¿Vaciar el plan de ${anio}?\n\nSe borrarán todos los turnos de este año. ${anio + 1} y el resto no se tocan.\n\nDespués puedes rellenar ${anio} a mano (el cuadrante real) y autogenerar ${anio + 1} con las normas de fin de año.`,
     )
@@ -370,7 +372,7 @@ export function PlanAnualPage() {
                 max={100}
                 className={CAMPO_PCT}
                 value={objetivosGlobales[turno]}
-                disabled={!cargado}
+                disabled={!planListo}
                 onChange={(event) => {
                   const siguientes = {
                     ...objetivosGlobales,
@@ -386,7 +388,7 @@ export function PlanAnualPage() {
             type="button"
             className="h-6 bg-slate-900 px-2 text-xs font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
             title={`Regenera solo ${anio}. Los demás años no se modifican.`}
-            disabled={!cargado}
+            disabled={!planListo}
             onClick={autogenerar}
           >
             Autogenerar Año
@@ -395,7 +397,7 @@ export function PlanAnualPage() {
             type="button"
             className="h-6 border border-red-300 bg-white px-2 text-xs font-semibold text-red-800 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
             title={`Vacía el plan de ${anio} tras dos confirmaciones. Los demás años no se tocan.`}
-            disabled={!cargado || !hayPlanAnio}
+            disabled={!planListo || !hayPlanAnio}
             onClick={limpiarAnio}
           >
             Limpiar año
@@ -412,6 +414,13 @@ export function PlanAnualPage() {
       {errorGuardado ? (
         <div className="mx-1 mb-1 border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-800">
           {errorGuardado}
+        </div>
+      ) : null}
+
+      {errorCarga ? (
+        <div className="mx-1 mb-1 border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-800">
+          No se pudo cargar el plan anual desde Firestore: {errorCarga}. No se
+          puede editar ni guardar hasta recargar la página.
         </div>
       ) : null}
 

@@ -7,12 +7,16 @@ import {
   diasDelMes,
   diasOperativosConvenio,
   esDiaTrabajado,
+  esFinDeSemana,
   totalTrabajados,
 } from '@/lib/convenio'
 import {
   MAX_FINDES_CONSECUTIVOS,
   equilibrarFindesConsecutivos,
+  esFindePartido,
+  countFindesPartidos,
   maxFindesConsecutivosLaborados,
+  paresFindeCompletos,
 } from '@/lib/finesSemana'
 
 export type CuadranteMensual = Record<string, Turno[]>
@@ -229,12 +233,149 @@ function filaAceptable(
   }
   if (!filaSinGraves(prueba)) return false
   if (
+    countFindesPartidos(prueba, anio, mes) >
+    countFindesPartidos(original, anio, mes)
+  ) {
+    return false
+  }
+  if (
     !permitirFindes &&
     maxFindesConsecutivosLaborados(prueba, anio, mes) > MAX_FINDES_CONSECUTIVOS
   ) {
     return false
   }
   return true
+}
+
+function indicesCandidatos(
+  fila: Turno[],
+  anio: number,
+  mes: number,
+  pred: (turno: Turno) => boolean,
+) {
+  const indices: number[] = []
+  for (let dia = 1; dia <= fila.length; dia++) {
+    if (esFinDeSemana(anio, mes, dia)) continue
+    if (pred(fila[dia - 1])) indices.push(dia - 1)
+  }
+  return indices
+}
+
+function aplicarReubicacion(
+  fila: Turno[],
+  origenes: number[],
+  destinos: number[],
+  valorOrigen: Turno,
+  valorDestino: Turno,
+): Turno[] | null {
+  if (origenes.length !== destinos.length) return null
+  if (new Set([...origenes, ...destinos]).size !== origenes.length + destinos.length) {
+    return null
+  }
+  const prueba = [...fila]
+  for (const i of origenes) prueba[i] = valorOrigen
+  for (const i of destinos) prueba[i] = valorDestino
+  return prueba
+}
+
+function elegirCombinacion(
+  candidatos: number[],
+  k: number,
+  usar: (elegidos: number[]) => boolean,
+) {
+  const pendientes: number[] = []
+  const recorrer = (inicio: number): boolean => {
+    if (pendientes.length === k) return usar([...pendientes])
+    for (let i = inicio; i < candidatos.length; i++) {
+      pendientes.push(candidatos[i])
+      if (recorrer(i + 1)) return true
+      pendientes.pop()
+    }
+    return false
+  }
+  return recorrer(0)
+}
+
+/**
+ * Sábado y domingo del mismo finde, o los dos de trabajo o los dos de descanso.
+ */
+function unificarFindesPartidos(
+  fila: Turno[],
+  turno: Exclude<Turno, 'V' | 'D' | 'L'>,
+  anio: number,
+  mes: number,
+): Turno[] {
+  let actual = [...fila]
+  for (let pasada = 0; pasada < 8; pasada++) {
+    if (!esFindePartido(actual, anio, mes)) return actual
+    let progreso = false
+    for (const par of paresFindeCompletos(anio, mes, actual.length)) {
+      const iSab = par.sabado - 1
+      const iDom = par.domingo - 1
+      if (actual[iSab] === 'V' || actual[iDom] === 'V') continue
+      const sabTrab = esDiaTrabajado(actual[iSab])
+      const domTrab = esDiaTrabajado(actual[iDom])
+      if (sabTrab === domTrab) continue
+
+      const probar = (prueba: Turno[] | null) => {
+        if (!prueba) return false
+        if (prueba[iSab] === 'V' || prueba[iDom] === 'V') return false
+        if (esDiaTrabajado(prueba[iSab]) !== esDiaTrabajado(prueba[iDom])) {
+          return false
+        }
+        if (
+          countFindesPartidos(prueba, anio, mes) >=
+          countFindesPartidos(actual, anio, mes)
+        ) {
+          return false
+        }
+        if (filaAceptable(prueba, actual, anio, mes, false)) {
+          actual = prueba
+          return true
+        }
+        if (filaAceptable(prueba, actual, anio, mes, true)) {
+          actual = prueba
+          return true
+        }
+        return false
+      }
+
+      const diasFindeTrabajo: number[] = []
+      const diasFindeDescanso: number[] = []
+      if (sabTrab) diasFindeTrabajo.push(iSab)
+      else diasFindeDescanso.push(iSab)
+      if (domTrab) diasFindeTrabajo.push(iDom)
+      else diasFindeDescanso.push(iDom)
+
+      const huecosD = indicesCandidatos(actual, anio, mes, (t) => t === 'D')
+      const huecosTrabajo = indicesCandidatos(actual, anio, mes, esDiaTrabajado)
+
+      const descansoEntero = () =>
+        elegirCombinacion(huecosD, diasFindeTrabajo.length, (elegidos) =>
+          probar(
+            aplicarReubicacion(actual, diasFindeTrabajo, elegidos, 'D', turno),
+          ),
+        )
+      const trabajoEntero = () =>
+        elegirCombinacion(huecosTrabajo, diasFindeDescanso.length, (elegidos) =>
+          probar(
+            aplicarReubicacion(
+              actual,
+              diasFindeDescanso,
+              elegidos,
+              turno,
+              'D',
+            ),
+          ),
+        )
+
+      if (descansoEntero() || trabajoEntero()) {
+        progreso = true
+      }
+    }
+    if (!progreso) break
+  }
+  return actual
 }
 
 function coberturaPorDia(
@@ -449,25 +590,38 @@ export function generarFilaMensual(
     minEntre,
     offsetDescansoInicial,
   )
-  if (!filaSinGraves(fila)) {
-    for (let extra = 1; extra < 16; extra++) {
-      const candidata = construirFila(
-        turnoBase,
-        nDias,
-        nLaborables,
-        minEntre,
-        offsetDescansoInicial + extra,
-      )
-      if (filaSinGraves(candidata)) {
-        fila = candidata
-        break
-      }
+  let mejorScore = Number.POSITIVE_INFINITY
+  for (let extra = 0; extra < 16; extra++) {
+    const candidata = construirFila(
+      turnoBase,
+      nDias,
+      nLaborables,
+      minEntre,
+      offsetDescansoInicial + extra,
+    )
+    if (!filaSinGraves(candidata)) continue
+    const partidos = countFindesPartidos(candidata, anio, mes)
+    const score = partidos * 100 + extra
+    if (score < mejorScore) {
+      fila = candidata
+      mejorScore = score
     }
+    if (partidos === 0) break
   }
 
   if (turnoBase === 'M' || turnoBase === 'T' || turnoBase === 'N') {
-    const conFindes = equilibrarFindesConsecutivos(fila, anio, mes, turnoBase)
-    if (filaSinGraves(conFindes)) return conFindes
+    fila = unificarFindesPartidos(fila, turnoBase, anio, mes)
+    const conFindes = equilibrarFindesConsecutivos(
+      fila,
+      anio,
+      mes,
+      turnoBase,
+      (prueba, original) => filaAceptable(prueba, original, anio, mes, false),
+    )
+    if (filaAceptable(conFindes, fila, anio, mes, false)) {
+      fila = conFindes
+    }
+    fila = unificarFindesPartidos(fila, turnoBase, anio, mes)
   }
   return fila
 }

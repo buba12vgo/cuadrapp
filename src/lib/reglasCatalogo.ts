@@ -248,11 +248,11 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     categoria: 'CUADRANTE',
     titulo: 'Fines de semana consecutivos',
     descripcion:
-      'No se pueden trabajar más de 2 fines de semana seguidos. Se procura alternar los findes laborables, priorizando cubrir los mínimos operativos.',
+      'No se pueden trabajar más de 2 fines de semana seguidos. Sábado y domingo van juntos: o se trabajan los dos o se descansan los dos. Se procura alternar los findes laborables, priorizando cubrir los mínimos operativos.',
     estado: 'implementada',
     detalle:
-      'Al generar el cuadrante mensual se intercambian jornadas de finde por descansos entre semana sin alterar el total de días trabajados. El pie del cuadrante muestra la racha máxima (Fs) y se alerta si supera 2.',
-    referencia: 'finesSemana · MAX_FINDES_CONSECUTIVOS = 2',
+      'Al generar el cuadrante se unifican findes partidos y se mueve el finde entero (sábado+domingo) si hay que cortar una racha. El pie muestra la racha máxima (Fs). Un sábado laborable con domingo de descanso (o al revés) se marca en rojo.',
+    referencia: 'finesSemana · unificarFindesPartidos · MAX_FINDES_CONSECUTIVOS = 2',
   },
   {
     id: 'eventos-modifican-minimos',

@@ -127,7 +127,7 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
       'Tras un mes de noche no se puede volver a hacer noche en los dos meses siguientes del mismo año. Marzo N no permite noche otra vez hasta junio como muy pronto. Diciembre N bloquea enero del año siguiente (meses seguidos); febrero sí puede ser N si hace falta para las preferencias.',
     estado: 'implementada',
     detalle:
-      'La separación de dos meses es lineal y solo dentro del año. Entre años solo se prohíben meses consecutivos: diciembre N impide enero N. Febrero del año siguiente puede ser N. Diciembre N dos años seguidos sigue prohibido por otra regla.',
+      'La separación de dos meses es lineal y solo dentro del año. Entre años solo se prohíben meses consecutivos: diciembre N impide enero N. Febrero del año siguiente puede ser N. Diciembre N dos años seguidos sigue prohibido por otra regla. Autogenerar respeta estas normas; la edición manual de una celda no se bloquea (el aviso queda en la celda).',
     referencia: 'generarPlanAnual · puedeNoche · MESES_SIN_N_TRAS_NOCHE = 2',
   },
   {
@@ -196,7 +196,7 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
       'Si un agente trabajó noche (N) en diciembre un año, no puede volver a tener N en diciembre del año siguiente en el plan anual.',
     estado: 'implementada',
     detalle:
-      'Al autogenerar o editar el plan se consulta diciembre del año anterior. La validación manual impide asignar N si ya la tuvo.',
+      'Al autogenerar se consulta diciembre del año anterior y no se asigna N. En edición manual el cambio se aplica igual; la celda muestra el aviso si incumple.',
     referencia: 'generarPlanAnual · diciembreNProhibido · validarTurnoEnPlan',
   },
   {
@@ -207,7 +207,7 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
       'El plan intenta cuadrar el reparto M/T/N de la plantilla con una tolerancia de ±2 puntos porcentuales.',
     estado: 'implementada',
     detalle:
-      'Al editar una celda manualmente se validan turnos permitidos y separación de noches; las marcas se recalculan al instante.',
+      'Al editar una celda a mano el turno se aplica aunque incumpla normas (separación de noches, diciembre N, etc.) para poder completar el ciclo. Las marcas de cuadre se recalculan al instante y la celda muestra el aviso.',
     referencia: 'TOLERANCIA_PCT_PLAN = 2 · validarTurnoEnPlan',
   },
   {

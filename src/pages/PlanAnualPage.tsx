@@ -197,6 +197,7 @@ export function PlanAnualPage() {
     () => new Set(hayPlanAnio ? (marcas?.agentesSinCuadrar ?? []) : []),
     [hayPlanAnio, marcas],
   )
+  const planAnioAnterior = planParaAnio(anio - 1)
 
   useEffect(() => {
     return () => {
@@ -259,20 +260,7 @@ export function PlanAnualPage() {
     if (!cargado) return
     const filaActual = [...(planAnual[agente.id] ?? filaVaciaPlanAnual())]
     const turnoActual = filaActual[mes] ?? null
-    const siguiente = siguienteTurno(agente, turnoActual)
-    const error = validarTurnoEnPlan(
-      agente,
-      filaActual,
-      mes,
-      siguiente,
-      planParaAnio(anio - 1),
-    )
-    if (error) {
-      window.alert(error)
-      return
-    }
-
-    filaActual[mes] = siguiente
+    filaActual[mes] = siguienteTurno(agente, turnoActual)
     const planActualizado = { ...planAnual, [agente.id]: filaActual }
     setPlanAnual(planActualizado)
     setMarcas(calcularMarcas(planActualizado, agentesVisibles, objetivosGlobales))
@@ -562,34 +550,50 @@ export function PlanAnualPage() {
                       ) : null}
                     </div>
                   </td>
-                  {fila.map((turno, mes) => (
-                    <td
-                      key={MESES[mes]}
-                      role="button"
-                      tabIndex={0}
-                      className={`${CELDA} cursor-pointer select-none text-center font-bold hover:z-10 hover:ring-2 hover:ring-blue-500 ${
-                        turno ? CLASE_TURNO[turno] : 'bg-white text-slate-400'
-                      } ${
-                        mesesMarcados.has(mes) ? 'outline outline-1 outline-amber-400' : ''
-                      }`}
-                      style={{ minWidth: ANCHO_MES }}
-                      title={
-                        turno
-                          ? `${MESES[mes]} · ${turno}`
-                          : `${MESES[mes]} · sin asignar`
-                      }
-                      aria-label={`${agente.numeroPlaca} ${MESES[mes]} ${turno ?? 'vacío'}`}
-                      onClick={() => rotarCelda(agente, mes)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault()
-                          rotarCelda(agente, mes)
+                  {fila.map((turno, mes) => {
+                    const aviso =
+                      turno && turno !== 'V'
+                        ? validarTurnoEnPlan(
+                            agente,
+                            fila,
+                            mes,
+                            turno,
+                            planAnioAnterior,
+                          )
+                        : null
+                    return (
+                      <td
+                        key={MESES[mes]}
+                        role="button"
+                        tabIndex={0}
+                        className={`${CELDA} cursor-pointer select-none text-center font-bold hover:z-10 hover:ring-2 hover:ring-blue-500 ${
+                          turno ? CLASE_TURNO[turno] : 'bg-white text-slate-400'
+                        } ${
+                          mesesMarcados.has(mes)
+                            ? 'outline outline-1 outline-amber-400'
+                            : ''
+                        } ${aviso ? 'ring-1 ring-inset ring-dashed ring-red-500' : ''}`}
+                        style={{ minWidth: ANCHO_MES }}
+                        title={
+                          turno
+                            ? aviso
+                              ? `${MESES[mes]} · ${turno} · ${aviso}`
+                              : `${MESES[mes]} · ${turno}`
+                            : `${MESES[mes]} · sin asignar`
                         }
-                      }}
-                    >
-                      {turno ?? ''}
-                    </td>
-                  ))}
+                        aria-label={`${agente.numeroPlaca} ${MESES[mes]} ${turno ?? 'vacío'}`}
+                        onClick={() => rotarCelda(agente, mes)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault()
+                            rotarCelda(agente, mes)
+                          }
+                        }}
+                      >
+                        {turno ?? ''}
+                      </td>
+                    )
+                  })}
                   {TOTALES.map((clave, indice) => (
                     <td
                       key={clave}

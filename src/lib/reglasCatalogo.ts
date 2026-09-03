@@ -230,7 +230,7 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
       'El plan intenta cuadrar el reparto M/T/N de la plantilla con una tolerancia de ±2 puntos porcentuales.',
     estado: 'implementada',
     detalle:
-      'El semáforo compara cupos enteros M/T/N (±2 % del total activo, mínimo 1 agente-mes), no el % redondeado en pantalla. Objetivo por defecto 36/36/27 (patrón 4-4-3). Al editar una celda a mano el turno se aplica aunque incumpla normas para poder completar el ciclo.',
+      'El semáforo compara el % mostrado con el objetivo global con tolerancia de ±2 puntos porcentuales en M, T y N. Al editar una celda a mano el turno se aplica aunque incumpla normas para poder completar el ciclo.',
     referencia: 'TOLERANCIA_PCT_PLAN = 2 · validarTurnoEnPlan',
   },
   {

@@ -413,20 +413,36 @@ function pctDesdeCupos(cupos: Cupos): ObjetivosGlobales | null {
   }
 }
 
-function dentroTolerancia(real: number, objetivo: number) {
+export function dentroToleranciaPctPlan(real: number, objetivo: number) {
   return Math.abs(real - objetivo) <= TOLERANCIA_PCT_PLAN
+}
+
+export function cuadraPorcentajesPlan(
+  real: ObjetivosGlobales | null,
+  objetivo: ObjetivosGlobales,
+) {
+  if (!real) return false
+  return (
+    dentroToleranciaPctPlan(real.M, objetivo.M) &&
+    dentroToleranciaPctPlan(real.T, objetivo.T) &&
+    dentroToleranciaPctPlan(real.N, objetivo.N)
+  )
 }
 
 function cuadraPorcentajes(
   real: ObjetivosGlobales | null,
   objetivo: ObjetivosGlobales,
 ) {
-  if (!real) return false
-  return (
-    dentroTolerancia(real.M, objetivo.M) &&
-    dentroTolerancia(real.T, objetivo.T) &&
-    dentroTolerancia(real.N, objetivo.N)
-  )
+  return cuadraPorcentajesPlan(real, objetivo)
+}
+
+function cuadraMesPorcentajes(
+  conteo: Cupos,
+  objetivos: ObjetivosGlobales,
+) {
+  const activos = conteo.M + conteo.T + conteo.N
+  if (activos <= 0) return false
+  return cuadraPorcentajes(pctDesdeCupos(conteo), objetivos)
 }
 
 /** Tolerancia en agentes-mes (±2 % del total activo, mínimo 1). */
@@ -487,7 +503,7 @@ function mesesPendientesCuadre(
     const conteo = conteoMes(plan, ids, mes)
     const activos = conteo.M + conteo.T + conteo.N
     if (activos <= 0) continue
-    if (!cuadraCupos(conteo, objetivos)) pendientes.push(mes)
+    if (!cuadraMesPorcentajes(conteo, objetivos)) pendientes.push(mes)
   }
   return pendientes
 }
@@ -984,7 +1000,7 @@ export function calcularMarcas(
 
   const flota = contarFlota(plan, agentesCuadre)
   const pctAnio = pctDesdeCupos(flota)
-  const anioCuadra = cuadraCupos(flota, objetivos)
+  const anioCuadra = cuadraPorcentajes(pctAnio, objetivos)
 
   const mesesSinCuadrar: number[] = []
   for (let mes = 0; mes < MESES; mes++) {
@@ -994,7 +1010,7 @@ export function calcularMarcas(
       mesesSinCuadrar.push(mes)
       continue
     }
-    if (!cuadraCupos(conteo, objetivos)) mesesSinCuadrar.push(mes)
+    if (!cuadraMesPorcentajes(conteo, objetivos)) mesesSinCuadrar.push(mes)
   }
 
   const agentesSinCuadrar = agentesCuadre

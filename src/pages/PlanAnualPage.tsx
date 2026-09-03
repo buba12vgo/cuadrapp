@@ -6,7 +6,7 @@ import { usePlanAnual, planParaAnio } from '@/lib/planAnualStore'
 import {
   agentePerteneceGrupo,
   calcularMarcas,
-  cuadraConteoTurno,
+  dentroToleranciaPctPlan,
   filaVaciaPlanAnual,
   generarPlanAnual,
   siguienteTurno,
@@ -100,14 +100,9 @@ function porcentaje(cantidad: number, base: number) {
   return (cantidad / base) * 100
 }
 
-function claseSemaforoCupo(
-  cantidad: number,
-  activos: number,
-  turno: 'M' | 'T' | 'N',
-  objetivos: ObjetivosGlobales,
-) {
-  if (activos <= 0) return 'bg-gray-200 text-slate-500'
-  return cuadraConteoTurno(cantidad, activos, turno, objetivos)
+function claseSemaforoPct(real: number | null, objetivo: number) {
+  if (real == null) return 'bg-gray-200 text-slate-500'
+  return dentroToleranciaPctPlan(real, objetivo)
     ? 'bg-green-100 font-bold text-green-800'
     : 'bg-red-200 font-bold text-red-900'
 }
@@ -731,11 +726,9 @@ export function PlanAnualPage() {
                     return (
                       <td
                         key={MESES[mes]}
-                        className={`${CELDA_PIE} text-center tabular-nums ${claseSemaforoCupo(
-                          cantidad,
-                          activos,
-                          turnoPie,
-                          objetivosGlobales,
+                        className={`${CELDA_PIE} text-center tabular-nums ${claseSemaforoPct(
+                          real,
+                          objetivosGlobales[turnoPie],
                         )} ${
                           mesesMarcados.has(mes)
                             ? 'ring-2 ring-inset ring-amber-500'
@@ -766,11 +759,9 @@ export function PlanAnualPage() {
                         indice === 0 ? 'border-l-2 border-l-slate-600' : ''
                       } ${
                         clave === turnoPie
-                          ? `${claseSemaforoCupo(
-                              cantidadAnio,
-                              activosAnio,
-                              turnoPie,
-                              objetivosGlobales,
+                          ? `${claseSemaforoPct(
+                              pctAnio,
+                              objetivosGlobales[turnoPie],
                             )} ${
                               hayPlanAnio && marcas && !marcas.anioCuadra
                                 ? 'ring-2 ring-inset ring-amber-500'

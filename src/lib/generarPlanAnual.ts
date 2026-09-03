@@ -61,6 +61,11 @@ const MES_DICIEMBRE = 11
  * Febrero del año siguiente puede ser N para cuadrar preferencias.
  */
 const MESES_SIN_N_TRAS_NOCHE = 2
+/**
+ * Se procura no repetir tarde al mes siguiente. Dos T seguidas se permiten
+ * si hace falta para los cupos; tres o más se evitan mientras queden huecos.
+ */
+const MAX_TARDES_SEGUIDAS = 2
 type TurnoActivo = (typeof TURNOS_ACTIVOS)[number]
 
 export function filaVaciaPlanAnual(): FilaPlanAnual {
@@ -143,6 +148,53 @@ function puedeColocarNoche(
     if (nochesDemasiadoCercanas(mes, otro)) return false
   }
   return true
+}
+
+function diciembreAnteriorTarde(
+  agenteId: string,
+  planAnioAnterior?: PlanAnual,
+) {
+  return planAnioAnterior?.[agenteId]?.[MES_DICIEMBRE] === 'T'
+}
+
+/** Racha de T si `mes` es tarde, contando diciembre del año anterior. */
+function rachaTardeSiColoca(
+  fila: FilaPlanAnual,
+  mes: number,
+  diciembreAnteriorT: boolean,
+) {
+  let izq = 0
+  for (let m = mes - 1; m >= 0; m--) {
+    if (fila[m] !== 'T') break
+    izq += 1
+  }
+  if (diciembreAnteriorT && izq === mes) izq += 1
+
+  let der = 0
+  for (let m = mes + 1; m < MESES; m++) {
+    if (fila[m] !== 'T') break
+    der += 1
+  }
+  return izq + 1 + der
+}
+
+function puedeTarde(
+  fila: Fila,
+  mes: number,
+  diciembreAnteriorT: boolean,
+  maxRacha: number,
+) {
+  if (fila[mes] != null) return false
+  return rachaTardeSiColoca(fila, mes, diciembreAnteriorT) <= maxRacha
+}
+
+function puedeColocarTarde(
+  fila: FilaPlanAnual,
+  mes: number,
+  diciembreAnteriorT: boolean,
+  maxRacha = MAX_TARDES_SEGUIDAS,
+) {
+  return rachaTardeSiColoca(fila, mes, diciembreAnteriorT) <= maxRacha
 }
 
 /** Reparte `libres` meses según % M/T/N (método del resto mayor). */
@@ -260,6 +312,7 @@ function asignarFila(
 
   const cupos = cuposLaborales(agente, huecos(fila).length, cuposOverride)
   const diciembreAnteriorN = diciembreNProhibido(agente.id, planAnioAnterior)
+  const diciembreAnteriorT = diciembreAnteriorTarde(agente.id, planAnioAnterior)
 
   for (const invertido of [false, true]) {
     if (cupos.N <= 0) break
@@ -276,10 +329,17 @@ function asignarFila(
   cupos.T += cupos.N
   cupos.N = 0
 
-  for (const mes of huecos(fila)) {
-    if (cupos.T <= 0) break
-    fila[mes] = 'T'
-    cupos.T -= 1
+  for (const maxRacha of [1, MAX_TARDES_SEGUIDAS, MESES]) {
+    for (const invertido of [false, true]) {
+      if (cupos.T <= 0) break
+      const candidatos = invertido ? [...huecos(fila)].reverse() : huecos(fila)
+      for (const mes of candidatos) {
+        if (cupos.T <= 0) break
+        if (!puedeTarde(fila, mes, diciembreAnteriorT, maxRacha)) continue
+        fila[mes] = 'T'
+        cupos.T -= 1
+      }
+    }
   }
 
   for (const mes of huecos(fila)) {
@@ -397,6 +457,7 @@ function intentarSwapMismaFila(
   }
 
   const dicAnteriorN = diciembreNProhibido(id, planAnioAnterior)
+  const dicAnteriorT = diciembreAnteriorTarde(id, planAnioAnterior)
   const copia = [...fila]
   copia[mesA] = turnoB
   copia[mesB] = turnoA
@@ -404,6 +465,12 @@ function intentarSwapMismaFila(
     return false
   }
   if (turnoA === 'N' && !puedeColocarNoche(copia, mesB, dicAnteriorN)) {
+    return false
+  }
+  if (turnoB === 'T' && !puedeColocarTarde(copia, mesA, dicAnteriorT)) {
+    return false
+  }
+  if (turnoA === 'T' && !puedeColocarTarde(copia, mesB, dicAnteriorT)) {
     return false
   }
 
@@ -461,6 +528,16 @@ function intentarDobleSwapPreservandoCupos(
         copia,
         mes as number,
         diciembreNProhibido(agente.id, planAnioAnterior),
+      )
+    ) {
+      return false
+    }
+    if (
+      turno === 'T' &&
+      !puedeColocarTarde(
+        copia,
+        mes as number,
+        diciembreAnteriorTarde(agente.id, planAnioAnterior),
       )
     ) {
       return false
@@ -793,6 +870,7 @@ export function validarTurnoEnPlan(
       return `El agente no puede hacer turno ${turno}`
     }
     const dicAnteriorN = diciembreNProhibido(agente.id, planAnioAnterior)
+    const dicAnteriorT = diciembreAnteriorTarde(agente.id, planAnioAnterior)
     if (turno === 'N' && mes === MES_ENERO && dicAnteriorN) {
       return 'No puede hacer noche en enero si diciembre del año anterior fue noche'
     }
@@ -801,6 +879,15 @@ export function validarTurnoEnPlan(
     }
     if (mes === MES_DICIEMBRE && turno === 'N' && dicAnteriorN) {
       return 'No puede repetir noche en diciembre respecto al año anterior'
+    }
+    if (turno === 'T') {
+      const racha = rachaTardeSiColoca(fila, mes, dicAnteriorT)
+      if (racha > MAX_TARDES_SEGUIDAS) {
+        return 'No se deben hacer más de dos tardes seguidas'
+      }
+      if (racha === MAX_TARDES_SEGUIDAS) {
+        return 'Se procura no repetir tardes; dos meses seguidos es excepcional'
+      }
     }
   }
   return null

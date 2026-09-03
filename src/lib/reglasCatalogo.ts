@@ -131,6 +131,17 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     referencia: 'generarPlanAnual · puedeNoche · MESES_SIN_N_TRAS_NOCHE = 2',
   },
   {
+    id: 'separacion-tardes-plan',
+    categoria: 'TURNOS',
+    titulo: 'No repetir tardes en el plan anual',
+    descripcion:
+      'Se procura no repetir tarde al mes siguiente. Ocasionalmente se permiten dos meses seguidos de tarde si hace falta para los cupos o las preferencias; tres o más se evitan.',
+    estado: 'implementada',
+    detalle:
+      'Autogenerar coloca primero tardes aisladas y, si faltan cupos, admite pares. Diciembre T del año anterior cuenta para la racha de enero. En edición manual el cambio no se bloquea; la celda avisa si hay dos o más T seguidas.',
+    referencia: 'generarPlanAnual · puedeTarde · MAX_TARDES_SEGUIDAS = 2',
+  },
+  {
     id: 'minimos-puesto-turno',
     categoria: 'PUESTOS',
     titulo: 'Mínimos de cobertura por puesto',

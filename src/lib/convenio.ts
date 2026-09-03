@@ -15,9 +15,6 @@ export const MIN_DESCANSO_SEGUIDO = 2
 /** Tras un bloque de noches, mínimo 3 D antes de una M. */
 export const MIN_DESCANSO_TRAS_NOCHE = 3
 
-/** Mínimo de agentes por turno y día (Fase 9 aún no está viva). */
-export const MINIMO_AGENTES_TURNO = 10
-
 /** `mes` es 1–12. */
 export function diasDelMes(anio: number, mes: number) {
   return new Date(anio, mes, 0).getDate()

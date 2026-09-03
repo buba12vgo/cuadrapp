@@ -18,6 +18,7 @@ import {
   type AsignacionesDiarias,
   minimosParaFecha,
   type PuestoBase,
+  totalMinimosTurno,
   type TurnoOperativo,
 } from '@/lib/calendarioPuestos'
 import {
@@ -35,7 +36,6 @@ import {
 import { ensureFirebase, isFirebaseReady } from '@/lib/firebase'
 import { usePlanAnual } from '@/lib/planAnualStore'
 import {
-  MINIMO_AGENTES_TURNO,
   diasDelMes,
   diasOperativosConvenio,
   esFinDeSemana,
@@ -483,8 +483,8 @@ export function CuadranteMensualPage() {
             Cuadrante mensual
           </h1>
           <p className="text-[11px] text-slate-500">
-            Convenio: {objetivo} días · fatiga ≤ 5 · D de 2+ · mín.{' '}
-            {MINIMO_AGENTES_TURNO}/turno
+            Convenio: {objetivo} días · fatiga ≤ 5 · D de 2+ · cobertura vs
+            mínimos del día
             {loadingCuadrante ? ' · Cargando…' : ''}
           </p>
         </div>
@@ -681,7 +681,7 @@ export function CuadranteMensualPage() {
                     indice === 0 ? 'border-l-2 border-l-slate-600' : ''
                   }`}
                   style={stickyDerecha(indice)}
-                  title={`Agentes en ${turno} · mínimo ${MINIMO_AGENTES_TURNO}`}
+                  title={`Agentes en ${turno} · el rojo es si no llega al mínimo de puestos de ese día`}
                 >
                   {turno}
                 </th>
@@ -695,12 +695,19 @@ export function CuadranteMensualPage() {
                 esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia)
               const fondoFila = especial ? 'bg-amber-50' : 'bg-white'
               const totales = { M: 0, T: 0, N: 0 }
-              for (const agente of agentesVisibles) {
+              for (const agente of agentesData) {
                 const turno = cuadrante[agente.id]?.[dia - 1]
                 if (turno === 'M' || turno === 'T' || turno === 'N') {
                   totales[turno] += 1
                 }
               }
+              const fechaDia = isoFecha(anio, mes, dia)
+              const minimosDia = minimosParaFecha(
+                fechaDia,
+                eventosData,
+                minimosSemana,
+                puestos,
+              )
 
               return (
                 <tr key={dia} className={fondoFila}>
@@ -822,17 +829,21 @@ export function CuadranteMensualPage() {
                       </td>
                     )
                   })}
-                  {TURNOS_OP.map((turno, indice) => (
-                    <td
-                      key={turno}
-                      className={`${CELDA} sticky z-10 text-center tabular-nums ${
-                        indice === 0 ? 'border-l-2 border-l-slate-600' : ''
-                      } ${claseMinimo(totales[turno], MINIMO_AGENTES_TURNO, especial)}`}
-                      style={stickyDerecha(indice)}
-                    >
-                      {totales[turno]}
-                    </td>
-                  ))}
+                  {TURNOS_OP.map((turno, indice) => {
+                    const minimo = totalMinimosTurno(minimosDia, turno, puestos)
+                    return (
+                      <td
+                        key={turno}
+                        className={`${CELDA} sticky z-10 text-center tabular-nums ${
+                          indice === 0 ? 'border-l-2 border-l-slate-600' : ''
+                        } ${claseMinimo(totales[turno], minimo, especial)}`}
+                        style={stickyDerecha(indice)}
+                        title={`${totales[turno]} en ${turno} · mínimo ${minimo}`}
+                      >
+                        {totales[turno]}
+                      </td>
+                    )
+                  })}
                 </tr>
               )
             })}

@@ -50,6 +50,13 @@ export type ResultadoGeneracionPlanAnual = {
 
 export const TOLERANCIA_PCT_PLAN = 2
 
+/** Alineado con patrón 4-4-3 (11 meses activos ≈ 36,4 / 36,4 / 27,3 %). */
+export const OBJETIVOS_PLAN_DEFECTO: ObjetivosGlobales = {
+  M: 36,
+  T: 36,
+  N: 27,
+}
+
 const MESES = 12
 const TURNOS_ACTIVOS = ['M', 'T', 'N'] as const
 const MES_ENERO = 0
@@ -285,7 +292,7 @@ function cuposLaborales(
 
   const suma = M + T + N
   if (suma === 0) {
-    const reparto = cuposDesdePorcentajes(libres, { M: 34, T: 33, N: 33 })
+    const reparto = cuposDesdePorcentajes(libres, OBJETIVOS_PLAN_DEFECTO)
     return {
       M: lim.M ? reparto.M : 0,
       T: lim.T ? reparto.T : 0,
@@ -417,6 +424,37 @@ function cuadraPorcentajes(
     dentroTolerancia(real.T, objetivo.T) &&
     dentroTolerancia(real.N, objetivo.N)
   )
+}
+
+/** Tolerancia en agentes-mes (±2 % del total activo, mínimo 1). */
+export function toleranciaCuposPlan(activos: number) {
+  if (activos <= 0) return 0
+  return Math.max(1, Math.ceil((activos * TOLERANCIA_PCT_PLAN) / 100))
+}
+
+/** Cuadre por cupos enteros M/T/N, no por % redondeado en pantalla. */
+export function cuadraCupos(real: Cupos, objetivos: ObjetivosGlobales) {
+  const activos = real.M + real.T + real.N
+  if (activos <= 0) return false
+  const esperado = cuposDesdePorcentajes(activos, objetivos)
+  const tol = toleranciaCuposPlan(activos)
+  return (
+    Math.abs(real.M - esperado.M) <= tol &&
+    Math.abs(real.T - esperado.T) <= tol &&
+    Math.abs(real.N - esperado.N) <= tol
+  )
+}
+
+export function cuadraConteoTurno(
+  cantidad: number,
+  activos: number,
+  turno: TurnoActivo,
+  objetivos: ObjetivosGlobales,
+) {
+  if (activos <= 0) return false
+  const esperado = cuposDesdePorcentajes(activos, objetivos)
+  const tol = toleranciaCuposPlan(activos)
+  return Math.abs(cantidad - esperado[turno]) <= tol
 }
 
 function desviacionObjetivo(real: Cupos, objetivo: Cupos) {
@@ -850,7 +888,7 @@ export function calcularMarcas(
 
   const flota = contarFlota(plan, agentesCuadre)
   const pctAnio = pctDesdeCupos(flota)
-  const anioCuadra = cuadraPorcentajes(pctAnio, objetivos)
+  const anioCuadra = cuadraCupos(flota, objetivos)
 
   const mesesSinCuadrar: number[] = []
   for (let mes = 0; mes < MESES; mes++) {
@@ -860,8 +898,7 @@ export function calcularMarcas(
       mesesSinCuadrar.push(mes)
       continue
     }
-    const pctMes = pctDesdeCupos(conteo)
-    if (!cuadraPorcentajes(pctMes, objetivos)) mesesSinCuadrar.push(mes)
+    if (!cuadraCupos(conteo, objetivos)) mesesSinCuadrar.push(mes)
   }
 
   const agentesSinCuadrar = agentesCuadre
@@ -964,7 +1001,7 @@ export function generarPlanAnual(
   const plan: PlanAnual = opciones.planBase
     ? clonarPlan(opciones.planBase)
     : {}
-  const objetivos = objetivosGlobales ?? { M: 34, T: 33, N: 33 }
+  const objetivos = objetivosGlobales ?? OBJETIVOS_PLAN_DEFECTO
   const agentesGenerar = agentesAutogenerables(agentes, opciones.grupo)
   const generarIds = new Set(agentesGenerar.map((agente) => agente.id))
   const acumulado: Cupos = { M: 0, T: 0, N: 0 }

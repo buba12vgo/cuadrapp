@@ -1,17 +1,14 @@
 import { useCallback, useSyncExternalStore } from 'react'
 import {
   generarPlanAnual,
+  OBJETIVOS_PLAN_DEFECTO,
   type MarcasPlanAnual,
   type ObjetivosGlobales,
   type PlanAnual,
 } from '@/lib/generarPlanAnual'
 import { ANIO_REFERENCIA_VACACIONES_DEFECTO } from '@/lib/vacaciones'
 
-export const OBJETIVOS_PLAN_DEFECTO: ObjetivosGlobales = {
-  M: 34,
-  T: 33,
-  N: 33,
-}
+export { OBJETIVOS_PLAN_DEFECTO }
 
 function clonarPlan(plan: PlanAnual): PlanAnual {
   const copia: PlanAnual = {}

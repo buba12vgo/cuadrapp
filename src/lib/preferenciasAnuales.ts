@@ -239,7 +239,10 @@ export function patronCumplidoEnFila(
 
   const real: Cupos = { M: totales.M, T: totales.T, N: totales.N }
 
-  if (esSinPreferencia(agente.preferenciaAnual)) {
+  if (
+    esSinPreferencia(agente.preferenciaAnual) ||
+    agenteSinLimitacionesTurno(agente.limitaciones)
+  ) {
     const compatibles = patronesCompatibles(agente.limitaciones)
     for (const patron of compatibles) {
       const esperado = cuposDesdePatron(agente, patron, 11)

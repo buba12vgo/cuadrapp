@@ -477,22 +477,202 @@ function conteoMes(plan: PlanAnual, ids: string[], mes: number): Cupos {
   return conteo
 }
 
-function desviacionMeses(
+function mesesPendientesCuadre(
   plan: PlanAnual,
   ids: string[],
   objetivos: ObjetivosGlobales,
 ) {
-  let total = 0
+  const pendientes: number[] = []
   for (let mes = 0; mes < MESES; mes++) {
     const conteo = conteoMes(plan, ids, mes)
     const activos = conteo.M + conteo.T + conteo.N
     if (activos <= 0) continue
-    total += desviacionObjetivo(
-      conteo,
-      cuposDesdePorcentajes(activos, objetivos),
+    if (!cuadraCupos(conteo, objetivos)) pendientes.push(mes)
+  }
+  return pendientes
+}
+
+/**
+ * Swaps que preservan cupos de cada ficha. Acepta solo si mejora el mes objetivo
+ * (no el total global, que bloqueaba arreglar Oct/Nov).
+ */
+function intentarMejorarMes(
+  plan: PlanAnual,
+  agentesById: Map<string, FichaPolicia>,
+  ids: string[],
+  mes: number,
+  objetivos: ObjetivosGlobales,
+  planAnioAnterior?: PlanAnual,
+) {
+  let conteo = conteoMes(plan, ids, mes)
+  const activos = conteo.M + conteo.T + conteo.N
+  if (activos <= 0) return false
+
+  let objetivoMes = cuposDesdePorcentajes(activos, objetivos)
+  let devMes = desviacionObjetivo(conteo, objetivoMes)
+  if (devMes === 0) return false
+
+  let mejorado = false
+
+  for (const surplus of TURNOS_ACTIVOS) {
+    for (const deficit of TURNOS_ACTIVOS) {
+      if (surplus === deficit) continue
+
+      for (const id of ids) {
+        if (plan[id]?.[mes] !== surplus) continue
+        for (let mesB = 0; mesB < MESES; mesB++) {
+          if (mesB === mes) continue
+          if (plan[id]?.[mesB] !== deficit) continue
+          if (
+            !intentarSwapMismaFila(
+              plan,
+              agentesById,
+              id,
+              mes,
+              mesB,
+              planAnioAnterior,
+            )
+          ) {
+            continue
+          }
+          const despues = conteoMes(plan, ids, mes)
+          const devDesp = desviacionObjetivo(despues, objetivoMes)
+          const cuadraAntes = cuadraCupos(conteo, objetivos)
+          const cuadraDespues = cuadraCupos(despues, objetivos)
+          const aceptar =
+            devDesp < devMes || (!cuadraAntes && cuadraDespues)
+          if (!aceptar) {
+            intentarSwapMismaFila(
+              plan,
+              agentesById,
+              id,
+              mes,
+              mesB,
+              planAnioAnterior,
+            )
+            continue
+          }
+          conteo = despues
+          devMes = devDesp
+          mejorado = true
+          if (devMes === 0) return true
+        }
+      }
+
+      conteo = conteoMes(plan, ids, mes)
+      objetivoMes = cuposDesdePorcentajes(activos, objetivos)
+      if (conteo[surplus] <= objetivoMes[surplus]) continue
+      if (conteo[deficit] >= objetivoMes[deficit]) continue
+
+      for (const idA of ids) {
+        if (plan[idA]?.[mes] !== surplus) continue
+        for (let mesB = 0; mesB < MESES; mesB++) {
+          if (mesB === mes) continue
+          if (plan[idA]?.[mesB] !== deficit) continue
+          for (const idB of ids) {
+            if (idB === idA) continue
+            if (plan[idB]?.[mes] !== deficit) continue
+            if (plan[idB]?.[mesB] !== surplus) continue
+            if (
+              !intentarDobleSwapPreservandoCupos(
+                plan,
+                agentesById,
+                idA,
+                idB,
+                mes,
+                mesB,
+                planAnioAnterior,
+              )
+            ) {
+              continue
+            }
+            const despues = conteoMes(plan, ids, mes)
+            const devDesp = desviacionObjetivo(despues, objetivoMes)
+            const cuadraAntes = cuadraCupos(conteo, objetivos)
+            const cuadraDespues = cuadraCupos(despues, objetivos)
+            const aceptar =
+              devDesp < devMes || (!cuadraAntes && cuadraDespues)
+            if (!aceptar) {
+              intentarDobleSwapPreservandoCupos(
+                plan,
+                agentesById,
+                idA,
+                idB,
+                mes,
+                mesB,
+                planAnioAnterior,
+              )
+              continue
+            }
+            conteo = despues
+            devMes = devDesp
+            mejorado = true
+            if (devMes === 0) return true
+          }
+        }
+      }
+    }
+  }
+
+  return mejorado
+}
+
+function equilibrarMesesInterno(
+  plan: PlanAnual,
+  agentes: FichaPolicia[],
+  objetivos: ObjetivosGlobales,
+  planAnioAnterior?: PlanAnual,
+  maxPasadas = 20,
+  soloMeses?: number[],
+) {
+  if (agentes.length === 0) return
+
+  const agentesById = new Map(agentes.map((agente) => [agente.id, agente]))
+  const ids = agentes.map((agente) => agente.id)
+  const meses =
+    soloMeses ??
+    Array.from({ length: MESES }, (_, indice) => indice)
+
+  for (let pase = 0; pase < maxPasadas; pase++) {
+    let mejorado = false
+    for (const mes of meses) {
+      if (
+        intentarMejorarMes(
+          plan,
+          agentesById,
+          ids,
+          mes,
+          objetivos,
+          planAnioAnterior,
+        )
+      ) {
+        mejorado = true
+      }
+    }
+    if (!mejorado) break
+  }
+}
+
+/** Pasadas extra solo sobre meses que aún no cuadran (±2 % por cupos). */
+function equilibrarMesesPendientes(
+  plan: PlanAnual,
+  agentes: FichaPolicia[],
+  objetivos: ObjetivosGlobales,
+  planAnioAnterior?: PlanAnual,
+) {
+  const ids = agentes.map((agente) => agente.id)
+  for (let ronda = 0; ronda < 5; ronda++) {
+    const pendientes = mesesPendientesCuadre(plan, ids, objetivos)
+    if (pendientes.length === 0) break
+    equilibrarMesesInterno(
+      plan,
+      agentes,
+      objetivos,
+      planAnioAnterior,
+      40,
+      pendientes,
     )
   }
-  return total
 }
 
 /**
@@ -622,119 +802,13 @@ function equilibrarMesesPreservandoPreferencias(
   objetivos: ObjetivosGlobales,
   planAnioAnterior?: PlanAnual,
 ) {
-  if (agentes.length === 0) return
-
-  const agentesById = new Map(agentes.map((agente) => [agente.id, agente]))
-  const ids = agentes.map((agente) => agente.id)
-
-  for (let pase = 0; pase < 20; pase++) {
-    let mejorado = false
-    const devAntes = desviacionMeses(plan, ids, objetivos)
-
-    for (let mes = 0; mes < MESES; mes++) {
-      const conteo = conteoMes(plan, ids, mes)
-      const activos = conteo.M + conteo.T + conteo.N
-      if (activos <= 0) continue
-      const objetivoMes = cuposDesdePorcentajes(activos, objetivos)
-      if (desviacionObjetivo(conteo, objetivoMes) === 0) continue
-
-      for (const surplus of TURNOS_ACTIVOS) {
-        for (const deficit of TURNOS_ACTIVOS) {
-          if (surplus === deficit) continue
-          if (conteo[surplus] <= objetivoMes[surplus]) continue
-          if (conteo[deficit] >= objetivoMes[deficit]) continue
-
-          // 1) Mismo agente: intercambiar surplus@mes con deficit@otroMes
-          for (const id of ids) {
-            if (plan[id]?.[mes] !== surplus) continue
-            for (let mesB = 0; mesB < MESES; mesB++) {
-              if (mesB === mes) continue
-              if (plan[id]?.[mesB] !== deficit) continue
-              if (
-                !intentarSwapMismaFila(
-                  plan,
-                  agentesById,
-                  id,
-                  mes,
-                  mesB,
-                  planAnioAnterior,
-                )
-              ) {
-                continue
-              }
-              const devDesp = desviacionMeses(plan, ids, objetivos)
-              if (devDesp >= devAntes) {
-                intentarSwapMismaFila(
-                  plan,
-                  agentesById,
-                  id,
-                  mes,
-                  mesB,
-                  planAnioAnterior,
-                )
-                continue
-              }
-              conteo[surplus] -= 1
-              conteo[deficit] += 1
-              mejorado = true
-              break
-            }
-            if (conteo[surplus] <= objetivoMes[surplus]) break
-          }
-
-          // 2) Doble swap entre dos agentes (preserva cupos de ambos)
-          if (conteo[surplus] > objetivoMes[surplus]) {
-            for (const idA of ids) {
-              if (plan[idA]?.[mes] !== surplus) continue
-              for (let mesB = 0; mesB < MESES; mesB++) {
-                if (mesB === mes) continue
-                if (plan[idA]?.[mesB] !== deficit) continue
-                for (const idB of ids) {
-                  if (idB === idA) continue
-                  if (plan[idB]?.[mes] !== deficit) continue
-                  if (plan[idB]?.[mesB] !== surplus) continue
-                  if (
-                    !intentarDobleSwapPreservandoCupos(
-                      plan,
-                      agentesById,
-                      idA,
-                      idB,
-                      mes,
-                      mesB,
-                      planAnioAnterior,
-                    )
-                  ) {
-                    continue
-                  }
-                  const devDesp = desviacionMeses(plan, ids, objetivos)
-                  if (devDesp >= devAntes) {
-                    intentarDobleSwapPreservandoCupos(
-                      plan,
-                      agentesById,
-                      idA,
-                      idB,
-                      mes,
-                      mesB,
-                      planAnioAnterior,
-                    )
-                    continue
-                  }
-                  conteo[surplus] -= 1
-                  conteo[deficit] += 1
-                  mejorado = true
-                  break
-                }
-                if (conteo[surplus] <= objetivoMes[surplus]) break
-              }
-              if (conteo[surplus] <= objetivoMes[surplus]) break
-            }
-          }
-        }
-      }
-    }
-
-    if (!mejorado) break
-  }
+  equilibrarMesesInterno(
+    plan,
+    agentes,
+    objetivos,
+    planAnioAnterior,
+    20,
+  )
 }
 
 function desviacionPorcentajes(
@@ -1222,6 +1296,12 @@ function refinarPlanTrasGenerar(
       objetivos,
       planAnioAnterior,
     )
+    equilibrarMesesPendientes(
+      plan,
+      agentesGenerar,
+      objetivos,
+      planAnioAnterior,
+    )
   }
 }
 
@@ -1311,6 +1391,12 @@ export function generarPlanAnual(
     agentesGenerar,
     objetivos,
     anio,
+    planAnioAnterior,
+  )
+  equilibrarMesesPendientes(
+    plan,
+    agentesGenerar,
+    objetivos,
     planAnioAnterior,
   )
   return {

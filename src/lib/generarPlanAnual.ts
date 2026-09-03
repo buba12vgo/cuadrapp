@@ -492,9 +492,41 @@ function mesesPendientesCuadre(
   return pendientes
 }
 
+type PuntajeEquilibrioMeses = {
+  pendientes: number
+  desviacion: number
+}
+
+function puntajeEquilibrioMeses(
+  plan: PlanAnual,
+  ids: string[],
+  objetivos: ObjetivosGlobales,
+): PuntajeEquilibrioMeses {
+  const mesesMal = mesesPendientesCuadre(plan, ids, objetivos)
+  let desviacion = 0
+  for (const mes of mesesMal) {
+    const conteo = conteoMes(plan, ids, mes)
+    const activos = conteo.M + conteo.T + conteo.N
+    desviacion += desviacionObjetivo(
+      conteo,
+      cuposDesdePorcentajes(activos, objetivos),
+    )
+  }
+  return { pendientes: mesesMal.length, desviacion }
+}
+
+function mejoraEquilibrioMeses(
+  antes: PuntajeEquilibrioMeses,
+  despues: PuntajeEquilibrioMeses,
+) {
+  if (despues.pendientes < antes.pendientes) return true
+  if (despues.pendientes > antes.pendientes) return false
+  return despues.desviacion < antes.desviacion
+}
+
 /**
- * Swaps que preservan cupos de cada ficha. Acepta solo si mejora el mes objetivo
- * (no el total global, que bloqueaba arreglar Oct/Nov).
+ * Swaps que preservan cupos de cada ficha. Acepta solo si baja el nº de meses
+ * en rojo o su desviación total, sin empeorar otros meses ya cuadrados.
  */
 function intentarMejorarMes(
   plan: PlanAnual,
@@ -504,13 +536,12 @@ function intentarMejorarMes(
   objetivos: ObjetivosGlobales,
   planAnioAnterior?: PlanAnual,
 ) {
-  let conteo = conteoMes(plan, ids, mes)
+  const conteo = conteoMes(plan, ids, mes)
   const activos = conteo.M + conteo.T + conteo.N
   if (activos <= 0) return false
 
-  let objetivoMes = cuposDesdePorcentajes(activos, objetivos)
-  let devMes = desviacionObjetivo(conteo, objetivoMes)
-  if (devMes === 0) return false
+  const objetivoMes = cuposDesdePorcentajes(activos, objetivos)
+  if (desviacionObjetivo(conteo, objetivoMes) === 0) return false
 
   let mejorado = false
 
@@ -523,6 +554,7 @@ function intentarMejorarMes(
         for (let mesB = 0; mesB < MESES; mesB++) {
           if (mesB === mes) continue
           if (plan[id]?.[mesB] !== deficit) continue
+          const puntajeAntes = puntajeEquilibrioMeses(plan, ids, objetivos)
           if (
             !intentarSwapMismaFila(
               plan,
@@ -535,13 +567,8 @@ function intentarMejorarMes(
           ) {
             continue
           }
-          const despues = conteoMes(plan, ids, mes)
-          const devDesp = desviacionObjetivo(despues, objetivoMes)
-          const cuadraAntes = cuadraCupos(conteo, objetivos)
-          const cuadraDespues = cuadraCupos(despues, objetivos)
-          const aceptar =
-            devDesp < devMes || (!cuadraAntes && cuadraDespues)
-          if (!aceptar) {
+          const puntajeDesp = puntajeEquilibrioMeses(plan, ids, objetivos)
+          if (!mejoraEquilibrioMeses(puntajeAntes, puntajeDesp)) {
             intentarSwapMismaFila(
               plan,
               agentesById,
@@ -552,17 +579,15 @@ function intentarMejorarMes(
             )
             continue
           }
-          conteo = despues
-          devMes = devDesp
           mejorado = true
-          if (devMes === 0) return true
+          if (puntajeDesp.pendientes === 0) return true
         }
       }
 
-      conteo = conteoMes(plan, ids, mes)
-      objetivoMes = cuposDesdePorcentajes(activos, objetivos)
-      if (conteo[surplus] <= objetivoMes[surplus]) continue
-      if (conteo[deficit] >= objetivoMes[deficit]) continue
+      const conteoActual = conteoMes(plan, ids, mes)
+      const objetivoActual = cuposDesdePorcentajes(activos, objetivos)
+      if (conteoActual[surplus] <= objetivoActual[surplus]) continue
+      if (conteoActual[deficit] >= objetivoActual[deficit]) continue
 
       for (const idA of ids) {
         if (plan[idA]?.[mes] !== surplus) continue
@@ -573,6 +598,7 @@ function intentarMejorarMes(
             if (idB === idA) continue
             if (plan[idB]?.[mes] !== deficit) continue
             if (plan[idB]?.[mesB] !== surplus) continue
+            const puntajeAntes = puntajeEquilibrioMeses(plan, ids, objetivos)
             if (
               !intentarDobleSwapPreservandoCupos(
                 plan,
@@ -586,13 +612,8 @@ function intentarMejorarMes(
             ) {
               continue
             }
-            const despues = conteoMes(plan, ids, mes)
-            const devDesp = desviacionObjetivo(despues, objetivoMes)
-            const cuadraAntes = cuadraCupos(conteo, objetivos)
-            const cuadraDespues = cuadraCupos(despues, objetivos)
-            const aceptar =
-              devDesp < devMes || (!cuadraAntes && cuadraDespues)
-            if (!aceptar) {
+            const puntajeDesp = puntajeEquilibrioMeses(plan, ids, objetivos)
+            if (!mejoraEquilibrioMeses(puntajeAntes, puntajeDesp)) {
               intentarDobleSwapPreservandoCupos(
                 plan,
                 agentesById,
@@ -604,10 +625,8 @@ function intentarMejorarMes(
               )
               continue
             }
-            conteo = despues
-            devMes = devDesp
             mejorado = true
-            if (devMes === 0) return true
+            if (puntajeDesp.pendientes === 0) return true
           }
         }
       }
@@ -661,7 +680,7 @@ function equilibrarMesesPendientes(
   planAnioAnterior?: PlanAnual,
 ) {
   const ids = agentes.map((agente) => agente.id)
-  for (let ronda = 0; ronda < 5; ronda++) {
+  for (let ronda = 0; ronda < 3; ronda++) {
     const pendientes = mesesPendientesCuadre(plan, ids, objetivos)
     if (pendientes.length === 0) break
     equilibrarMesesInterno(
@@ -669,7 +688,7 @@ function equilibrarMesesPendientes(
       agentes,
       objetivos,
       planAnioAnterior,
-      40,
+      20,
       pendientes,
     )
   }
@@ -1291,12 +1310,6 @@ function refinarPlanTrasGenerar(
       pase === PASADAS_REFINO_PLAN_ANUAL - 1,
     )
     equilibrarMesesPreservandoPreferencias(
-      plan,
-      agentesGenerar,
-      objetivos,
-      planAnioAnterior,
-    )
-    equilibrarMesesPendientes(
       plan,
       agentesGenerar,
       objetivos,

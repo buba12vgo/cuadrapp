@@ -281,6 +281,24 @@ export function PlanAnualPage() {
     persistirYa(resultado.plan, objetivosGlobales)
   }
 
+  /** Vacía solo el año del selector, tras dos confirmaciones. */
+  function limpiarAnio() {
+    if (!cargado || !hayPlanAnio) return
+    const seguir = window.confirm(
+      `¿Vaciar el plan de ${anio}?\n\nSe borrarán todos los turnos de este año. ${anio + 1} y el resto no se tocan.\n\nDespués puedes rellenar ${anio} a mano (el cuadrante real) y autogenerar ${anio + 1} con las normas de fin de año.`,
+    )
+    if (!seguir) return
+    const confirmar = window.confirm(
+      `Confirmación final: el plan de ${anio} se dejará en blanco y se guardará. Esta acción no se puede deshacer.\n\n¿Limpiar ${anio}?`,
+    )
+    if (!confirmar) return
+
+    const vacio: PlanAnual = {}
+    setPlanAnual(vacio)
+    setMarcas(null)
+    persistirYa(vacio, objetivosGlobales)
+  }
+
   return (
     <section className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 px-1 py-1">
@@ -355,6 +373,15 @@ export function PlanAnualPage() {
           >
             Autogenerar Año
           </button>
+          <button
+            type="button"
+            className="h-6 border border-red-300 bg-white px-2 text-xs font-semibold text-red-800 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+            title={`Vacía el plan de ${anio} tras dos confirmaciones. Los demás años no se tocan.`}
+            disabled={!cargado || !hayPlanAnio}
+            onClick={limpiarAnio}
+          >
+            Limpiar año
+          </button>
           {guardando ? (
             <span className="text-[11px] text-slate-500">Guardando…</span>
           ) : null}
@@ -379,8 +406,9 @@ export function PlanAnualPage() {
       {cargado && !hayPlanAnio ? (
         <div className="mx-1 mb-1 border border-slate-300 bg-slate-50 px-2 py-1 text-xs text-slate-700">
           <p>
-            {anio} no tiene plan. Pulsa <span className="font-semibold">Autogenerar Año</span> para
-            crear solo este año; los anteriores y siguientes no se tocan.
+            {anio} no tiene plan. Rellena las celdas a mano o pulsa{' '}
+            <span className="font-semibold">Autogenerar Año</span>. Los
+            anteriores y siguientes no se tocan.
           </p>
         </div>
       ) : null}

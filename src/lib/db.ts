@@ -297,9 +297,7 @@ export async function savePlanAnual(
       doc(firestore, COLECCION_PLANES_ANUALES, docId),
       {
         anio,
-        ...(Object.keys(plan).length > 0
-          ? { agentes: planParaFirestore(plan, agentes) }
-          : {}),
+        agentes: planParaFirestore(plan, agentes),
         objetivos: { M: objetivos.M, T: objetivos.T, N: objetivos.N },
         actualizadoEn: new Date().toISOString(),
       },

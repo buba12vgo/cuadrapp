@@ -185,8 +185,19 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
       'Autogenerar Año regenera únicamente el año seleccionado en el plan anual. Los planes de años anteriores y posteriores no se modifican.',
     estado: 'implementada',
     detalle:
-      'Cambiar de año en el selector no crea ni borra planes. Si el año aún no tiene plan, permanece vacío hasta pulsar Autogenerar Año. Diciembre del año anterior solo se consulta (regla N), no se reescribe. El plan y los % objetivo M/T/N de cada año se guardan en Firestore al cambiarlos o al salir de la pantalla.',
+      'Cambiar de año en el selector no crea ni borra planes. Si el año aún no tiene plan, permanece vacío hasta rellenar celdas o pulsar Autogenerar Año. Limpiar año vacía solo el año seleccionado (dos confirmaciones) para poder meter el cuadrante real y generar el siguiente con las normas de fin de año. Diciembre del año anterior solo se consulta (regla N), no se reescribe. El plan y los % objetivo M/T/N de cada año se guardan en Firestore al cambiarlos o al salir de la pantalla.',
     referencia: 'PlanAnualPage · autogenerar · planAnualStore · planesAnuales',
+  },
+  {
+    id: 'limpiar-plan-anual',
+    categoria: 'PLAN_ANUAL',
+    titulo: 'Limpiar el año del plan anual',
+    descripcion:
+      'Limpiar año deja en blanco solo el año seleccionado, con dos confirmaciones, para poder meter el cuadrante real y generar el siguiente con las normas de fin de año (diciembre N, enero, etc.).',
+    estado: 'implementada',
+    detalle:
+      'No se tocan los demás años ni los % objetivo. Tras vaciar, las celdas se pueden rellenar a mano. Autogenerar el año siguiente consulta diciembre del año ya editado.',
+    referencia: 'PlanAnualPage · limpiarAnio · savePlanAnual',
   },
   {
     id: 'diciembre-noche-no-repetir',

@@ -57,6 +57,9 @@ export const OBJETIVOS_PLAN_DEFECTO: ObjetivosGlobales = {
   N: 27,
 }
 
+/** Pasadas de refinado tras autogenerar (infracciones + % mensual). */
+export const PASADAS_REFINO_PLAN_ANUAL = 3
+
 const MESES = 12
 const TURNOS_ACTIVOS = ['M', 'T', 'N'] as const
 const MES_ENERO = 0
@@ -974,6 +977,254 @@ function agentesAutogenerables(
   })
 }
 
+function puntajeMarcasPlan(marcas: MarcasPlanAnual) {
+  return (
+    marcas.agentesSinCuadrar.length * 1000 +
+    marcas.mesesSinCuadrar.length * 10 +
+    (marcas.anioCuadra ? 0 : 1)
+  )
+}
+
+function turnosLaboralesAgente(agente: FichaPolicia): TurnoActivo[] {
+  const turnos: TurnoActivo[] = []
+  if (agente.limitaciones.M) turnos.push('M')
+  if (agente.limitaciones.T) turnos.push('T')
+  if (agente.limitaciones.N) turnos.push('N')
+  return turnos
+}
+
+function cuentaProblemasFila(
+  agente: FichaPolicia,
+  fila: FilaPlanAnual,
+  planAnioAnterior?: PlanAnual,
+) {
+  let problemas = 0
+  for (let mes = 0; mes < MESES; mes++) {
+    const turno = fila[mes]
+    if (!turno) {
+      problemas += 1
+      continue
+    }
+    if (turno === 'V') continue
+    if (
+      infraccionGraveTurnoEnPlan(agente, fila, mes, turno, planAnioAnterior)
+    ) {
+      problemas += 1
+    }
+  }
+  if (!filaCumplePreferencia(agente, contarFila(fila))) problemas += 1
+  return problemas
+}
+
+function filaSinInfraccionesGraves(
+  agente: FichaPolicia,
+  fila: FilaPlanAnual,
+  planAnioAnterior?: PlanAnual,
+) {
+  for (let mes = 0; mes < MESES; mes++) {
+    const turno = fila[mes]
+    if (!turno || turno === 'V') continue
+    if (
+      infraccionGraveTurnoEnPlan(agente, fila, mes, turno, planAnioAnterior)
+    ) {
+      return false
+    }
+  }
+  return true
+}
+
+function swapLaboralValido(
+  agente: FichaPolicia,
+  fila: FilaPlanAnual,
+  mesA: number,
+  mesB: number,
+  planAnioAnterior?: PlanAnual,
+) {
+  const turnoA = fila[mesA]
+  const turnoB = fila[mesB]
+  if (turnoA === 'V' || turnoB === 'V' || turnoA === turnoB) return false
+  if (turnoA !== 'M' && turnoA !== 'T' && turnoA !== 'N') return false
+  if (turnoB !== 'M' && turnoB !== 'T' && turnoB !== 'N') return false
+  if (!permiteTurno(agente, turnoB) || !permiteTurno(agente, turnoA)) {
+    return false
+  }
+
+  const dicAnteriorN = diciembreNProhibido(agente.id, planAnioAnterior)
+  const dicAnteriorT = diciembreAnteriorTarde(agente.id, planAnioAnterior)
+  const copia = [...fila]
+  copia[mesA] = turnoB
+  copia[mesB] = turnoA
+
+  if (turnoB === 'N' && !puedeColocarNoche(copia, mesA, dicAnteriorN)) return false
+  if (turnoA === 'N' && !puedeColocarNoche(copia, mesB, dicAnteriorN)) {
+    return false
+  }
+  if (turnoB === 'T' && !puedeColocarTarde(copia, mesA, dicAnteriorT)) {
+    return false
+  }
+  if (turnoA === 'T' && !puedeColocarTarde(copia, mesB, dicAnteriorT)) {
+    return false
+  }
+  return filaSinInfraccionesGraves(agente, copia, planAnioAnterior)
+}
+
+function arreglarFilaAgente(
+  agente: FichaPolicia,
+  fila: FilaPlanAnual,
+  planAnioAnterior?: PlanAnual,
+  agresivo = false,
+): FilaPlanAnual {
+  let copia: FilaPlanAnual = [...fila]
+
+  for (let mes = 0; mes < MESES; mes++) {
+    if (copia[mes] == null && agente.limitaciones.M) copia[mes] = 'M'
+  }
+
+  const maxIter = agresivo ? MESES * MESES * 2 : MESES * MESES
+  for (let iter = 0; iter < maxIter; iter++) {
+    let mejorado = false
+
+    for (let mes = 0; mes < MESES; mes++) {
+      const turno = copia[mes]
+      if (!turno || turno === 'V') continue
+      const tieneInfraccion =
+        infraccionGraveTurnoEnPlan(
+          agente,
+          copia,
+          mes,
+          turno,
+          planAnioAnterior,
+        ) != null
+      if (!tieneInfraccion && turno != null) continue
+
+      for (let otro = 0; otro < MESES; otro++) {
+        if (otro === mes) continue
+        if (!swapLaboralValido(agente, copia, mes, otro, planAnioAnterior)) {
+          continue
+        }
+        const turnoA = copia[mes]!
+        const turnoB = copia[otro]!
+        copia[mes] = turnoB
+        copia[otro] = turnoA
+        mejorado = true
+        break
+      }
+      if (mejorado) break
+
+      if (!agresivo) continue
+
+      for (const candidato of turnosLaboralesAgente(agente)) {
+        if (candidato === turno) continue
+        const prueba = [...copia]
+        prueba[mes] = candidato
+        if (!filaSinInfraccionesGraves(agente, prueba, planAnioAnterior)) {
+          continue
+        }
+        const antes = cuentaProblemasFila(agente, copia, planAnioAnterior)
+        const despues = cuentaProblemasFila(agente, prueba, planAnioAnterior)
+        if (despues < antes) {
+          copia = prueba
+          mejorado = true
+          break
+        }
+      }
+      if (mejorado) break
+    }
+
+    if (!mejorado) break
+  }
+
+  return copia
+}
+
+function refinarFilasConErrores(
+  plan: PlanAnual,
+  agentes: FichaPolicia[],
+  objetivos: ObjetivosGlobales,
+  anio: number,
+  planAnioAnterior?: PlanAnual,
+  agresivo = false,
+) {
+  const marcas = calcularMarcas(plan, agentes, objetivos, planAnioAnterior)
+  const idsObjetivo = new Set(marcas.agentesSinCuadrar)
+  if (idsObjetivo.size === 0 && !agresivo) return
+
+  const agentesById = new Map(agentes.map((agente) => [agente.id, agente]))
+
+  for (const agente of agentes) {
+    if (!agresivo && !idsObjetivo.has(agente.id)) continue
+    const fila = plan[agente.id]
+    if (!fila) continue
+
+    const antes = cuentaProblemasFila(agente, fila, planAnioAnterior)
+    if (antes === 0 && !agresivo) continue
+
+    const corregida = arreglarFilaAgente(
+      agente,
+      fila,
+      planAnioAnterior,
+      agresivo,
+    )
+    const despues = cuentaProblemasFila(agente, corregida, planAnioAnterior)
+    if (despues <= antes) {
+      plan[agente.id] = corregida
+    }
+  }
+
+  if (agresivo) return
+
+  for (const id of idsObjetivo) {
+    const agente = agentesById.get(id)
+    const fila = plan[id]
+    if (!agente || !fila) continue
+    if (filaCuadraAgente(agente, fila, planAnioAnterior)) continue
+
+    const libres = MESES - vacacionesObjetivo(agente)
+    const cupos = esSinPreferencia(agente.preferenciaAnual)
+      ? cuposLaborales(agente, libres)
+      : undefined
+    const nueva = asignarFila(agente, anio, cupos, planAnioAnterior)
+    const probNueva = cuentaProblemasFila(agente, nueva, planAnioAnterior)
+    const probActual = cuentaProblemasFila(agente, fila, planAnioAnterior)
+    if (probNueva < probActual) {
+      plan[id] = nueva
+    }
+  }
+}
+
+function refinarPlanTrasGenerar(
+  plan: PlanAnual,
+  agentesGenerar: FichaPolicia[],
+  objetivos: ObjetivosGlobales,
+  anio: number,
+  planAnioAnterior?: PlanAnual,
+) {
+  for (let pase = 0; pase < PASADAS_REFINO_PLAN_ANUAL; pase++) {
+    const marcasAntes = calcularMarcas(
+      plan,
+      agentesGenerar,
+      objetivos,
+      planAnioAnterior,
+    )
+    if (puntajeMarcasPlan(marcasAntes) === 0) break
+
+    refinarFilasConErrores(
+      plan,
+      agentesGenerar,
+      objetivos,
+      anio,
+      planAnioAnterior,
+      pase === PASADAS_REFINO_PLAN_ANUAL - 1,
+    )
+    equilibrarMesesPreservandoPreferencias(
+      plan,
+      agentesGenerar,
+      objetivos,
+      planAnioAnterior,
+    )
+  }
+}
+
 export function generarPlanAnual(
   agentes: FichaPolicia[],
   objetivosGlobales?: ObjetivosGlobales,
@@ -1053,6 +1304,13 @@ export function generarPlanAnual(
     plan,
     agentesGenerar,
     objetivos,
+    planAnioAnterior,
+  )
+  refinarPlanTrasGenerar(
+    plan,
+    agentesGenerar,
+    objetivos,
+    anio,
     planAnioAnterior,
   )
   return {

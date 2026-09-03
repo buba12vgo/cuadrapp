@@ -387,7 +387,7 @@ export function PlanAnualPage() {
           <button
             type="button"
             className="h-6 bg-slate-900 px-2 text-xs font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-            title={`Regenera solo ${anio}. Los demás años no se modifican.`}
+            title={`Regenera solo ${anio} (hasta 3 pasadas de refinado). Los demás años no se modifican.`}
             disabled={!planListo}
             onClick={autogenerar}
           >

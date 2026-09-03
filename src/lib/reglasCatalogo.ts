@@ -77,7 +77,7 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
       'Tras un bloque de noches, mínimo 3 días de descanso (D o V) antes de volver a mañana (M).',
     estado: 'implementada',
     detalle:
-      'El generador mensual usa 3 D de separación tras turnos N. El cuadrante marca «Saliente de noche insuficiente».',
+      'El generador mensual usa 3 D de separación tras turnos N. El cuadrante marca «Saliente de noche insuficiente», consultando hasta 14 días del mes anterior.',
     referencia: 'MIN_DESCANSO_TRAS_NOCHE = 3',
   },
   {
@@ -197,7 +197,7 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
       'Autogenerar Año regenera únicamente el año seleccionado en el plan anual. Los planes de años anteriores y posteriores no se modifican.',
     estado: 'implementada',
     detalle:
-      'Cambiar de año en el selector no crea ni borra planes. Si el año aún no tiene plan, permanece vacío hasta rellenar celdas o pulsar Autogenerar Año. Limpiar año vacía solo el año seleccionado (dos confirmaciones) para poder meter el cuadrante real y generar el siguiente con las normas de fin de año. Diciembre del año anterior solo se consulta (regla N), no se reescribe. El plan y los % objetivo M/T/N de cada año se guardan en Firestore al cambiarlos o al salir de la pantalla.',
+      'Cambiar de año en el selector no crea ni borra planes. Autogenerar Año hace hasta 3 pasadas de refinado (swaps, reasignación parcial y equilibrio mensual) antes de mostrar el resultado. Limpiar año vacía solo el año seleccionado (dos confirmaciones). Diciembre del año anterior solo se consulta (regla N), no se reescribe.',
     referencia: 'PlanAnualPage · autogenerar · planAnualStore · planesAnuales',
   },
   {

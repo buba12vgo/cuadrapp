@@ -57,6 +57,7 @@ import {
   type TurnoAnual,
 } from '@/lib/generarPlanAnual'
 import { mensajesInfraccion } from '@/lib/reglasCuadrante'
+import { exportarCuadranteMensualExcel } from '@/lib/exportarCuadranteMensualExcel'
 import { MAX_FINDES_CONSECUTIVOS, maxFindesConsecutivosLaborados } from '@/lib/finesSemana'
 import type { RolPolicia, Turno } from '@/types'
 
@@ -633,6 +634,36 @@ export function CuadranteMensualPage() {
               </button>
             ))}
           </div>
+          <button
+            type="button"
+            className="h-6 border border-slate-400 bg-white px-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            title="Exporta la tabla visible a Excel (mes, filtros y rango de días actual)"
+            disabled={!cuadranteListo || agentesVisibles.length === 0}
+            onClick={() =>
+              exportarCuadranteMensualExcel({
+                anio,
+                mes,
+                diaDesde,
+                diaHasta,
+                rolLabel:
+                  rolFiltro === 'TODOS'
+                    ? 'Todos'
+                    : ROL_LABEL[rolFiltro],
+                turnoVistaLabel:
+                  TURNOS_VISTA.find((t) => t.valor === filtroVistaTurno)?.label ??
+                  filtroVistaTurno,
+                agentes: agentesVisibles,
+                agentesTotales: agentesData,
+                cuadrante,
+                planAnual,
+                asignacionesDiarias,
+                puestos,
+                diasVisibles,
+              })
+            }
+          >
+            Exportar Excel
+          </button>
           <button
             type="button"
             className="h-6 bg-slate-900 px-2 text-xs font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"

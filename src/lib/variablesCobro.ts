@@ -32,9 +32,7 @@ export const TIPOS_VARIABLE_COBRO = [
   'conciliacion_viernes_noche',
   'conciliacion_sabado_manana',
   'conciliacion_domingo_manana',
-  'festivo_manana',
-  'festivo_tarde',
-  'festivo_noche',
+  'festivo',
 ] as const
 
 export type TipoVariableCobro = (typeof TIPOS_VARIABLE_COBRO)[number]
@@ -43,9 +41,7 @@ export const ETIQUETA_VARIABLE_COBRO: Record<TipoVariableCobro, string> = {
   conciliacion_viernes_noche: 'Conciliación viernes noche',
   conciliacion_sabado_manana: 'Conciliación sábado mañana',
   conciliacion_domingo_manana: 'Conciliación domingo mañana',
-  festivo_manana: 'Festivo mañana',
-  festivo_tarde: 'Festivo tarde',
-  festivo_noche: 'Festivo noche',
+  festivo: 'Festivo',
 }
 
 export type ConteoVariablesCobro = Record<TipoVariableCobro, number>
@@ -55,17 +51,29 @@ export function conteoVariablesCobroVacio(): ConteoVariablesCobro {
     conciliacion_viernes_noche: 0,
     conciliacion_sabado_manana: 0,
     conciliacion_domingo_manana: 0,
-    festivo_manana: 0,
-    festivo_tarde: 0,
-    festivo_noche: 0,
+    festivo: 0,
   }
+}
+
+function sumarFestivoDia(
+  diasFestivoCobrados: Set<string>,
+  anio: number,
+  mes: number,
+  dia: number,
+  counts: ConteoVariablesCobro,
+) {
+  const fecha = isoFecha(anio, mes, dia)
+  if (diasFestivoCobrados.has(fecha)) return
+  diasFestivoCobrados.add(fecha)
+  counts.festivo++
 }
 
 /**
  * Cuenta variables de cobro mensuales desde el cuadrante diario.
- * Turno N sábado (22–06): si el domingo es festivo suma festivo mañana
- * (2 h del turno en domingo); si el sábado es festivo suma festivo noche
- * (6 h del turno en sábado). Conciliaciones y festivos son independientes.
+ * Festivo: una unidad por día festivo trabajado (M/T/N, sin distinguir turno).
+ * Noche sábado (22–06): si el domingo es festivo y no se cobró ya ese día,
+ * suma otro festivo por el tramo en domingo. Conciliaciones y festivos son
+ * independientes.
  */
 export function contarVariablesCobroAgente(
   fila: Turno[],
@@ -75,6 +83,7 @@ export function contarVariablesCobroAgente(
 ): ConteoVariablesCobro {
   const counts = conteoVariablesCobroVacio()
   const nDias = fila.length
+  const diasFestivoCobrados = new Set<string>()
 
   for (let dia = 1; dia <= nDias; dia++) {
     const turno = fila[dia - 1]
@@ -82,16 +91,13 @@ export function contarVariablesCobroAgente(
     if (turno !== 'M' && turno !== 'T' && turno !== 'N') continue
 
     const wd = diaSemana(anio, mes, dia)
-    const festivo = diaEsFestivoCobro(anio, mes, dia, eventos)
 
     if (wd === 5 && turno === 'N') counts.conciliacion_viernes_noche++
     if (wd === 6 && turno === 'M') counts.conciliacion_sabado_manana++
     if (wd === 0 && turno === 'M') counts.conciliacion_domingo_manana++
 
-    if (festivo) {
-      if (turno === 'M') counts.festivo_manana++
-      if (turno === 'T') counts.festivo_tarde++
-      if (turno === 'N') counts.festivo_noche++
+    if (diaEsFestivoCobro(anio, mes, dia, eventos)) {
+      sumarFestivoDia(diasFestivoCobrados, anio, mes, dia, counts)
     }
 
     if (wd === 6 && turno === 'N') {
@@ -100,7 +106,7 @@ export function contarVariablesCobroAgente(
         domingo <= nDias &&
         diaEsFestivoCobro(anio, mes, domingo, eventos)
       ) {
-        counts.festivo_manana++
+        sumarFestivoDia(diasFestivoCobrados, anio, mes, domingo, counts)
       }
     }
   }

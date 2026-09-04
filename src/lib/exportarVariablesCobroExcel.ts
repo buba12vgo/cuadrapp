@@ -38,7 +38,7 @@ export function exportarVariablesCobroExcel(opciones: ExportarVariablesCobroOpci
 
   const filas: (string | number)[][] = [
     ['Variables de cobro mensuales', `${nombreMes} ${anio}`],
-    ['Mes vencido · conciliaciones de finde y festivos M/T/N'],
+    ['Mes vencido · conciliaciones de finde y festivo (sin distinguir turno)'],
     [],
     [
       'Placa',
@@ -87,8 +87,6 @@ function conteoVacio(): ConteoVariablesCobro {
     conciliacion_viernes_noche: 0,
     conciliacion_sabado_manana: 0,
     conciliacion_domingo_manana: 0,
-    festivo_manana: 0,
-    festivo_tarde: 0,
-    festivo_noche: 0,
+    festivo: 0,
   }
 }

@@ -295,42 +295,22 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     referencia: 'variablesCobro · ListadosPage',
   },
   {
-    id: 'variable-festivo-manana',
+    id: 'variable-festivo',
     categoria: 'VARIABLES_COBRO',
-    titulo: 'Festivo mañana',
+    titulo: 'Festivo',
     descripcion:
-      'Cada jornada M en día festivo (calendario nacional/gallego o evento FESTIVO) suma festivo mañana.',
+      'Cada día festivo trabajado (M, T o N; sin distinguir turno) suma una unidad de festivo. Cuentan festivos del calendario nacional/gallego y eventos FESTIVO del calendario operativo.',
     estado: 'implementada',
     detalle:
-      'Además, si hay noche sábado (N) y el domingo siguiente es festivo, se suma festivo mañana por las 2 horas del turno 22–06 que caen en domingo.',
+      'Máximo un festivo por día festivo y agente. Si hay noche sábado (N) y el domingo siguiente es festivo, se suma otro festivo por el tramo del turno 22–06 en domingo (si ese domingo no se había cobrado ya por trabajo en ese día).',
     referencia: 'variablesCobro · diaEsFestivoCobro',
-  },
-  {
-    id: 'variable-festivo-tarde',
-    categoria: 'VARIABLES_COBRO',
-    titulo: 'Festivo tarde',
-    descripcion:
-      'Cada jornada T en día festivo suma festivo tarde.',
-    estado: 'implementada',
-    referencia: 'variablesCobro · ListadosPage',
-  },
-  {
-    id: 'variable-festivo-noche',
-    categoria: 'VARIABLES_COBRO',
-    titulo: 'Festivo noche',
-    descripcion:
-      'Cada jornada N en día festivo suma festivo noche (6 horas del turno 22–06 en ese día festivo).',
-    estado: 'implementada',
-    detalle:
-      'Si el sábado es festivo y hay turno N sábado, se cobra festivo noche; si además el domingo es festivo, también festivo mañana por el tramo en domingo.',
-    referencia: 'variablesCobro · ListadosPage',
   },
   {
     id: 'variables-conciliacion-festivo-compatibles',
     categoria: 'VARIABLES_COBRO',
-    titulo: 'Conciliaciones y festivos compatibles',
+    titulo: 'Conciliaciones y festivo compatibles',
     descripcion:
-      'Las conciliaciones de finde y los festivos se suman: un sábado festivo con turno M genera conciliación sábado mañana y festivo mañana.',
+      'Las conciliaciones de finde y el festivo se suman: un sábado festivo con turno M genera conciliación sábado mañana y festivo.',
     estado: 'implementada',
     referencia: 'variablesCobro · contarVariablesCobroAgente',
   },

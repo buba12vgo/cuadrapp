@@ -142,9 +142,7 @@ export function ListadosPage() {
       conciliacion_viernes_noche: 0,
       conciliacion_sabado_manana: 0,
       conciliacion_domingo_manana: 0,
-      festivo_manana: 0,
-      festivo_tarde: 0,
-      festivo_noche: 0,
+      festivo: 0,
     }
     for (const agente of agentesVisibles) {
       const conteo = conteos[agente.id]
@@ -314,9 +312,9 @@ export function ListadosPage() {
       </div>
 
       <p className="shrink-0 px-1 py-1 text-[11px] text-slate-600">
-        Conciliaciones y festivos son compatibles (ej. sábado festivo con M →
-        conciliación sábado + festivo mañana). Noche sábado en festivo domingo
-        suma festivo mañana por las 2 h del turno 22–06 en domingo.
+        Conciliaciones y festivo son compatibles (ej. sábado festivo con M →
+        conciliación sábado + festivo). Noche sábado con domingo festivo suma
+        festivo por el tramo del turno 22–06 en domingo si ese día no se cobró ya.
       </p>
     </section>
   )

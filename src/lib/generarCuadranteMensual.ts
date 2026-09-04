@@ -1,8 +1,10 @@
 import type { Turno, EventoOperativo } from '@/types'
 import type { PlanAnual, TurnoAnual } from '@/lib/generarPlanAnual'
 import {
+  aportaSumatorioFDia,
   contarVariablesCobroAgente,
   puntajeEquilibrioVariablesMensual,
+  spreadSumatorioF,
   sumatorioFMensual,
   totalConciliaciones,
   totalVariablesCobro,
@@ -51,14 +53,42 @@ function desfasarFilaMensual(
   indice: number,
   anio: number,
   mes: number,
+  objetivoF?: number,
+  eventos: EventoOperativo[] = [],
 ): Turno[] {
   const n = fila.length
-  const pasos = (indice * 3) % n
-  if (pasos === 0) return fila
-  const rotada = rotarFilaCiclica(fila, pasos)
-  if (filaAceptable(rotada, fila, anio, mes, false)) return rotada
-  if (filaAceptable(rotada, fila, anio, mes, true)) return rotada
-  return fila
+  if (objetivoF == null) {
+    const pasos = (indice * 3) % n
+    if (pasos === 0) return fila
+    const rotada = rotarFilaCiclica(fila, pasos)
+    if (filaAceptable(rotada, fila, anio, mes, false)) return rotada
+    if (filaAceptable(rotada, fila, anio, mes, true)) return rotada
+    return fila
+  }
+
+  let mejor = fila
+  let mejorDist = Math.abs(sumatorioFMensual(fila, anio, mes, eventos) - objetivoF)
+
+  for (let intento = 0; intento < n; intento++) {
+    const pasos = (indice * 3 + intento) % n
+    const rotada = pasos === 0 ? fila : rotarFilaCiclica(fila, pasos)
+    if (
+      pasos !== 0 &&
+      !filaAceptable(rotada, fila, anio, mes, false) &&
+      !filaAceptable(rotada, fila, anio, mes, true)
+    ) {
+      continue
+    }
+    const dist = Math.abs(
+      sumatorioFMensual(rotada, anio, mes, eventos) - objetivoF,
+    )
+    if (dist < mejorDist) {
+      mejor = rotada
+      mejorDist = dist
+    }
+  }
+
+  return mejor
 }
 
 function rotarLista<T>(lista: T[], desplazamiento: number): T[] {
@@ -555,13 +585,44 @@ function maxIteracionesCobertura(nAgentes: number, porTurno: boolean) {
 }
 
 function maxIteracionesVariables(nAgentes: number) {
-  return Math.min(100, 24 + Math.floor(nAgentes * 1.5))
+  return Math.min(180, 36 + nAgentes * 4)
 }
 
 export function yieldToMain() {
   return new Promise<void>((resolve) => {
     setTimeout(resolve, 0)
   })
+}
+
+function medianaSumatorioF(
+  cuadrante: CuadranteMensual,
+  ids: string[],
+  anio: number,
+  mes: number,
+  eventos: EventoOperativo[],
+) {
+  const valores = ids
+    .map((id) => sumatorioFMensual(cuadrante[id] ?? [], anio, mes, eventos))
+    .sort((a, b) => a - b)
+  return valores[Math.floor(valores.length / 2)] ?? 0
+}
+
+function penalizacionTrasladoSumatorioF(
+  fila: Turno[],
+  alto: number,
+  bajo: number,
+  turno: TurnoOperativoMes,
+  anio: number,
+  mes: number,
+  eventos: EventoOperativo[],
+  mediana: number,
+) {
+  const actual = sumatorioFMensual(fila, anio, mes, eventos)
+  const delta =
+    aportaSumatorioFDia(anio, mes, bajo + 1, turno, eventos, true) -
+    aportaSumatorioFDia(anio, mes, alto + 1, turno, eventos, true)
+  const despues = actual + delta
+  return Math.abs(despues - mediana) - Math.abs(actual - mediana)
 }
 
 function equilibrarCoberturaInterna(
@@ -571,12 +632,15 @@ function equilibrarCoberturaInterna(
   anio: number,
   mes: number,
   turnoFijo?: TurnoOperativoMes,
+  eventos: EventoOperativo[] = [],
 ) {
   const intentarMover = (
     diasBajos: number[],
     diasAltos: number[],
     coberturaActual: number[],
     permitirFindes: boolean,
+    medianaF: number,
+    spreadF: number,
   ) => {
     const candidatos: Array<{
       id: string
@@ -593,6 +657,17 @@ function equilibrarCoberturaInterna(
           const turno = turnoFijo ?? turnoTrabajoDeFila(fila)
           if (!turno) continue
           if (fila[alto] !== turno || fila[bajo] !== 'D') continue
+          const penalF = penalizacionTrasladoSumatorioF(
+            fila,
+            alto,
+            bajo,
+            turno,
+            anio,
+            mes,
+            eventos,
+            medianaF,
+          )
+          if (penalF !== 0 && coberturaActual[bajo] > 0 && spreadF <= 6) continue
           const priorizaCero = coberturaActual[bajo] === 0 ? 1000 : 0
           candidatos.push({
             id,
@@ -601,7 +676,8 @@ function equilibrarCoberturaInterna(
             score:
               priorizaCero +
               (coberturaActual[alto] - coberturaActual[bajo]) * 20 +
-              puntuacionCandidato(fila, alto, bajo),
+              puntuacionCandidato(fila, alto, bajo) -
+              penalF * 200,
           })
         }
       }
@@ -638,11 +714,19 @@ function equilibrarCoberturaInterna(
       const maximo = Math.max(...actual)
       if (maximo - minimo <= 1) break
 
+      const sumatorios = ids.map((id) =>
+        sumatorioFMensual(cuadrante[id] ?? [], anio, mes, eventos),
+      )
+      const medianaF = medianaSumatorioF(cuadrante, ids, anio, mes, eventos)
+      const spreadF = spreadSumatorioF(sumatorios)
+
       const extremos = intentarMover(
         diasPorCobertura(actual, (v) => v === minimo),
         diasPorCobertura(actual, (v) => v === maximo),
         actual,
         permitirFindes,
+        medianaF,
+        spreadF,
       )
       if (extremos) continue
 
@@ -651,12 +735,23 @@ function equilibrarCoberturaInterna(
         diasPorCobertura(actual, (v) => v >= maximo - 1),
         actual,
         permitirFindes,
+        medianaF,
+        spreadF,
       )
       if (ampliados) continue
 
       const todosBajos = diasPorCobertura(actual, (v) => v < maximo - 1)
       const todosAltos = diasPorCobertura(actual, (v) => v > minimo + 1)
-      if (!intentarMover(todosBajos, todosAltos, actual, permitirFindes)) {
+      if (
+        !intentarMover(
+          todosBajos,
+          todosAltos,
+          actual,
+          permitirFindes,
+          medianaF,
+          spreadF,
+        )
+      ) {
         break
       }
     }
@@ -672,13 +767,14 @@ export function equilibrarCoberturaDiaria(
   agenteIds: string[],
   anio: number,
   mes: number,
+  eventos: EventoOperativo[] = [],
 ): CuadranteMensual {
   const nDias = diasDelMes(anio, mes)
   const ids = agenteIds.filter((id) => {
     const fila = cuadrante[id]
     return fila != null && turnoTrabajoDeFila(fila) != null
   })
-  equilibrarCoberturaInterna(cuadrante, ids, nDias, anio, mes)
+  equilibrarCoberturaInterna(cuadrante, ids, nDias, anio, mes, undefined, eventos)
   return cuadrante
 }
 
@@ -692,13 +788,22 @@ export function equilibrarCoberturaPorTurno(
   planAnual: PlanAnual,
   anio: number,
   mes: number,
+  eventos: EventoOperativo[] = [],
 ): CuadranteMensual {
   const nDias = diasDelMes(anio, mes)
   const grupos = agentesPorTurnoMes(cuadrante, agenteIds, planAnual, mes, nDias)
 
   for (const [turno, ids] of grupos) {
     if (ids.length < 2) continue
-    equilibrarCoberturaInterna(cuadrante, ids, nDias, anio, mes, turno)
+    equilibrarCoberturaInterna(
+      cuadrante,
+      ids,
+      nDias,
+      anio,
+      mes,
+      turno,
+      eventos,
+    )
   }
 
   return cuadrante
@@ -925,6 +1030,133 @@ function equilibrarVariablesCobroInterno(
   return cuadrante
 }
 
+function equilibrarSumatorioFRotacionGrupo(
+  cuadrante: CuadranteMensual,
+  ids: string[],
+  anio: number,
+  mes: number,
+  eventos: EventoOperativo[],
+) {
+  const maxIter = Math.max(240, ids.length * 40)
+  for (let iter = 0; iter < maxIter; iter++) {
+    const datos = ids.map((id) => ({
+      id,
+      f: sumatorioFMensual(cuadrante[id] ?? [], anio, mes, eventos),
+    }))
+    const valores = datos.map((dato) => dato.f)
+    if (spreadSumatorioF(valores) <= 1) break
+
+    const mediana = medianaSumatorioF(cuadrante, ids, anio, mes, eventos)
+    datos.sort(
+      (a, b) =>
+        Math.abs(b.f - mediana) - Math.abs(a.f - mediana) ||
+        b.f - a.f,
+    )
+
+    let cambio = false
+    for (const dato of datos) {
+      const fila = cuadrante[dato.id]
+      if (!fila) continue
+      const distanciaActual = Math.abs(dato.f - mediana)
+      if (distanciaActual <= 1) continue
+
+      let mejorFila: Turno[] | null = null
+      let mejorDistancia = distanciaActual
+      for (let pasos = 1; pasos < fila.length; pasos++) {
+        const rotada = rotarFilaCiclica(fila, pasos)
+        if (
+          !filaAceptable(rotada, fila, anio, mes, false) &&
+          !filaAceptable(rotada, fila, anio, mes, true)
+        ) {
+          continue
+        }
+        const f = sumatorioFMensual(rotada, anio, mes, eventos)
+        const distancia = Math.abs(f - mediana)
+        if (distancia < mejorDistancia) {
+          mejorFila = rotada
+          mejorDistancia = distancia
+        }
+      }
+
+      if (mejorFila) {
+        cuadrante[dato.id] = mejorFila
+        cambio = true
+      }
+    }
+    if (!cambio) break
+  }
+}
+
+function equilibrarSumatorioFRotacion(
+  cuadrante: CuadranteMensual,
+  agenteIds: string[],
+  planAnual: PlanAnual,
+  mes: number,
+  anio: number,
+  eventos: EventoOperativo[] = [],
+) {
+  const nDias = diasDelMes(anio, mes)
+  const grupos = agentesPorTurnoMes(cuadrante, agenteIds, planAnual, mes, nDias)
+  for (const [, ids] of grupos) {
+    if (ids.length < 2) continue
+    equilibrarSumatorioFRotacionGrupo(cuadrante, ids, anio, mes, eventos)
+  }
+  return cuadrante
+}
+
+async function equilibrarSumatorioFRotacionAsync(
+  cuadrante: CuadranteMensual,
+  agenteIds: string[],
+  planAnual: PlanAnual,
+  mes: number,
+  anio: number,
+  eventos: EventoOperativo[] = [],
+) {
+  const nDias = diasDelMes(anio, mes)
+  const grupos = agentesPorTurnoMes(cuadrante, agenteIds, planAnual, mes, nDias)
+  let grupo = 0
+  for (const [, ids] of grupos) {
+    if (ids.length < 2) continue
+    equilibrarSumatorioFRotacionGrupo(cuadrante, ids, anio, mes, eventos)
+    grupo += 1
+    if (grupo % 2 === 0) await yieldToMain()
+  }
+  return cuadrante
+}
+
+function pesoDiaParaEquilibrioF(
+  anio: number,
+  mes: number,
+  dia: number,
+  turno: TurnoOperativoMes,
+  eventos: EventoOperativo[],
+) {
+  return aportaSumatorioFDia(anio, mes, dia, turno, eventos, true) + 1
+}
+
+function evaluarSwapVariables(
+  cuadrante: CuadranteMensual,
+  ids: string[],
+  idA: string,
+  idB: string,
+  pruebaA: Turno[],
+  pruebaB: Turno[],
+  anio: number,
+  mes: number,
+  eventos: EventoOperativo[],
+  puntajeAntes: number,
+  spreadAntes: number,
+) {
+  const copia = { ...cuadrante, [idA]: pruebaA, [idB]: pruebaB }
+  const puntajeDesp = puntajeVariablesGrupo(copia, ids, anio, mes, eventos)
+  const spreadDesp = spreadSumatorioF(
+    sumatoriosFGrupo(copia, ids, anio, mes, eventos),
+  )
+  if (spreadDesp > spreadAntes && puntajeDesp >= puntajeAntes) return null
+  if (spreadDesp === spreadAntes && puntajeDesp >= puntajeAntes) return null
+  return { puntaje: puntajeDesp, spread: spreadDesp }
+}
+
 function equilibrarVariablesCobroPaso(
   cuadrante: CuadranteMensual,
   ids: string[],
@@ -941,14 +1173,16 @@ function equilibrarVariablesCobroPaso(
     mes,
     eventos,
   )
-  if (puntajeAntes === 0) return false
-
-  const limitePares = Math.min(8, Math.max(3, Math.ceil(ids.length / 4)))
-  const conteos = conteosVariablesGrupo(cuadrante, ids, anio, mes, eventos)
   const sumatoriosF = sumatoriosFGrupo(cuadrante, ids, anio, mes, eventos)
+  const spreadAntes = spreadSumatorioF(sumatoriosF)
+  if (spreadAntes <= 1 && puntajeAntes === 0) return false
+
+  const limitePares = Math.min(ids.length, Math.max(6, Math.ceil(ids.length / 2)))
+  const conteos = conteosVariablesGrupo(cuadrante, ids, anio, mes, eventos)
   const cargas = ids.map(
     (_, i) =>
-      sumatoriosF[i] * 20 +
+      sumatoriosF[i] * 30 +
+      conteos[i].festivo * 20 +
       totalConciliaciones(conteos[i]) * 15 +
       totalVariablesCobro(conteos[i]),
   )
@@ -958,12 +1192,62 @@ function equilibrarVariablesCobroPaso(
   const masCargados = orden.slice(0, limitePares)
   const menosCargados = orden.slice(-limitePares).reverse()
 
-  let mejorSwap: {
-    idA: string
-    idB: string
-    idx: number
-    puntaje: number
-  } | null = null
+  const diasLaborables = Array.from({ length: nDias }, (_, idx) => idx).filter(
+    (idx) => !esFinDeSemana(anio, mes, idx + 1),
+  )
+  diasLaborables.sort(
+    (a, b) =>
+      pesoDiaParaEquilibrioF(anio, mes, b + 1, turno, eventos) -
+      pesoDiaParaEquilibrioF(anio, mes, a + 1, turno, eventos),
+  )
+
+  let mejorSwap:
+    | {
+        idA: string
+        idB: string
+        pruebaA: Turno[]
+        pruebaB: Turno[]
+        puntaje: number
+        spread: number
+      }
+    | undefined
+
+  const considerar = (
+    idA: string,
+    idB: string,
+    pruebaA: Turno[],
+    pruebaB: Turno[],
+  ) => {
+    const evaluacion = evaluarSwapVariables(
+      cuadrante,
+      ids,
+      idA,
+      idB,
+      pruebaA,
+      pruebaB,
+      anio,
+      mes,
+      eventos,
+      puntajeAntes,
+      spreadAntes,
+    )
+    if (!evaluacion) return
+    if (
+      !mejorSwap ||
+      evaluacion.spread < mejorSwap.spread ||
+      (evaluacion.spread === mejorSwap.spread &&
+        evaluacion.puntaje < mejorSwap.puntaje)
+    ) {
+      mejorSwap = {
+        idA,
+        idB,
+        pruebaA,
+        pruebaB,
+        puntaje: evaluacion.puntaje,
+        spread: evaluacion.spread,
+      }
+    }
+  }
 
   for (const { id: idA, i } of masCargados) {
     for (const { id: idB, i: j } of menosCargados) {
@@ -973,10 +1257,9 @@ function equilibrarVariablesCobroPaso(
       if (!filaA || !filaB) continue
       if (cargas[i] <= cargas[j]) continue
 
-      for (let idx = 0; idx < nDias; idx++) {
+      for (const idx of diasLaborables) {
         if (!esDiaTrabajado(filaA[idx]) || filaB[idx] !== 'D') continue
         if (filaA[idx] !== turno) continue
-        if (filaA[idx] === 'V' || filaB[idx] === 'V') continue
 
         const pruebaA = [...filaA]
         const pruebaB = [...filaB]
@@ -996,33 +1279,15 @@ function equilibrarVariablesCobroPaso(
           continue
         }
 
-        const copia = { ...cuadrante, [idA]: pruebaA, [idB]: pruebaB }
-        const puntajeDesp = puntajeVariablesGrupo(
-          copia,
-          ids,
-          anio,
-          mes,
-          eventos,
-        )
-        if (puntajeDesp >= puntajeAntes) continue
-
-        if (!mejorSwap || puntajeDesp < mejorSwap.puntaje) {
-          mejorSwap = { idA, idB, idx, puntaje: puntajeDesp }
-        }
+        considerar(idA, idB, pruebaA, pruebaB)
       }
     }
   }
 
   if (!mejorSwap) return false
 
-  const filaA = cuadrante[mejorSwap.idA]!
-  const filaB = cuadrante[mejorSwap.idB]!
-  const pruebaA = [...filaA]
-  const pruebaB = [...filaB]
-  pruebaA[mejorSwap.idx] = 'D'
-  pruebaB[mejorSwap.idx] = turno
-  cuadrante[mejorSwap.idA] = pruebaA
-  cuadrante[mejorSwap.idB] = pruebaB
+  cuadrante[mejorSwap.idA] = mejorSwap.pruebaA
+  cuadrante[mejorSwap.idB] = mejorSwap.pruebaB
   return true
 }
 
@@ -1033,12 +1298,54 @@ export function generarCuadranteMensual(
   mes: number,
   eventos: EventoOperativo[] = [],
 ): CuadranteMensual {
-  const cuadrante = construirCuadranteInicial(planAnual, agenteIds, anio, mes)
-  equilibrarCoberturaPorTurno(cuadrante, agenteIds, planAnual, anio, mes)
-  equilibrarCoberturaDiaria(cuadrante, agenteIds, anio, mes)
-  equilibrarCoberturaPorTurno(cuadrante, agenteIds, planAnual, anio, mes)
-  equilibrarVariablesCobro(cuadrante, agenteIds, planAnual, anio, mes, eventos)
-  equilibrarCoberturaPorTurno(cuadrante, agenteIds, planAnual, anio, mes)
+  const cuadrante = construirCuadranteInicial(planAnual, agenteIds, anio, mes, eventos)
+  equilibrarSumatorioFRotacion(cuadrante, agenteIds, planAnual, mes, anio, eventos)
+  equilibrarCoberturaPorTurno(
+    cuadrante,
+    agenteIds,
+    planAnual,
+    anio,
+    mes,
+    eventos,
+  )
+  equilibrarSumatorioFRotacion(cuadrante, agenteIds, planAnual, mes, anio, eventos)
+  equilibrarCoberturaDiaria(cuadrante, agenteIds, anio, mes, eventos)
+  equilibrarSumatorioFRotacion(cuadrante, agenteIds, planAnual, mes, anio, eventos)
+  equilibrarCoberturaPorTurno(
+    cuadrante,
+    agenteIds,
+    planAnual,
+    anio,
+    mes,
+    eventos,
+  )
+  equilibrarSumatorioFRotacion(cuadrante, agenteIds, planAnual, mes, anio, eventos)
+  equilibrarSumatorioFRotacion(cuadrante, agenteIds, planAnual, mes, anio, eventos)
+  const sumatoriosFinales = sumatoriosFGrupo(
+    cuadrante,
+    agenteIds,
+    anio,
+    mes,
+    eventos,
+  )
+  if (spreadSumatorioF(sumatoriosFinales) > 2) {
+    equilibrarVariablesCobro(
+      cuadrante,
+      agenteIds,
+      planAnual,
+      anio,
+      mes,
+      eventos,
+    )
+    equilibrarSumatorioFRotacion(
+      cuadrante,
+      agenteIds,
+      planAnual,
+      mes,
+      anio,
+      eventos,
+    )
+  }
   return cuadrante
 }
 
@@ -1047,9 +1354,11 @@ function construirCuadranteInicial(
   agenteIds: string[],
   anio: number,
   mes: number,
+  eventos: EventoOperativo[] = [],
 ): CuadranteMensual {
   const cuadrante: CuadranteMensual = {}
   const fasePorTurno: Record<TurnoAnual, number> = { M: 0, T: 0, N: 0, V: 0 }
+  const sumatoriosPorTurno: Partial<Record<TurnoAnual, number[]>> = {}
 
   for (const id of agenteIds) {
     const turnoBase = planAnual[id]?.[mes - 1]
@@ -1063,7 +1372,23 @@ function construirCuadranteInicial(
     fasePorTurno[turnoBase] += 1
     let fila = generarFilaMensual(turnoBase, anio, mes, fase)
     if (turnoBase === 'M' || turnoBase === 'T' || turnoBase === 'N') {
-      fila = desfasarFilaMensual(fila, turnoBase, indiceTurno, anio, mes)
+      const previos = sumatoriosPorTurno[turnoBase] ?? []
+      const objetivoF =
+        previos.length > 0
+          ? previos.reduce((suma, valor) => suma + valor, 0) / previos.length
+          : undefined
+      fila = desfasarFilaMensual(
+        fila,
+        turnoBase,
+        indiceTurno,
+        anio,
+        mes,
+        objetivoF,
+        eventos,
+      )
+      const lista = sumatoriosPorTurno[turnoBase] ?? []
+      lista.push(sumatorioFMensual(fila, anio, mes, eventos))
+      sumatoriosPorTurno[turnoBase] = lista
     }
     cuadrante[id] = fila
   }
@@ -1079,13 +1404,16 @@ async function equilibrarCuadranteGenerado(
   mes: number,
   eventos: EventoOperativo[],
 ) {
-  equilibrarCoberturaPorTurno(cuadrante, agenteIds, planAnual, anio, mes)
+  await equilibrarSumatorioFRotacionAsync(
+    cuadrante,
+    agenteIds,
+    planAnual,
+    mes,
+    anio,
+    eventos,
+  )
   await yieldToMain()
-  equilibrarCoberturaDiaria(cuadrante, agenteIds, anio, mes)
-  await yieldToMain()
-  equilibrarCoberturaPorTurno(cuadrante, agenteIds, planAnual, anio, mes)
-  await yieldToMain()
-  await equilibrarVariablesCobroAsync(
+  equilibrarCoberturaPorTurno(
     cuadrante,
     agenteIds,
     planAnual,
@@ -1094,7 +1422,70 @@ async function equilibrarCuadranteGenerado(
     eventos,
   )
   await yieldToMain()
-  equilibrarCoberturaPorTurno(cuadrante, agenteIds, planAnual, anio, mes)
+  await equilibrarSumatorioFRotacionAsync(
+    cuadrante,
+    agenteIds,
+    planAnual,
+    mes,
+    anio,
+    eventos,
+  )
+  await yieldToMain()
+  equilibrarCoberturaDiaria(cuadrante, agenteIds, anio, mes, eventos)
+  await yieldToMain()
+  await equilibrarSumatorioFRotacionAsync(
+    cuadrante,
+    agenteIds,
+    planAnual,
+    mes,
+    anio,
+    eventos,
+  )
+  await yieldToMain()
+  equilibrarCoberturaPorTurno(
+    cuadrante,
+    agenteIds,
+    planAnual,
+    anio,
+    mes,
+    eventos,
+  )
+  await yieldToMain()
+  const sumatoriosTrasCobertura = sumatoriosFGrupo(
+    cuadrante,
+    agenteIds,
+    anio,
+    mes,
+    eventos,
+  )
+  if (spreadSumatorioF(sumatoriosTrasCobertura) > 2) {
+    await equilibrarVariablesCobroAsync(
+      cuadrante,
+      agenteIds,
+      planAnual,
+      anio,
+      mes,
+      eventos,
+    )
+    await yieldToMain()
+  }
+  await equilibrarSumatorioFRotacionAsync(
+    cuadrante,
+    agenteIds,
+    planAnual,
+    mes,
+    anio,
+    eventos,
+  )
+  await yieldToMain()
+  await equilibrarSumatorioFRotacionAsync(
+    cuadrante,
+    agenteIds,
+    planAnual,
+    mes,
+    anio,
+    eventos,
+  )
 }
 
 /** Versión asíncrona: cede el hilo entre pasadas para no bloquear la UI. */
@@ -1105,7 +1496,7 @@ export async function generarCuadranteMensualAsync(
   mes: number,
   eventos: EventoOperativo[] = [],
 ): Promise<CuadranteMensual> {
-  const cuadrante = construirCuadranteInicial(planAnual, agenteIds, anio, mes)
+  const cuadrante = construirCuadranteInicial(planAnual, agenteIds, anio, mes, eventos)
   await yieldToMain()
   await equilibrarCuadranteGenerado(
     cuadrante,

@@ -329,10 +329,10 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     categoria: 'VARIABLES_COBRO',
     titulo: 'Equilibrio de variables al autogenerar mes',
     descripcion:
-      'Tras generar el cuadrante mensual, se reparten conciliaciones y festivos entre agentes del mismo turno (M/T/N del plan anual), intercambiando días de trabajo sin cambiar jornadas ni romper reglas de fatiga. El sumatorio F (findes + conciliaciones) queda equilibrado entre compañeros del mismo turno.',
+      'Tras generar el cuadrante mensual, se reparten findes y conciliaciones entre agentes del mismo turno (M/T/N del plan anual). Se rota cada fila hacia la mediana del grupo y se evitan traslados de cobertura que desequilibren el sumatorio F.',
     estado: 'implementada',
     detalle:
-      'Se ejecuta después del equilibrio de cobertura por turno. Prioriza quitar carga al agente con más F y conciliaciones y asignarla al que menos tiene, solo si el swap respeta descansos, findes y rachas. Si el mes ya está guardado o se autogeneró antes, volver a autogenerar pide doble confirmación y no se pisa con recargas en segundo plano hasta guardar.',
+      'Pipeline: desfase inicial orientado a F, rotación cíclica, equilibrio de cobertura preservando F, y repaso final por rotación. El pie muestra F (findes + conciliaciones) con semáforo verde si la diferencia máx-mín en el turno es ≤1.',
     referencia: 'generarCuadranteMensual · equilibrarVariablesCobro',
   },
 ]

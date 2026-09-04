@@ -1,4 +1,4 @@
-import { esDiaTrabajado, totalFindesTrabajados } from '@/lib/convenio'
+import { esDiaTrabajado, esFinDeSemana, totalFindesTrabajados } from '@/lib/convenio'
 import { esFestivo } from '@/lib/festivos'
 import type { EventoOperativo, Turno } from '@/types'
 
@@ -135,6 +135,26 @@ export function sumatorioFMensual(
   return totalFindesTrabajados(fila, anio, mes) + totalConciliaciones(variables)
 }
 
+/** Unidades de sumatorio F que aporta trabajar (o no) un día concreto. */
+export function aportaSumatorioFDia(
+  anio: number,
+  mes: number,
+  dia: number,
+  turno: Turno,
+  _eventos: EventoOperativo[],
+  trabajado: boolean,
+) {
+  if (!trabajado) return 0
+  if (turno !== 'M' && turno !== 'T' && turno !== 'N') return 0
+  let aporte = 0
+  if (esFinDeSemana(anio, mes, dia)) aporte += 1
+  const wd = new Date(anio, mes - 1, dia).getDay()
+  if (wd === 5 && turno === 'N') aporte += 1
+  if (wd === 6 && turno === 'M') aporte += 1
+  if (wd === 0 && turno === 'M') aporte += 1
+  return aporte
+}
+
 export function totalVariablesCobro(conteo: ConteoVariablesCobro) {
   return TIPOS_VARIABLE_COBRO.reduce((suma, tipo) => suma + conteo[tipo], 0)
 }
@@ -146,7 +166,7 @@ export function puntajeDesbalanceVariables(conteos: ConteoVariablesCobro[]) {
   for (const tipo of TIPOS_VARIABLE_COBRO) {
     const valores = conteos.map((c) => c[tipo])
     if (valores.every((v) => v === 0)) continue
-    const peso = tipo === 'festivo' ? 10 : 20
+    const peso = tipo === 'festivo' ? 25 : 20
     puntaje += (Math.max(...valores) - Math.min(...valores)) * peso
   }
   const totales = conteos.map(totalVariablesCobro)
@@ -154,10 +174,15 @@ export function puntajeDesbalanceVariables(conteos: ConteoVariablesCobro[]) {
   return puntaje
 }
 
+/** Diferencia máx-mín del sumatorio F entre agentes del mismo turno. */
+export function spreadSumatorioF(sumatorios: number[]) {
+  if (sumatorios.length < 2) return 0
+  return Math.max(...sumatorios) - Math.min(...sumatorios)
+}
+
 /** Desbalance del sumatorio F (findes + conciliaciones) entre agentes. */
 export function puntajeDesbalanceSumatorioF(sumatorios: number[]) {
-  if (sumatorios.length < 2) return 0
-  return (Math.max(...sumatorios) - Math.min(...sumatorios)) * 30
+  return spreadSumatorioF(sumatorios) * 50
 }
 
 /** Puntaje combinado para equilibrar al autogenerar el mes. */

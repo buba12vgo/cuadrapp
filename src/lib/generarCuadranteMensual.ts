@@ -26,6 +26,39 @@ import {
 
 export type CuadranteMensual = Record<string, Turno[]>
 
+type TurnoOperativoMes = Exclude<TurnoAnual, 'V'>
+
+function turnoOperativoMes(
+  turno: TurnoAnual | null | undefined,
+): TurnoOperativoMes | null {
+  if (turno === 'M' || turno === 'T' || turno === 'N') return turno
+  return null
+}
+
+function rotarFilaCiclica(fila: Turno[], pasos: number): Turno[] {
+  const n = fila.length
+  if (n === 0) return fila
+  const p = ((pasos % n) + n) % n
+  if (p === 0) return [...fila]
+  return [...fila.slice(n - p), ...fila.slice(0, n - p)]
+}
+
+function desfasarFilaMensual(
+  fila: Turno[],
+  _turno: TurnoOperativoMes,
+  indice: number,
+  anio: number,
+  mes: number,
+): Turno[] {
+  const n = fila.length
+  const pasos = (indice * 3) % n
+  if (pasos === 0) return fila
+  const rotada = rotarFilaCiclica(fila, pasos)
+  if (filaAceptable(rotada, fila, anio, mes, false)) return rotada
+  if (filaAceptable(rotada, fila, anio, mes, true)) return rotada
+  return fila
+}
+
 function rotarLista<T>(lista: T[], desplazamiento: number): T[] {
   if (lista.length === 0) return lista
   const n = ((desplazamiento % lista.length) + lista.length) % lista.length
@@ -410,6 +443,43 @@ function coberturaPorDia(
   return cobertura
 }
 
+function coberturaTurnoPorDia(
+  cuadrante: CuadranteMensual,
+  ids: string[],
+  turno: TurnoOperativoMes,
+  nDias: number,
+) {
+  const cobertura = Array.from({ length: nDias }, () => 0)
+  for (const id of ids) {
+    const fila = cuadrante[id]
+    if (!fila) continue
+    for (let d = 0; d < nDias; d++) {
+      if (fila[d] === turno) cobertura[d] += 1
+    }
+  }
+  return cobertura
+}
+
+function agentesPorTurnoMes(
+  cuadrante: CuadranteMensual,
+  agenteIds: string[],
+  planAnual: PlanAnual,
+  mes: number,
+  nDias: number,
+) {
+  const grupos = new Map<TurnoOperativoMes, string[]>()
+  for (const id of agenteIds) {
+    const turno = turnoOperativoMes(planAnual[id]?.[mes - 1])
+    if (!turno) continue
+    const fila = cuadrante[id]
+    if (!fila || fila.length !== nDias) continue
+    const lista = grupos.get(turno) ?? []
+    lista.push(id)
+    grupos.set(turno, lista)
+  }
+  return grupos
+}
+
 function longitudBloqueD(fila: Turno[], idx: number) {
   if (fila[idx] !== 'D') return 0
   let a = idx
@@ -477,26 +547,18 @@ function diasPorCobertura(cobertura: number[], predicado: (valor: number) => boo
   return indices
 }
 
-/**
- * Mueve jornadas de días saturados a días cortos para que la falta
- * de personal no se concentre (p. ej. varios días a 0 al final de mes).
- */
-export function equilibrarCoberturaDiaria(
+function equilibrarCoberturaInterna(
   cuadrante: CuadranteMensual,
-  agenteIds: string[],
+  ids: string[],
+  nDias: number,
   anio: number,
   mes: number,
-): CuadranteMensual {
-  const nDias = diasDelMes(anio, mes)
-  const ids = agenteIds.filter((id) => {
-    const fila = cuadrante[id]
-    return fila != null && turnoTrabajoDeFila(fila) != null
-  })
-
+  turnoFijo?: TurnoOperativoMes,
+) {
   const intentarMover = (
     diasBajos: number[],
     diasAltos: number[],
-    cobertura: number[],
+    coberturaActual: number[],
     permitirFindes: boolean,
   ) => {
     const candidatos: Array<{
@@ -507,19 +569,21 @@ export function equilibrarCoberturaDiaria(
     }> = []
     for (const bajo of diasBajos) {
       for (const alto of diasAltos) {
-        if (cobertura[alto] - cobertura[bajo] < 2) continue
+        if (coberturaActual[alto] - coberturaActual[bajo] < 2) continue
         for (const id of ids) {
           const fila = cuadrante[id]
           if (!fila) continue
-          if (!esDiaTrabajado(fila[alto]) || fila[bajo] !== 'D') continue
-          const priorizaCero = cobertura[bajo] === 0 ? 1000 : 0
+          const turno = turnoFijo ?? turnoTrabajoDeFila(fila)
+          if (!turno) continue
+          if (fila[alto] !== turno || fila[bajo] !== 'D') continue
+          const priorizaCero = coberturaActual[bajo] === 0 ? 1000 : 0
           candidatos.push({
             id,
             alto,
             bajo,
             score:
               priorizaCero +
-              (cobertura[alto] - cobertura[bajo]) * 20 +
+              (coberturaActual[alto] - coberturaActual[bajo]) * 20 +
               puntuacionCandidato(fila, alto, bajo),
           })
         }
@@ -529,7 +593,7 @@ export function equilibrarCoberturaDiaria(
     for (const cand of candidatos) {
       const fila = cuadrante[cand.id]
       if (!fila) continue
-      const turno = turnoTrabajoDeFila(fila)
+      const turno = turnoFijo ?? turnoTrabajoDeFila(fila)
       if (!turno) continue
       const siguiente = intentarTraslado(
         fila,
@@ -549,34 +613,75 @@ export function equilibrarCoberturaDiaria(
 
   for (let pasada = 0; pasada < 2; pasada++) {
     const permitirFindes = pasada === 1
-    for (let iter = 0; iter < 300; iter++) {
-      const cobertura = coberturaPorDia(cuadrante, ids, nDias)
-      const minimo = Math.min(...cobertura)
-      const maximo = Math.max(...cobertura)
+    for (let iter = 0; iter < (turnoFijo ? 500 : 300); iter++) {
+      const actual = turnoFijo
+        ? coberturaTurnoPorDia(cuadrante, ids, turnoFijo, nDias)
+        : coberturaPorDia(cuadrante, ids, nDias)
+      const minimo = Math.min(...actual)
+      const maximo = Math.max(...actual)
       if (maximo - minimo <= 1) break
 
       const extremos = intentarMover(
-        diasPorCobertura(cobertura, (v) => v === minimo),
-        diasPorCobertura(cobertura, (v) => v === maximo),
-        cobertura,
+        diasPorCobertura(actual, (v) => v === minimo),
+        diasPorCobertura(actual, (v) => v === maximo),
+        actual,
         permitirFindes,
       )
       if (extremos) continue
 
       const ampliados = intentarMover(
-        diasPorCobertura(cobertura, (v) => v <= minimo + 1),
-        diasPorCobertura(cobertura, (v) => v >= maximo - 1),
-        cobertura,
+        diasPorCobertura(actual, (v) => v <= minimo + 1),
+        diasPorCobertura(actual, (v) => v >= maximo - 1),
+        actual,
         permitirFindes,
       )
       if (ampliados) continue
 
-      const todosBajos = diasPorCobertura(cobertura, (v) => v < maximo - 1)
-      const todosAltos = diasPorCobertura(cobertura, (v) => v > minimo + 1)
-      if (!intentarMover(todosBajos, todosAltos, cobertura, permitirFindes)) {
+      const todosBajos = diasPorCobertura(actual, (v) => v < maximo - 1)
+      const todosAltos = diasPorCobertura(actual, (v) => v > minimo + 1)
+      if (!intentarMover(todosBajos, todosAltos, actual, permitirFindes)) {
         break
       }
     }
+  }
+}
+
+/**
+ * Mueve jornadas de días saturados a días cortos para que la falta
+ * de personal no se concentre (p. ej. varios días a 0 al final de mes).
+ */
+export function equilibrarCoberturaDiaria(
+  cuadrante: CuadranteMensual,
+  agenteIds: string[],
+  anio: number,
+  mes: number,
+): CuadranteMensual {
+  const nDias = diasDelMes(anio, mes)
+  const ids = agenteIds.filter((id) => {
+    const fila = cuadrante[id]
+    return fila != null && turnoTrabajoDeFila(fila) != null
+  })
+  equilibrarCoberturaInterna(cuadrante, ids, nDias, anio, mes)
+  return cuadrante
+}
+
+/**
+ * Equilibra la columna M, T o N de cada día entre agentes del mismo turno mensual.
+ * Evita bandas horizontales (p. ej. 20 noches un día y 2 al siguiente).
+ */
+export function equilibrarCoberturaPorTurno(
+  cuadrante: CuadranteMensual,
+  agenteIds: string[],
+  planAnual: PlanAnual,
+  anio: number,
+  mes: number,
+): CuadranteMensual {
+  const nDias = diasDelMes(anio, mes)
+  const grupos = agentesPorTurnoMes(cuadrante, agenteIds, planAnual, mes, nDias)
+
+  for (const [turno, ids] of grupos) {
+    if (ids.length < 2) continue
+    equilibrarCoberturaInterna(cuadrante, ids, nDias, anio, mes, turno)
   }
 
   return cuadrante
@@ -607,6 +712,7 @@ export function generarFilaMensual(
     offsetDescansoInicial,
   )
   let mejorScore = Number.POSITIVE_INFINITY
+  const empatadas: Turno[][] = []
   for (let extra = 0; extra < 16; extra++) {
     const candidata = construirFila(
       turnoBase,
@@ -621,8 +727,19 @@ export function generarFilaMensual(
     if (score < mejorScore) {
       fila = candidata
       mejorScore = score
+      empatadas.length = 0
+      empatadas.push(candidata)
+    } else if (score === mejorScore) {
+      empatadas.push(candidata)
     }
-    if (partidos === 0) break
+    if (partidos === 0 && score === mejorScore) {
+      // Sigue buscando variantes sin findes partidos para desfasar entre agentes.
+      continue
+    }
+    if (partidos === 0 && mejorScore < 100) break
+  }
+  if (empatadas.length > 1) {
+    fila = empatadas[offsetDescansoInicial % empatadas.length]
   }
 
   if (turnoBase === 'M' || turnoBase === 'T' || turnoBase === 'N') {
@@ -640,15 +757,6 @@ export function generarFilaMensual(
     fila = unificarFindesPartidos(fila, turnoBase, anio, mes)
   }
   return fila
-}
-
-type TurnoOperativoMes = Exclude<TurnoAnual, 'V'>
-
-function turnoOperativoMes(
-  turno: TurnoAnual | null | undefined,
-): TurnoOperativoMes | null {
-  if (turno === 'M' || turno === 'T' || turno === 'N') return turno
-  return null
 }
 
 function conteosVariablesGrupo(
@@ -707,17 +815,7 @@ function equilibrarVariablesCobro(
   eventos: EventoOperativo[] = [],
 ): CuadranteMensual {
   const nDias = diasDelMes(anio, mes)
-  const grupos = new Map<TurnoOperativoMes, string[]>()
-
-  for (const id of agenteIds) {
-    const turno = turnoOperativoMes(planAnual[id]?.[mes - 1])
-    if (!turno) continue
-    const fila = cuadrante[id]
-    if (!fila || fila.length !== nDias) continue
-    const lista = grupos.get(turno) ?? []
-    lista.push(id)
-    grupos.set(turno, lista)
-  }
+  const grupos = agentesPorTurnoMes(cuadrante, agenteIds, planAnual, mes, nDias)
 
   for (const [turno, ids] of grupos) {
     if (ids.length < 2) continue
@@ -817,24 +915,31 @@ export function generarCuadranteMensual(
   eventos: EventoOperativo[] = [],
 ): CuadranteMensual {
   const cuadrante: CuadranteMensual = {}
-  agenteIds.forEach((id, indice) => {
+  const fasePorTurno: Record<TurnoAnual, number> = { M: 0, T: 0, N: 0, V: 0 }
+
+  for (const id of agenteIds) {
     const turnoBase = planAnual[id]?.[mes - 1]
     if (!turnoBase) {
       const nDias = diasDelMes(anio, mes)
       cuadrante[id] = Array.from({ length: nDias }, () => 'D')
-      return
+      continue
     }
-    cuadrante[id] = generarFilaMensual(turnoBase, anio, mes, indice)
-  })
-  const conCobertura = equilibrarCoberturaDiaria(cuadrante, agenteIds, anio, mes)
-  return equilibrarVariablesCobro(
-    conCobertura,
-    agenteIds,
-    planAnual,
-    anio,
-    mes,
-    eventos,
-  )
+    const indiceTurno = fasePorTurno[turnoBase]
+    const fase = indiceTurno * 5 + 1
+    fasePorTurno[turnoBase] += 1
+    let fila = generarFilaMensual(turnoBase, anio, mes, fase)
+    if (turnoBase === 'M' || turnoBase === 'T' || turnoBase === 'N') {
+      fila = desfasarFilaMensual(fila, turnoBase, indiceTurno, anio, mes)
+    }
+    cuadrante[id] = fila
+  }
+
+  equilibrarCoberturaPorTurno(cuadrante, agenteIds, planAnual, anio, mes)
+  equilibrarCoberturaDiaria(cuadrante, agenteIds, anio, mes)
+  equilibrarCoberturaPorTurno(cuadrante, agenteIds, planAnual, anio, mes)
+  equilibrarVariablesCobro(cuadrante, agenteIds, planAnual, anio, mes, eventos)
+  equilibrarCoberturaPorTurno(cuadrante, agenteIds, planAnual, anio, mes)
+  return cuadrante
 }
 
 export function siguienteTurnoDia(actual: Turno): Turno {

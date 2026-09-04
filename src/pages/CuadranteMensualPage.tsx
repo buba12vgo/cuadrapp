@@ -208,6 +208,7 @@ export function CuadranteMensualPage() {
   const [cuadranteCargaFallida, setCuadranteCargaFallida] = useState(false)
   const [guardandoCuadrante, setGuardandoCuadrante] = useState(false)
   const [guardadoOk, setGuardadoOk] = useState(false)
+  const [mesGuardadoEnFirestore, setMesGuardadoEnFirestore] = useState(false)
   const [errorCuadrante, setErrorCuadrante] = useState<string | null>(null)
   const [agentesCargados, setAgentesCargados] = useState(false)
   const [firebaseOk, setFirebaseOk] = useState(isFirebaseReady())
@@ -228,9 +229,9 @@ export function CuadranteMensualPage() {
   const tieneCuadranteLocal = Object.keys(cuadrante).length > 0
   const cuadranteListo =
     !loadingCuadrante && (!cuadranteCargaFallida || tieneCuadranteLocal)
-  const puedeAutogenerar =
-    agentesCargados && ids.length > 0 && (!loadingCuadrante || tieneCuadranteLocal)
+  const puedeAutogenerar = agentesCargados && ids.length > 0
   const cargaCuadranteRef = useRef(0)
+  const cuadranteEditadoLocalRef = useRef(false)
 
   useEffect(() => {
     setAnioPlan(anio)
@@ -298,6 +299,11 @@ export function CuadranteMensualPage() {
   }, [setAgentesData])
 
   useEffect(() => {
+    cuadranteEditadoLocalRef.current = false
+    setMesGuardadoEnFirestore(false)
+  }, [mes, anio])
+
+  useEffect(() => {
     if (!agentesCargados) return
     const cargaId = ++cargaCuadranteRef.current
     let cancelado = false
@@ -345,18 +351,24 @@ export function CuadranteMensualPage() {
         }
 
         if (datos && agentesData.length > 0) {
-          const { cuadrante: cargado, asignaciones } = cuadranteDesdeFirestore(
-            datos,
-            agentesData,
-            anio,
-            mes,
-            nDias,
-          )
-          setCuadrante(cargado)
-          setAsignacionesDiarias(asignaciones)
+          setMesGuardadoEnFirestore(true)
+          if (!cuadranteEditadoLocalRef.current) {
+            const { cuadrante: cargado, asignaciones } = cuadranteDesdeFirestore(
+              datos,
+              agentesData,
+              anio,
+              mes,
+              nDias,
+            )
+            setCuadrante(cargado)
+            setAsignacionesDiarias(asignaciones)
+          }
         } else if (agentesData.length > 0) {
-          setCuadrante(cuadranteVacio(agentesData, nDias))
-          setAsignacionesDiarias({})
+          setMesGuardadoEnFirestore(false)
+          if (!cuadranteEditadoLocalRef.current) {
+            setCuadrante(cuadranteVacio(agentesData, nDias))
+            setAsignacionesDiarias({})
+          }
         }
       } catch (err) {
         if (!cancelado && cargaId === cargaCuadranteRef.current) {
@@ -390,6 +402,24 @@ export function CuadranteMensualPage() {
 
   function autogenerar() {
     if (!puedeAutogenerar) return
+
+    if (mesGuardadoEnFirestore || cuadranteEditadoLocalRef.current) {
+      const nombreMes = MESES[mes - 1]
+      const seguir = window.confirm(
+        `¿Volver a autogenerar ${nombreMes} ${anio}?\n\nSe sustituirá el cuadrante actual${
+          mesGuardadoEnFirestore
+            ? ' (hay uno guardado en Firestore; no se actualiza hasta que pulses Guardar)'
+            : ''
+        }. Los puestos asignados del mes también se borrarán.`,
+      )
+      if (!seguir) return
+      const confirmar = window.confirm(
+        `Confirmación final: se perderán los cambios de ${nombreMes} ${anio} al autogenerar de nuevo.\n\n¿Continuar?`,
+      )
+      if (!confirmar) return
+    }
+
+    cuadranteEditadoLocalRef.current = true
     setCuadranteCargaFallida(false)
     setErrorCuadrante(null)
     setCuadrante(
@@ -429,6 +459,8 @@ export function CuadranteMensualPage() {
         nDias,
       )
       await saveCuadrante(mes, anio, payload)
+      cuadranteEditadoLocalRef.current = false
+      setMesGuardadoEnFirestore(true)
       setCuadranteCargaFallida(false)
       setErrorCuadrante(null)
       setCuadrante((actual) => ({ ...actual }))
@@ -720,6 +752,11 @@ export function CuadranteMensualPage() {
             type="button"
             className="h-6 bg-slate-900 px-2 text-xs font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={!puedeAutogenerar}
+            title={
+              mesGuardadoEnFirestore
+                ? 'Sustituye el cuadrante guardado (doble confirmación)'
+                : 'Genera el cuadrante del mes desde el plan anual'
+            }
             onClick={autogenerar}
           >
             Autogenerar mes

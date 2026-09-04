@@ -48,7 +48,7 @@ import {
 } from '@/lib/convenio'
 import { esFestivo } from '@/lib/festivos'
 import {
-  generarCuadranteMensual,
+  generarCuadranteMensualAsync,
   type CuadranteMensual,
 } from '@/lib/generarCuadranteMensual'
 import {
@@ -207,6 +207,7 @@ export function CuadranteMensualPage() {
   const [loadingCuadrante, setLoadingCuadrante] = useState(true)
   const [cuadranteCargaFallida, setCuadranteCargaFallida] = useState(false)
   const [guardandoCuadrante, setGuardandoCuadrante] = useState(false)
+  const [generandoCuadrante, setGenerandoCuadrante] = useState(false)
   const [guardadoOk, setGuardadoOk] = useState(false)
   const [mesGuardadoEnFirestore, setMesGuardadoEnFirestore] = useState(false)
   const [errorCuadrante, setErrorCuadrante] = useState<string | null>(null)
@@ -229,7 +230,8 @@ export function CuadranteMensualPage() {
   const tieneCuadranteLocal = Object.keys(cuadrante).length > 0
   const cuadranteListo =
     !loadingCuadrante && (!cuadranteCargaFallida || tieneCuadranteLocal)
-  const puedeAutogenerar = agentesCargados && ids.length > 0
+  const puedeAutogenerar =
+    agentesCargados && ids.length > 0 && !generandoCuadrante
   const cargaCuadranteRef = useRef(0)
   const cuadranteEditadoLocalRef = useRef(false)
 
@@ -400,8 +402,8 @@ export function CuadranteMensualPage() {
     setDiaHasta(dias)
   }
 
-  function autogenerar() {
-    if (!puedeAutogenerar) return
+  async function autogenerar() {
+    if (!puedeAutogenerar || generandoCuadrante) return
 
     if (mesGuardadoEnFirestore || cuadranteEditadoLocalRef.current) {
       const nombreMes = MESES[mes - 1]
@@ -419,13 +421,36 @@ export function CuadranteMensualPage() {
       if (!confirmar) return
     }
 
-    cuadranteEditadoLocalRef.current = true
+    setGenerandoCuadrante(true)
     setCuadranteCargaFallida(false)
     setErrorCuadrante(null)
-    setCuadrante(
-      generarCuadranteMensual(planAnual, ids, anio, mes, eventosData),
-    )
-    setAsignacionesDiarias({})
+
+    try {
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => resolve())
+      })
+
+      const nuevo = await generarCuadranteMensualAsync(
+        planAnual,
+        ids,
+        anio,
+        mes,
+        eventosData,
+      )
+
+      cuadranteEditadoLocalRef.current = true
+      setCuadrante(nuevo)
+      setAsignacionesDiarias({})
+    } catch (err) {
+      const mensaje =
+        err instanceof Error
+          ? err.message
+          : 'No se pudo autogenerar el cuadrante mensual'
+      setErrorCuadrante(mensaje)
+      window.alert(mensaje)
+    } finally {
+      setGenerandoCuadrante(false)
+    }
   }
 
   async function guardarCuadranteEnFirestore() {
@@ -605,6 +630,7 @@ export function CuadranteMensualPage() {
             Convenio: {objetivo} días · fatiga ≤ 5 · D de 2+ · cobertura vs
             mínimos del día
             {loadingCuadrante ? ' · Cargando…' : ''}
+            {generandoCuadrante ? ' · Generando mes…' : ''}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -757,15 +783,15 @@ export function CuadranteMensualPage() {
                 ? 'Sustituye el cuadrante guardado (doble confirmación)'
                 : 'Genera el cuadrante del mes desde el plan anual'
             }
-            onClick={autogenerar}
+            onClick={() => void autogenerar()}
           >
-            Autogenerar mes
+            {generandoCuadrante ? 'Generando…' : 'Autogenerar mes'}
           </button>
           <button
             type="button"
             className="h-6 bg-emerald-700 px-2 text-xs font-semibold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={
-              !cuadranteListo || guardandoCuadrante || !firebaseOk
+              !cuadranteListo || guardandoCuadrante || generandoCuadrante || !firebaseOk
             }
             onClick={() => void guardarCuadranteEnFirestore()}
           >

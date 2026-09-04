@@ -549,6 +549,21 @@ function diasPorCobertura(cobertura: number[], predicado: (valor: number) => boo
   return indices
 }
 
+function maxIteracionesCobertura(nAgentes: number, porTurno: boolean) {
+  const base = porTurno ? 120 : 80
+  return Math.min(porTurno ? 220 : 160, base + nAgentes * 2)
+}
+
+function maxIteracionesVariables(nAgentes: number) {
+  return Math.min(100, 24 + Math.floor(nAgentes * 1.5))
+}
+
+export function yieldToMain() {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, 0)
+  })
+}
+
 function equilibrarCoberturaInterna(
   cuadrante: CuadranteMensual,
   ids: string[],
@@ -615,7 +630,7 @@ function equilibrarCoberturaInterna(
 
   for (let pasada = 0; pasada < 2; pasada++) {
     const permitirFindes = pasada === 1
-    for (let iter = 0; iter < (turnoFijo ? 500 : 300); iter++) {
+    for (let iter = 0; iter < maxIteracionesCobertura(ids.length, !!turnoFijo); iter++) {
       const actual = turnoFijo
         ? coberturaTurnoPorDia(cuadrante, ids, turnoFijo, nDias)
         : coberturaPorDia(cuadrante, ids, nDias)
@@ -829,104 +844,186 @@ function equilibrarVariablesCobro(
   mes: number,
   eventos: EventoOperativo[] = [],
 ): CuadranteMensual {
+  return equilibrarVariablesCobroInterno(
+    cuadrante,
+    agenteIds,
+    planAnual,
+    anio,
+    mes,
+    eventos,
+  )
+}
+
+async function equilibrarVariablesCobroAsync(
+  cuadrante: CuadranteMensual,
+  agenteIds: string[],
+  planAnual: PlanAnual,
+  anio: number,
+  mes: number,
+  eventos: EventoOperativo[] = [],
+): Promise<CuadranteMensual> {
   const nDias = diasDelMes(anio, mes)
   const grupos = agentesPorTurnoMes(cuadrante, agenteIds, planAnual, mes, nDias)
 
   for (const [turno, ids] of grupos) {
     if (ids.length < 2) continue
+    const maxIter = maxIteracionesVariables(ids.length)
 
-    for (let iter = 0; iter < 400; iter++) {
-      const puntajeAntes = puntajeVariablesGrupo(
-        cuadrante,
-        ids,
-        anio,
-        mes,
-        eventos,
-      )
-      if (puntajeAntes === 0) break
-
-      const conteos = conteosVariablesGrupo(cuadrante, ids, anio, mes, eventos)
-      const sumatoriosF = sumatoriosFGrupo(cuadrante, ids, anio, mes, eventos)
-      let mejorSwap: {
-        idA: string
-        idB: string
-        idx: number
-        puntaje: number
-      } | null = null
-
-      for (let i = 0; i < ids.length; i++) {
-        for (let j = 0; j < ids.length; j++) {
-          if (i === j) continue
-          const idA = ids[i]
-          const idB = ids[j]
-          const filaA = cuadrante[idA]
-          const filaB = cuadrante[idB]
-          if (!filaA || !filaB) continue
-
-          const cargaA =
-            sumatoriosF[i] * 20 +
-            totalConciliaciones(conteos[i]) * 15 +
-            totalVariablesCobro(conteos[i])
-          const cargaB =
-            sumatoriosF[j] * 20 +
-            totalConciliaciones(conteos[j]) * 15 +
-            totalVariablesCobro(conteos[j])
-          if (cargaA <= cargaB) continue
-
-          for (let idx = 0; idx < nDias; idx++) {
-            if (!esDiaTrabajado(filaA[idx]) || filaB[idx] !== 'D') continue
-            if (filaA[idx] !== turno) continue
-            if (filaA[idx] === 'V' || filaB[idx] === 'V') continue
-
-            const pruebaA = [...filaA]
-            const pruebaB = [...filaB]
-            pruebaA[idx] = 'D'
-            pruebaB[idx] = turno
-
-            if (
-              !filasValidasTrasSwapVariables(
-                filaA,
-                filaB,
-                pruebaA,
-                pruebaB,
-                anio,
-                mes,
-              )
-            ) {
-              continue
-            }
-
-            const copia = { ...cuadrante, [idA]: pruebaA, [idB]: pruebaB }
-            const puntajeDesp = puntajeVariablesGrupo(
-              copia,
-              ids,
-              anio,
-              mes,
-              eventos,
-            )
-            if (puntajeDesp >= puntajeAntes) continue
-
-            if (!mejorSwap || puntajeDesp < mejorSwap.puntaje) {
-              mejorSwap = { idA, idB, idx, puntaje: puntajeDesp }
-            }
-          }
-        }
+    for (let iter = 0; iter < maxIter; iter++) {
+      if (iter % 4 === 0) await yieldToMain()
+      if (
+        !equilibrarVariablesCobroPaso(
+          cuadrante,
+          ids,
+          turno,
+          anio,
+          mes,
+          nDias,
+          eventos,
+        )
+      ) {
+        break
       }
-
-      if (!mejorSwap) break
-
-      const filaA = cuadrante[mejorSwap.idA]!
-      const filaB = cuadrante[mejorSwap.idB]!
-      const pruebaA = [...filaA]
-      const pruebaB = [...filaB]
-      pruebaA[mejorSwap.idx] = 'D'
-      pruebaB[mejorSwap.idx] = turno
-      cuadrante[mejorSwap.idA] = pruebaA
-      cuadrante[mejorSwap.idB] = pruebaB
     }
   }
 
   return cuadrante
+}
+
+function equilibrarVariablesCobroInterno(
+  cuadrante: CuadranteMensual,
+  agenteIds: string[],
+  planAnual: PlanAnual,
+  anio: number,
+  mes: number,
+  eventos: EventoOperativo[],
+): CuadranteMensual {
+  const nDias = diasDelMes(anio, mes)
+  const grupos = agentesPorTurnoMes(cuadrante, agenteIds, planAnual, mes, nDias)
+
+  for (const [turno, ids] of grupos) {
+    if (ids.length < 2) continue
+    const maxIter = maxIteracionesVariables(ids.length)
+
+    for (let iter = 0; iter < maxIter; iter++) {
+      if (
+        !equilibrarVariablesCobroPaso(
+          cuadrante,
+          ids,
+          turno,
+          anio,
+          mes,
+          nDias,
+          eventos,
+        )
+      ) {
+        break
+      }
+    }
+  }
+
+  return cuadrante
+}
+
+function equilibrarVariablesCobroPaso(
+  cuadrante: CuadranteMensual,
+  ids: string[],
+  turno: TurnoOperativoMes,
+  anio: number,
+  mes: number,
+  nDias: number,
+  eventos: EventoOperativo[],
+) {
+  const puntajeAntes = puntajeVariablesGrupo(
+    cuadrante,
+    ids,
+    anio,
+    mes,
+    eventos,
+  )
+  if (puntajeAntes === 0) return false
+
+  const limitePares = Math.min(8, Math.max(3, Math.ceil(ids.length / 4)))
+  const conteos = conteosVariablesGrupo(cuadrante, ids, anio, mes, eventos)
+  const sumatoriosF = sumatoriosFGrupo(cuadrante, ids, anio, mes, eventos)
+  const cargas = ids.map(
+    (_, i) =>
+      sumatoriosF[i] * 20 +
+      totalConciliaciones(conteos[i]) * 15 +
+      totalVariablesCobro(conteos[i]),
+  )
+  const orden = ids
+    .map((id, i) => ({ id, i, carga: cargas[i] }))
+    .sort((a, b) => b.carga - a.carga)
+  const masCargados = orden.slice(0, limitePares)
+  const menosCargados = orden.slice(-limitePares).reverse()
+
+  let mejorSwap: {
+    idA: string
+    idB: string
+    idx: number
+    puntaje: number
+  } | null = null
+
+  for (const { id: idA, i } of masCargados) {
+    for (const { id: idB, i: j } of menosCargados) {
+      if (i === j) continue
+      const filaA = cuadrante[idA]
+      const filaB = cuadrante[idB]
+      if (!filaA || !filaB) continue
+      if (cargas[i] <= cargas[j]) continue
+
+      for (let idx = 0; idx < nDias; idx++) {
+        if (!esDiaTrabajado(filaA[idx]) || filaB[idx] !== 'D') continue
+        if (filaA[idx] !== turno) continue
+        if (filaA[idx] === 'V' || filaB[idx] === 'V') continue
+
+        const pruebaA = [...filaA]
+        const pruebaB = [...filaB]
+        pruebaA[idx] = 'D'
+        pruebaB[idx] = turno
+
+        if (
+          !filasValidasTrasSwapVariables(
+            filaA,
+            filaB,
+            pruebaA,
+            pruebaB,
+            anio,
+            mes,
+          )
+        ) {
+          continue
+        }
+
+        const copia = { ...cuadrante, [idA]: pruebaA, [idB]: pruebaB }
+        const puntajeDesp = puntajeVariablesGrupo(
+          copia,
+          ids,
+          anio,
+          mes,
+          eventos,
+        )
+        if (puntajeDesp >= puntajeAntes) continue
+
+        if (!mejorSwap || puntajeDesp < mejorSwap.puntaje) {
+          mejorSwap = { idA, idB, idx, puntaje: puntajeDesp }
+        }
+      }
+    }
+  }
+
+  if (!mejorSwap) return false
+
+  const filaA = cuadrante[mejorSwap.idA]!
+  const filaB = cuadrante[mejorSwap.idB]!
+  const pruebaA = [...filaA]
+  const pruebaB = [...filaB]
+  pruebaA[mejorSwap.idx] = 'D'
+  pruebaB[mejorSwap.idx] = turno
+  cuadrante[mejorSwap.idA] = pruebaA
+  cuadrante[mejorSwap.idB] = pruebaB
+  return true
 }
 
 export function generarCuadranteMensual(
@@ -935,6 +1032,21 @@ export function generarCuadranteMensual(
   anio: number,
   mes: number,
   eventos: EventoOperativo[] = [],
+): CuadranteMensual {
+  const cuadrante = construirCuadranteInicial(planAnual, agenteIds, anio, mes)
+  equilibrarCoberturaPorTurno(cuadrante, agenteIds, planAnual, anio, mes)
+  equilibrarCoberturaDiaria(cuadrante, agenteIds, anio, mes)
+  equilibrarCoberturaPorTurno(cuadrante, agenteIds, planAnual, anio, mes)
+  equilibrarVariablesCobro(cuadrante, agenteIds, planAnual, anio, mes, eventos)
+  equilibrarCoberturaPorTurno(cuadrante, agenteIds, planAnual, anio, mes)
+  return cuadrante
+}
+
+function construirCuadranteInicial(
+  planAnual: PlanAnual,
+  agenteIds: string[],
+  anio: number,
+  mes: number,
 ): CuadranteMensual {
   const cuadrante: CuadranteMensual = {}
   const fasePorTurno: Record<TurnoAnual, number> = { M: 0, T: 0, N: 0, V: 0 }
@@ -956,11 +1068,53 @@ export function generarCuadranteMensual(
     cuadrante[id] = fila
   }
 
+  return cuadrante
+}
+
+async function equilibrarCuadranteGenerado(
+  cuadrante: CuadranteMensual,
+  agenteIds: string[],
+  planAnual: PlanAnual,
+  anio: number,
+  mes: number,
+  eventos: EventoOperativo[],
+) {
   equilibrarCoberturaPorTurno(cuadrante, agenteIds, planAnual, anio, mes)
+  await yieldToMain()
   equilibrarCoberturaDiaria(cuadrante, agenteIds, anio, mes)
+  await yieldToMain()
   equilibrarCoberturaPorTurno(cuadrante, agenteIds, planAnual, anio, mes)
-  equilibrarVariablesCobro(cuadrante, agenteIds, planAnual, anio, mes, eventos)
+  await yieldToMain()
+  await equilibrarVariablesCobroAsync(
+    cuadrante,
+    agenteIds,
+    planAnual,
+    anio,
+    mes,
+    eventos,
+  )
+  await yieldToMain()
   equilibrarCoberturaPorTurno(cuadrante, agenteIds, planAnual, anio, mes)
+}
+
+/** Versión asíncrona: cede el hilo entre pasadas para no bloquear la UI. */
+export async function generarCuadranteMensualAsync(
+  planAnual: PlanAnual,
+  agenteIds: string[],
+  anio: number,
+  mes: number,
+  eventos: EventoOperativo[] = [],
+): Promise<CuadranteMensual> {
+  const cuadrante = construirCuadranteInicial(planAnual, agenteIds, anio, mes)
+  await yieldToMain()
+  await equilibrarCuadranteGenerado(
+    cuadrante,
+    agenteIds,
+    planAnual,
+    anio,
+    mes,
+    eventos,
+  )
   return cuadrante
 }
 

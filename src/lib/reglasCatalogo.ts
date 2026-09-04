@@ -323,6 +323,17 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     estado: 'implementada',
     referencia: 'ListadosPage · exportarVariablesCobroExcel',
   },
+  {
+    id: 'equilibrio-variables-autogenerar',
+    categoria: 'VARIABLES_COBRO',
+    titulo: 'Equilibrio de variables al autogenerar mes',
+    descripcion:
+      'Tras generar el cuadrante mensual, se reparten conciliaciones y festivos entre agentes del mismo turno (M/T/N del plan anual), intercambiando días de trabajo sin cambiar jornadas ni romper reglas de fatiga.',
+    estado: 'implementada',
+    detalle:
+      'Se ejecuta después del equilibrio de cobertura diaria. Prioriza quitar variables al agente más cargado y asignarlas al que menos tiene, solo si el swap respeta descansos, findes y rachas.',
+    referencia: 'generarCuadranteMensual · equilibrarVariablesCobro',
+  },
 ]
 
 export function reglasPorCategoria() {

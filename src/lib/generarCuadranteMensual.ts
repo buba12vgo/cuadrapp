@@ -1,5 +1,10 @@
-import type { Turno } from '@/types'
+import type { Turno, EventoOperativo } from '@/types'
 import type { PlanAnual, TurnoAnual } from '@/lib/generarPlanAnual'
+import {
+  contarVariablesCobroAgente,
+  puntajeDesbalanceVariables,
+  totalVariablesCobro,
+} from '@/lib/variablesCobro'
 import {
   MAX_DIAS_CONTINUOS,
   MIN_DESCANSO_SEGUIDO,
@@ -245,6 +250,17 @@ function filaAceptable(
     return false
   }
   return true
+}
+
+/** Valida una fila tras un swap o traslado (mismas jornadas, reglas de fatiga). */
+export function validarFilaCuadrante(
+  prueba: Turno[],
+  original: Turno[],
+  anio: number,
+  mes: number,
+  permitirFindes = false,
+) {
+  return filaAceptable(prueba, original, anio, mes, permitirFindes)
 }
 
 function indicesCandidatos(
@@ -626,11 +642,179 @@ export function generarFilaMensual(
   return fila
 }
 
+type TurnoOperativoMes = Exclude<TurnoAnual, 'V'>
+
+function turnoOperativoMes(
+  turno: TurnoAnual | null | undefined,
+): TurnoOperativoMes | null {
+  if (turno === 'M' || turno === 'T' || turno === 'N') return turno
+  return null
+}
+
+function conteosVariablesGrupo(
+  cuadrante: CuadranteMensual,
+  ids: string[],
+  anio: number,
+  mes: number,
+  eventos: EventoOperativo[],
+) {
+  return ids.map((id) =>
+    contarVariablesCobroAgente(cuadrante[id] ?? [], anio, mes, eventos),
+  )
+}
+
+function puntajeVariablesGrupo(
+  cuadrante: CuadranteMensual,
+  ids: string[],
+  anio: number,
+  mes: number,
+  eventos: EventoOperativo[],
+) {
+  return puntajeDesbalanceVariables(
+    conteosVariablesGrupo(cuadrante, ids, anio, mes, eventos),
+  )
+}
+
+function filasValidasTrasSwapVariables(
+  filaA: Turno[],
+  filaB: Turno[],
+  pruebaA: Turno[],
+  pruebaB: Turno[],
+  anio: number,
+  mes: number,
+) {
+  if (
+    filaAceptable(pruebaA, filaA, anio, mes, false) &&
+    filaAceptable(pruebaB, filaB, anio, mes, false)
+  ) {
+    return true
+  }
+  return (
+    filaAceptable(pruebaA, filaA, anio, mes, true) &&
+    filaAceptable(pruebaB, filaB, anio, mes, true)
+  )
+}
+
+/**
+ * Reparte conciliaciones y festivos entre agentes del mismo turno mensual.
+ */
+function equilibrarVariablesCobro(
+  cuadrante: CuadranteMensual,
+  agenteIds: string[],
+  planAnual: PlanAnual,
+  anio: number,
+  mes: number,
+  eventos: EventoOperativo[] = [],
+): CuadranteMensual {
+  const nDias = diasDelMes(anio, mes)
+  const grupos = new Map<TurnoOperativoMes, string[]>()
+
+  for (const id of agenteIds) {
+    const turno = turnoOperativoMes(planAnual[id]?.[mes - 1])
+    if (!turno) continue
+    const fila = cuadrante[id]
+    if (!fila || fila.length !== nDias) continue
+    const lista = grupos.get(turno) ?? []
+    lista.push(id)
+    grupos.set(turno, lista)
+  }
+
+  for (const [turno, ids] of grupos) {
+    if (ids.length < 2) continue
+
+    for (let iter = 0; iter < 250; iter++) {
+      const puntajeAntes = puntajeVariablesGrupo(
+        cuadrante,
+        ids,
+        anio,
+        mes,
+        eventos,
+      )
+      if (puntajeAntes === 0) break
+
+      const conteos = conteosVariablesGrupo(cuadrante, ids, anio, mes, eventos)
+      let mejorSwap: {
+        idA: string
+        idB: string
+        idx: number
+        puntaje: number
+      } | null = null
+
+      for (let i = 0; i < ids.length; i++) {
+        for (let j = 0; j < ids.length; j++) {
+          if (i === j) continue
+          const idA = ids[i]
+          const idB = ids[j]
+          const filaA = cuadrante[idA]
+          const filaB = cuadrante[idB]
+          if (!filaA || !filaB) continue
+
+          const cargaA = totalVariablesCobro(conteos[i])
+          const cargaB = totalVariablesCobro(conteos[j])
+          if (cargaA <= cargaB) continue
+
+          for (let idx = 0; idx < nDias; idx++) {
+            if (!esDiaTrabajado(filaA[idx]) || filaB[idx] !== 'D') continue
+            if (filaA[idx] !== turno) continue
+            if (filaA[idx] === 'V' || filaB[idx] === 'V') continue
+
+            const pruebaA = [...filaA]
+            const pruebaB = [...filaB]
+            pruebaA[idx] = 'D'
+            pruebaB[idx] = turno
+
+            if (
+              !filasValidasTrasSwapVariables(
+                filaA,
+                filaB,
+                pruebaA,
+                pruebaB,
+                anio,
+                mes,
+              )
+            ) {
+              continue
+            }
+
+            const copia = { ...cuadrante, [idA]: pruebaA, [idB]: pruebaB }
+            const puntajeDesp = puntajeVariablesGrupo(
+              copia,
+              ids,
+              anio,
+              mes,
+              eventos,
+            )
+            if (puntajeDesp >= puntajeAntes) continue
+
+            if (!mejorSwap || puntajeDesp < mejorSwap.puntaje) {
+              mejorSwap = { idA, idB, idx, puntaje: puntajeDesp }
+            }
+          }
+        }
+      }
+
+      if (!mejorSwap) break
+
+      const filaA = cuadrante[mejorSwap.idA]!
+      const filaB = cuadrante[mejorSwap.idB]!
+      const pruebaA = [...filaA]
+      const pruebaB = [...filaB]
+      pruebaA[mejorSwap.idx] = 'D'
+      pruebaB[mejorSwap.idx] = turno
+      cuadrante[mejorSwap.idA] = pruebaA
+      cuadrante[mejorSwap.idB] = pruebaB
+    }
+  }
+
+  return cuadrante
+}
+
 export function generarCuadranteMensual(
   planAnual: PlanAnual,
   agenteIds: string[],
   anio: number,
   mes: number,
+  eventos: EventoOperativo[] = [],
 ): CuadranteMensual {
   const cuadrante: CuadranteMensual = {}
   agenteIds.forEach((id, indice) => {
@@ -642,7 +826,15 @@ export function generarCuadranteMensual(
     }
     cuadrante[id] = generarFilaMensual(turnoBase, anio, mes, indice)
   })
-  return equilibrarCoberturaDiaria(cuadrante, agenteIds, anio, mes)
+  const conCobertura = equilibrarCoberturaDiaria(cuadrante, agenteIds, anio, mes)
+  return equilibrarVariablesCobro(
+    conCobertura,
+    agenteIds,
+    planAnual,
+    anio,
+    mes,
+    eventos,
+  )
 }
 
 export function siguienteTurnoDia(actual: Turno): Turno {

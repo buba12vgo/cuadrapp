@@ -346,7 +346,9 @@ export function CuadranteMensualPage() {
 
   function autogenerar() {
     if (!cuadranteListo) return
-    setCuadrante(generarCuadranteMensual(planAnual, ids, anio, mes))
+    setCuadrante(
+      generarCuadranteMensual(planAnual, ids, anio, mes, eventosData),
+    )
   }
 
   async function guardarCuadranteEnFirestore() {

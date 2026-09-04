@@ -117,3 +117,17 @@ export function contarVariablesCobroAgente(
 export function totalVariablesCobro(conteo: ConteoVariablesCobro) {
   return TIPOS_VARIABLE_COBRO.reduce((suma, tipo) => suma + conteo[tipo], 0)
 }
+
+/** Menor es más equilibrado (diferencia máx-mín por tipo y en total). */
+export function puntajeDesbalanceVariables(conteos: ConteoVariablesCobro[]) {
+  if (conteos.length === 0) return 0
+  let puntaje = 0
+  for (const tipo of TIPOS_VARIABLE_COBRO) {
+    const valores = conteos.map((c) => c[tipo])
+    if (valores.every((v) => v === 0)) continue
+    puntaje += (Math.max(...valores) - Math.min(...valores)) * 10
+  }
+  const totales = conteos.map(totalVariablesCobro)
+  puntaje += Math.max(...totales) - Math.min(...totales)
+  return puntaje
+}

@@ -256,8 +256,8 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
       'No se pueden trabajar más de 2 fines de semana seguidos. Sábado y domingo van juntos: o se trabajan los dos o se descansan los dos. Se procura alternar los findes laborables, priorizando cubrir los mínimos operativos.',
     estado: 'implementada',
     detalle:
-      'Al generar el cuadrante se unifican findes partidos y se mueve el finde entero (sábado+domingo) si hay que cortar una racha. El pie muestra la racha máxima (Fs). Un sábado laborable con domingo de descanso (o al revés) se marca en rojo.',
-    referencia: 'finesSemana · unificarFindesPartidos · MAX_FINDES_CONSECUTIVOS = 2',
+      'Al generar el cuadrante se unifican findes partidos y se mueve el finde entero (sábado+domingo) si hay que cortar una racha. El pie muestra el sumatorio F (findes laborados + conciliaciones del mes) equilibrado entre agentes del mismo turno. Un sábado laborable con domingo de descanso (o al revés) se marca en rojo.',
+    referencia: 'finesSemana · unificarFindesPartidos · sumatorioFMensual',
   },
   {
     id: 'eventos-modifican-minimos',
@@ -329,10 +329,10 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     categoria: 'VARIABLES_COBRO',
     titulo: 'Equilibrio de variables al autogenerar mes',
     descripcion:
-      'Tras generar el cuadrante mensual, se reparten conciliaciones y festivos entre agentes del mismo turno (M/T/N del plan anual), intercambiando días de trabajo sin cambiar jornadas ni romper reglas de fatiga.',
+      'Tras generar el cuadrante mensual, se reparten conciliaciones y festivos entre agentes del mismo turno (M/T/N del plan anual), intercambiando días de trabajo sin cambiar jornadas ni romper reglas de fatiga. El sumatorio F (findes + conciliaciones) queda equilibrado entre compañeros del mismo turno.',
     estado: 'implementada',
     detalle:
-      'Se ejecuta después del equilibrio de cobertura diaria. Prioriza quitar variables al agente más cargado y asignarlas al que menos tiene, solo si el swap respeta descansos, findes y rachas.',
+      'Se ejecuta después del equilibrio de cobertura por turno. Prioriza quitar carga al agente con más F y conciliaciones y asignarla al que menos tiene, solo si el swap respeta descansos, findes y rachas.',
     referencia: 'generarCuadranteMensual · equilibrarVariablesCobro',
   },
 ]

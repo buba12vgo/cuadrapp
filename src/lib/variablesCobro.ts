@@ -1,4 +1,4 @@
-import { esDiaTrabajado } from '@/lib/convenio'
+import { esDiaTrabajado, totalFindesTrabajados } from '@/lib/convenio'
 import { esFestivo } from '@/lib/festivos'
 import type { EventoOperativo, Turno } from '@/types'
 
@@ -34,6 +34,12 @@ export const TIPOS_VARIABLE_COBRO = [
   'conciliacion_domingo_manana',
   'festivo',
 ] as const
+
+export const TIPOS_CONCILIACION = [
+  'conciliacion_viernes_noche',
+  'conciliacion_sabado_manana',
+  'conciliacion_domingo_manana',
+] as const satisfies readonly TipoVariableCobro[]
 
 export type TipoVariableCobro = (typeof TIPOS_VARIABLE_COBRO)[number]
 
@@ -114,6 +120,21 @@ export function contarVariablesCobroAgente(
   return counts
 }
 
+export function totalConciliaciones(conteo: ConteoVariablesCobro) {
+  return TIPOS_CONCILIACION.reduce((suma, tipo) => suma + conteo[tipo], 0)
+}
+
+/** Findes laborados en el mes + unidades de conciliación (viernes N, sáb/dom M). */
+export function sumatorioFMensual(
+  fila: Turno[],
+  anio: number,
+  mes: number,
+  eventos: EventoOperativo[],
+) {
+  const variables = contarVariablesCobroAgente(fila, anio, mes, eventos)
+  return totalFindesTrabajados(fila, anio, mes) + totalConciliaciones(variables)
+}
+
 export function totalVariablesCobro(conteo: ConteoVariablesCobro) {
   return TIPOS_VARIABLE_COBRO.reduce((suma, tipo) => suma + conteo[tipo], 0)
 }
@@ -125,9 +146,24 @@ export function puntajeDesbalanceVariables(conteos: ConteoVariablesCobro[]) {
   for (const tipo of TIPOS_VARIABLE_COBRO) {
     const valores = conteos.map((c) => c[tipo])
     if (valores.every((v) => v === 0)) continue
-    puntaje += (Math.max(...valores) - Math.min(...valores)) * 10
+    const peso = tipo === 'festivo' ? 10 : 20
+    puntaje += (Math.max(...valores) - Math.min(...valores)) * peso
   }
   const totales = conteos.map(totalVariablesCobro)
   puntaje += Math.max(...totales) - Math.min(...totales)
   return puntaje
+}
+
+/** Desbalance del sumatorio F (findes + conciliaciones) entre agentes. */
+export function puntajeDesbalanceSumatorioF(sumatorios: number[]) {
+  if (sumatorios.length < 2) return 0
+  return (Math.max(...sumatorios) - Math.min(...sumatorios)) * 30
+}
+
+/** Puntaje combinado para equilibrar al autogenerar el mes. */
+export function puntajeEquilibrioVariablesMensual(
+  conteos: ConteoVariablesCobro[],
+  sumatoriosF: number[],
+) {
+  return puntajeDesbalanceVariables(conteos) + puntajeDesbalanceSumatorioF(sumatoriosF)
 }

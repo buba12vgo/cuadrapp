@@ -2,7 +2,9 @@ import type { Turno, EventoOperativo } from '@/types'
 import type { PlanAnual, TurnoAnual } from '@/lib/generarPlanAnual'
 import {
   contarVariablesCobroAgente,
-  puntajeDesbalanceVariables,
+  puntajeEquilibrioVariablesMensual,
+  sumatorioFMensual,
+  totalConciliaciones,
   totalVariablesCobro,
 } from '@/lib/variablesCobro'
 import {
@@ -771,6 +773,18 @@ function conteosVariablesGrupo(
   )
 }
 
+function sumatoriosFGrupo(
+  cuadrante: CuadranteMensual,
+  ids: string[],
+  anio: number,
+  mes: number,
+  eventos: EventoOperativo[],
+) {
+  return ids.map((id) =>
+    sumatorioFMensual(cuadrante[id] ?? [], anio, mes, eventos),
+  )
+}
+
 function puntajeVariablesGrupo(
   cuadrante: CuadranteMensual,
   ids: string[],
@@ -778,8 +792,9 @@ function puntajeVariablesGrupo(
   mes: number,
   eventos: EventoOperativo[],
 ) {
-  return puntajeDesbalanceVariables(
+  return puntajeEquilibrioVariablesMensual(
     conteosVariablesGrupo(cuadrante, ids, anio, mes, eventos),
+    sumatoriosFGrupo(cuadrante, ids, anio, mes, eventos),
   )
 }
 
@@ -820,7 +835,7 @@ function equilibrarVariablesCobro(
   for (const [turno, ids] of grupos) {
     if (ids.length < 2) continue
 
-    for (let iter = 0; iter < 250; iter++) {
+    for (let iter = 0; iter < 400; iter++) {
       const puntajeAntes = puntajeVariablesGrupo(
         cuadrante,
         ids,
@@ -831,6 +846,7 @@ function equilibrarVariablesCobro(
       if (puntajeAntes === 0) break
 
       const conteos = conteosVariablesGrupo(cuadrante, ids, anio, mes, eventos)
+      const sumatoriosF = sumatoriosFGrupo(cuadrante, ids, anio, mes, eventos)
       let mejorSwap: {
         idA: string
         idB: string
@@ -847,8 +863,14 @@ function equilibrarVariablesCobro(
           const filaB = cuadrante[idB]
           if (!filaA || !filaB) continue
 
-          const cargaA = totalVariablesCobro(conteos[i])
-          const cargaB = totalVariablesCobro(conteos[j])
+          const cargaA =
+            sumatoriosF[i] * 20 +
+            totalConciliaciones(conteos[i]) * 15 +
+            totalVariablesCobro(conteos[i])
+          const cargaB =
+            sumatoriosF[j] * 20 +
+            totalConciliaciones(conteos[j]) * 15 +
+            totalVariablesCobro(conteos[j])
           if (cargaA <= cargaB) continue
 
           for (let idx = 0; idx < nDias; idx++) {

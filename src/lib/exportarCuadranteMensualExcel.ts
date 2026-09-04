@@ -11,14 +11,19 @@ import {
   totalTrabajados,
 } from '@/lib/convenio'
 import { esFestivo } from '@/lib/festivos'
-import { maxFindesConsecutivosLaborados } from '@/lib/finesSemana'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
+import {
+  sumatorioFMensual,
+  totalConciliaciones,
+  contarVariablesCobroAgente,
+} from '@/lib/variablesCobro'
+import { totalFindesTrabajados } from '@/lib/convenio'
 import {
   esPoliciaBolsa,
   type PlanAnual,
   type TurnoAnual,
 } from '@/lib/generarPlanAnual'
-import type { FichaPolicia, RolPolicia, Turno } from '@/types'
+import type { FichaPolicia, RolPolicia, Turno, EventoOperativo } from '@/types'
 
 const MESES = [
   'Enero',
@@ -91,6 +96,7 @@ export type ExportarCuadranteMensualOpciones = {
   asignacionesDiarias: AsignacionesDiarias
   puestos: PuestoConfig[]
   diasVisibles: number[]
+  eventos?: EventoOperativo[]
 }
 
 export function exportarCuadranteMensualExcel(
@@ -110,6 +116,7 @@ export function exportarCuadranteMensualExcel(
     asignacionesDiarias,
     puestos,
     diasVisibles,
+    eventos = [],
   } = opciones
 
   const nombreMes = MESES[mes - 1] ?? `Mes ${mes}`
@@ -167,10 +174,14 @@ export function exportarCuadranteMensualExcel(
       const fila = cuadrante[agente.id] ?? []
       const turnoPlan = turnoPlanMes(agente, planAnual, mes)
       const trabajados = totalTrabajados(fila)
-      const findesConsec = maxFindesConsecutivosLaborados(fila, anio, mes)
+      const findes = totalFindesTrabajados(fila, anio, mes)
+      const conciliaciones = totalConciliaciones(
+        contarVariablesCobroAgente(fila, anio, mes, eventos),
+      )
+      const sumatorioF = sumatorioFMensual(fila, anio, mes, eventos)
       const objetivoFila =
         turnoPlan === 'V' || turnoPlan == null ? 0 : objetivo
-      return `${trabajados}/${objetivoFila}d\n${findesConsec}Fs`
+      return `${trabajados}/${objetivoFila}d\n${sumatorioF}F (${findes}+${conciliaciones})`
     }),
     '',
     '',

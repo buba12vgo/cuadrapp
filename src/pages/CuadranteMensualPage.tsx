@@ -58,7 +58,12 @@ import {
 } from '@/lib/generarPlanAnual'
 import { mensajesInfraccion } from '@/lib/reglasCuadrante'
 import { exportarCuadranteMensualExcel } from '@/lib/exportarCuadranteMensualExcel'
-import { MAX_FINDES_CONSECUTIVOS, maxFindesConsecutivosLaborados } from '@/lib/finesSemana'
+import {
+  contarVariablesCobroAgente,
+  sumatorioFMensual,
+  totalConciliaciones,
+} from '@/lib/variablesCobro'
+import { maxFindesConsecutivosLaborados } from '@/lib/finesSemana'
 import type { RolPolicia, Turno } from '@/types'
 
 const MESES = [
@@ -169,6 +174,16 @@ function claseIndicador(ok: boolean) {
     : 'bg-red-200 font-bold text-red-900'
 }
 
+function claseSumatorioF(valor: number, valoresGrupo: number[]) {
+  if (valoresGrupo.length < 2) {
+    return claseIndicador(true)
+  }
+  const minimo = Math.min(...valoresGrupo)
+  const maximo = Math.max(...valoresGrupo)
+  const equilibrado = maximo - minimo <= 1 || valor <= minimo + 1
+  return claseIndicador(equilibrado)
+}
+
 export function CuadranteMensualPage() {
   const [agentesData, setAgentesData] = useAgentesData()
   const [eventosData] = useEventosData()
@@ -242,6 +257,20 @@ export function CuadranteMensualPage() {
     }
     return dias
   }, [diaDesde, diaHasta, nDias])
+
+  const sumatoriosFPorTurno = useMemo(() => {
+    const mapa = new Map<string, number[]>()
+    for (const agente of agentesData) {
+      const turno = turnoPlanMes(agente, planAnual, mes)
+      const clave = turno ?? '—'
+      const fila = cuadrante[agente.id] ?? []
+      const valor = sumatorioFMensual(fila, anio, mes, eventosData)
+      const lista = mapa.get(clave) ?? []
+      lista.push(valor)
+      mapa.set(clave, lista)
+    }
+    return mapa
+  }, [agentesData, planAnual, mes, cuadrante, anio, eventosData])
 
   useEffect(() => {
     let cancelado = false
@@ -681,6 +710,7 @@ export function CuadranteMensualPage() {
                 asignacionesDiarias,
                 puestos,
                 diasVisibles,
+                eventos: eventosData,
               })
             }
           >
@@ -965,6 +995,16 @@ export function CuadranteMensualPage() {
                 const trabajados = totalTrabajados(fila)
                 const findes = totalFindesTrabajados(fila, anio, mes)
                 const findesConsec = maxFindesConsecutivosLaborados(fila, anio, mes)
+                const variables = contarVariablesCobroAgente(
+                  fila,
+                  anio,
+                  mes,
+                  eventosData,
+                )
+                const conciliaciones = totalConciliaciones(variables)
+                const sumatorioF = findes + conciliaciones
+                const turnoClave = turnoPlan ?? '—'
+                const grupoF = sumatoriosFPorTurno.get(turnoClave) ?? [sumatorioF]
                 const objetivoFila =
                   turnoPlan === 'V' || turnoPlan == null ? 0 : objetivo
                 return (
@@ -972,7 +1012,7 @@ export function CuadranteMensualPage() {
                     key={agente.id}
                     className={`${CELDA_PIE} bg-slate-200`}
                     style={{ width: ANCHO_AGENTE, minWidth: ANCHO_AGENTE }}
-                    title={`Trabajados ${trabajados} / ${objetivoFila} · Findes ${findes} · Máx. seguidos ${findesConsec}`}
+                    title={`Trabajados ${trabajados} / ${objetivoFila} · F=${sumatorioF} (${findes} findes + ${conciliaciones} conc.) · Máx. findes seguidos ${findesConsec}`}
                   >
                     <div className="flex h-full flex-col">
                       <span
@@ -983,11 +1023,12 @@ export function CuadranteMensualPage() {
                         {trabajados}d
                       </span>
                       <span
-                        className={`flex flex-1 items-center justify-center ${claseIndicador(
-                          findesConsec <= MAX_FINDES_CONSECUTIVOS,
+                        className={`flex flex-1 items-center justify-center ${claseSumatorioF(
+                          sumatorioF,
+                          grupoF,
                         )}`}
                       >
-                        {findesConsec}Fs
+                        {sumatorioF}F
                       </span>
                     </div>
                   </td>

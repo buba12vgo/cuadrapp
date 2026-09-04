@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { BolsaPuestosPanel, filtroTurnoInicial } from '@/components/BolsaPuestosPanel'
 import { PopoverPuestosCelda } from '@/components/PopoverPuestosCelda'
 import { RepartoOperativoModal } from '@/components/RepartoOperativoModal'
@@ -199,17 +199,27 @@ export function CuadranteMensualPage() {
   const [filtroTurno, setFiltroTurno] =
     useState<FiltroTurnoBolsa>(filtroTurnoInicial)
 
-  const nDias = diasDelMes(anio, mes)
-  const objetivo = diasOperativosConvenio(anio, mes)
-  const cuadranteListo = !loadingCuadrante && !cuadranteCargaFallida
-
-  useEffect(() => {
-    setAnioPlan(anio)
-  }, [anio, setAnioPlan])
   const ids = useMemo(
     () => agentesData.map((agente) => agente.id),
     [agentesData],
   )
+  const agentesIdsKey = useMemo(
+    () => agentesData.map((agente) => agente.id).join('\0'),
+    [agentesData],
+  )
+
+  const nDias = diasDelMes(anio, mes)
+  const objetivo = diasOperativosConvenio(anio, mes)
+  const tieneCuadranteLocal = Object.keys(cuadrante).length > 0
+  const cuadranteListo =
+    !loadingCuadrante && (!cuadranteCargaFallida || tieneCuadranteLocal)
+  const puedeAutogenerar =
+    agentesCargados && ids.length > 0 && (!loadingCuadrante || tieneCuadranteLocal)
+  const cargaCuadranteRef = useRef(0)
+
+  useEffect(() => {
+    setAnioPlan(anio)
+  }, [anio, setAnioPlan])
 
   const agentesVisibles = useMemo(
     () =>
@@ -260,6 +270,7 @@ export function CuadranteMensualPage() {
 
   useEffect(() => {
     if (!agentesCargados) return
+    const cargaId = ++cargaCuadranteRef.current
     let cancelado = false
 
     async function cargarCuadranteMes() {
@@ -267,16 +278,15 @@ export function CuadranteMensualPage() {
       setErrorCuadrante(null)
       setGuardadoOk(false)
       setCuadranteCargaFallida(false)
-      setCuadrante({})
-      setColaMesAnterior({})
-      setAsignacionesDiarias({})
 
       const ready = await ensureFirebase()
-      if (cancelado) return
+      if (cancelado || cargaId !== cargaCuadranteRef.current) return
       setFirebaseOk(ready)
 
       if (!ready) {
-        setLoadingCuadrante(false)
+        if (cargaId === cargaCuadranteRef.current) {
+          setLoadingCuadrante(false)
+        }
         return
       }
 
@@ -288,7 +298,7 @@ export function CuadranteMensualPage() {
           getCuadrante(mes, anio),
           getCuadrante(prev.mes, prev.anio).catch(() => null),
         ])
-        if (cancelado) return
+        if (cancelado || cargaId !== cargaCuadranteRef.current) return
 
         if (datosPrev && agentesData.length > 0) {
           const { cuadrante: prevCuad } = cuadranteDesdeFirestore(
@@ -301,6 +311,8 @@ export function CuadranteMensualPage() {
           setColaMesAnterior(
             colaMesAnteriorPorAgente(prevCuad, ids, prev.anio, prev.mes),
           )
+        } else {
+          setColaMesAnterior({})
         }
 
         if (datos && agentesData.length > 0) {
@@ -313,11 +325,12 @@ export function CuadranteMensualPage() {
           )
           setCuadrante(cargado)
           setAsignacionesDiarias(asignaciones)
-        } else {
+        } else if (agentesData.length > 0) {
           setCuadrante(cuadranteVacio(agentesData, nDias))
+          setAsignacionesDiarias({})
         }
       } catch (err) {
-        if (!cancelado) {
+        if (!cancelado && cargaId === cargaCuadranteRef.current) {
           setCuadranteCargaFallida(true)
           setErrorCuadrante(
             err instanceof Error
@@ -326,7 +339,9 @@ export function CuadranteMensualPage() {
           )
         }
       } finally {
-        if (!cancelado) setLoadingCuadrante(false)
+        if (!cancelado && cargaId === cargaCuadranteRef.current) {
+          setLoadingCuadrante(false)
+        }
       }
     }
 
@@ -334,7 +349,7 @@ export function CuadranteMensualPage() {
     return () => {
       cancelado = true
     }
-  }, [mes, anio, nDias, agentesData, agentesCargados, ids])
+  }, [mes, anio, nDias, agentesIdsKey, agentesCargados, agentesData, ids])
 
   function aplicarMes(siguienteAnio: number, siguienteMes: number) {
     const dias = diasDelMes(siguienteAnio, siguienteMes)
@@ -345,14 +360,17 @@ export function CuadranteMensualPage() {
   }
 
   function autogenerar() {
-    if (!cuadranteListo) return
+    if (!puedeAutogenerar) return
+    setCuadranteCargaFallida(false)
+    setErrorCuadrante(null)
     setCuadrante(
       generarCuadranteMensual(planAnual, ids, anio, mes, eventosData),
     )
+    setAsignacionesDiarias({})
   }
 
   async function guardarCuadranteEnFirestore() {
-    if (cuadranteCargaFallida) {
+    if (cuadranteCargaFallida && !tieneCuadranteLocal) {
       window.alert(
         'No se puede guardar: el cuadrante no se cargó correctamente desde Firestore.',
       )
@@ -382,6 +400,8 @@ export function CuadranteMensualPage() {
         nDias,
       )
       await saveCuadrante(mes, anio, payload)
+      setCuadranteCargaFallida(false)
+      setErrorCuadrante(null)
       setCuadrante((actual) => ({ ...actual }))
       setAsignacionesDiarias((actual) => ({ ...actual }))
       setGuardadoOk(true)
@@ -669,7 +689,7 @@ export function CuadranteMensualPage() {
           <button
             type="button"
             className="h-6 bg-slate-900 px-2 text-xs font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={!cuadranteListo}
+            disabled={!puedeAutogenerar}
             onClick={autogenerar}
           >
             Autogenerar mes
@@ -691,9 +711,15 @@ export function CuadranteMensualPage() {
           ) : null}
         </div>
         </div>
-        {cuadranteCargaFallida ? (
+        {cuadranteCargaFallida && !tieneCuadranteLocal ? (
           <p className="border-t border-red-200 bg-red-50 px-2 py-1 text-[11px] text-red-800">
-            No se puede editar ni guardar este mes hasta recargar la página.
+            No se pudo cargar este mes desde Firestore. Puedes autogenerar el
+            cuadrante o recargar la página.
+          </p>
+        ) : cuadranteCargaFallida ? (
+          <p className="border-t border-amber-200 bg-amber-50 px-2 py-1 text-[11px] text-amber-900">
+            No se pudo sincronizar con Firestore; se muestra el cuadrante en
+            pantalla. Guardar o autogenerar de nuevo actualizará los datos.
           </p>
         ) : null}
         {errorCuadrante ? (

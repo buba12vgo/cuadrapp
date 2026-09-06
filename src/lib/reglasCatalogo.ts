@@ -245,7 +245,7 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
       'El plan intenta cuadrar el reparto M/T/N de la plantilla con una tolerancia de ±2 puntos porcentuales en el año.',
     estado: 'implementada',
     detalle:
-      'El semáforo anual compara el % global con el objetivo (±2 pp). Por mes se usa tolerancia en cupos enteros (±2 % del activo, mínimo 1 agente), más permisiva cuando hay pocas plazas operativas (muchas vacaciones). Tras ajustar filas M/T sin noches se reequilibra el mes.',
+      'El semáforo anual compara el % global con el objetivo (±2 pp). Por mes se usa tolerancia en cupos enteros (±2 % del activo, mínimo 1 agente). Al autogenerar, cada fila se coloca mirando el déficit de cada mes y se refinan los meses más desviados al final.',
     referencia: 'TOLERANCIA_PCT_PLAN = 2 · validarTurnoEnPlan',
   },
   {

@@ -5,6 +5,10 @@ import type {
   PatronPreferenciaAnual,
   PreferenciaAnual,
 } from '@/types'
+import {
+  cuposBalanceadosMananaTarde,
+  esSoloMananaYTarde,
+} from '@/lib/limitaciones'
 
 export const PATRONES_FIJOS: PatronPreferenciaAnual[] = [
   '4-4-3',
@@ -165,8 +169,7 @@ export function cuposDesdePatron(
     return { M: libres - N, T: 0, N }
   }
   if (lim.M && lim.T && !lim.N) {
-    T = Math.min(Math.max(0, T), libres)
-    return { M: libres - T, T, N: 0 }
+    return cuposBalanceadosMananaTarde(libres)
   }
   if (lim.T && lim.N && !lim.M) {
     N = Math.min(Math.max(0, N), libres)
@@ -197,6 +200,15 @@ export function filaCumplePreferencia(
   if (esSinPreferencia(pref)) {
     const compatibles = patronesCompatibles(agente.limitaciones)
     if (compatibles.length === 0) {
+      if (esSoloMananaYTarde(agente.limitaciones)) {
+        const esperado = cuposBalanceadosMananaTarde(11)
+        return (
+          totales.V === vacacionesObjetivoPreferencia(pref) &&
+          totales.N === 0 &&
+          totales.M === esperado.M &&
+          totales.T === esperado.T
+        )
+      }
       return (
         totales.V === vacacionesObjetivoPreferencia(pref) &&
         totales.M + totales.T + totales.N === 11

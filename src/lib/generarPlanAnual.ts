@@ -1,5 +1,5 @@
 import type { FichaPolicia, RolPolicia } from '@/types'
-import { turnosLaboralesPermitidos } from '@/lib/limitaciones'
+import { turnosLaboralesPermitidos, esSoloMananaYTarde, cuposBalanceadosMananaTarde } from '@/lib/limitaciones'
 import {
   cuposDesdePatron,
   esPatronFijo,
@@ -193,8 +193,7 @@ function cuposLaborales(
   }
 
   if (lim.M && lim.T && !lim.N) {
-    T = Math.min(Math.max(0, T), libres)
-    return { M: libres - T, T, N: 0 }
+    return cuposBalanceadosMananaTarde(libres)
   }
 
   if (lim.T && lim.N && !lim.M) {
@@ -221,6 +220,114 @@ function cuposLaborales(
     else if (lim.N) N += libres - suma
   }
   return { M, T, N }
+}
+
+/** Reparte meses M/T alternando a lo largo del año (p. ej. 5-6 o 6-5). */
+function colocarMesesMTEquilibrado(
+  fila: Fila,
+  cupos: { M: number; T: number },
+) {
+  const mesesLibres = huecos(fila)
+  let siguiente: 'M' | 'T' =
+    cupos.T > cupos.M ? 'T' : cupos.M > cupos.T ? 'M' : 'M'
+  let restoM = cupos.M
+  let restoT = cupos.T
+
+  for (const mes of mesesLibres) {
+    if (restoM <= 0 && restoT <= 0) break
+    if (restoM <= 0) {
+      fila[mes] = 'T'
+      restoT -= 1
+      continue
+    }
+    if (restoT <= 0) {
+      fila[mes] = 'M'
+      restoM -= 1
+      continue
+    }
+    fila[mes] = siguiente
+    if (siguiente === 'M') restoM -= 1
+    else restoT -= 1
+    siguiente = siguiente === 'M' ? 'T' : 'M'
+  }
+}
+
+function spreadMesesM(agentes: FichaPolicia[], plan: PlanAnual) {
+  if (agentes.length === 0) return 0
+  const mesesM = agentes.map((agente) => contarFila(plan[agente.id] ?? []).M)
+  return Math.max(...mesesM) - Math.min(...mesesM)
+}
+
+function intentarSwapMismoMesMT(
+  plan: PlanAnual,
+  agentesById: Map<string, FichaPolicia>,
+  idA: string,
+  idB: string,
+  mes: number,
+) {
+  const filaA = plan[idA]
+  const filaB = plan[idB]
+  const agenteA = agentesById.get(idA)
+  const agenteB = agentesById.get(idB)
+  if (!filaA || !filaB || !agenteA || !agenteB) return false
+
+  const turnoA = filaA[mes]
+  const turnoB = filaB[mes]
+  if (turnoA === 'V' || turnoB === 'V' || turnoA === turnoB) return false
+  if (turnoA !== 'M' && turnoA !== 'T') return false
+  if (turnoB !== 'M' && turnoB !== 'T') return false
+
+  const copiaA = [...filaA]
+  const copiaB = [...filaB]
+  copiaA[mes] = turnoB
+  copiaB[mes] = turnoA
+  if (!filaCumplePreferencia(agenteA, contarFila(copiaA))) return false
+  if (!filaCumplePreferencia(agenteB, contarFila(copiaB))) return false
+
+  plan[idA] = copiaA
+  plan[idB] = copiaB
+  return true
+}
+
+/** Equilibra meses M entre agentes solo M+T (sin noches). */
+function equilibrarAgentesSoloMT(plan: PlanAnual, agentes: FichaPolicia[]) {
+  const mtAgentes = agentes.filter((agente) =>
+    esSoloMananaYTarde(agente.limitaciones),
+  )
+  if (mtAgentes.length < 2) return
+
+  const agentesById = new Map(agentes.map((agente) => [agente.id, agente]))
+  const ids = mtAgentes.map((agente) => agente.id)
+
+  for (let pase = 0; pase < 30; pase++) {
+    let mejorado = false
+    const spreadAntes = spreadMesesM(mtAgentes, plan)
+
+    for (let mes = 0; mes < MESES; mes++) {
+      for (let i = 0; i < ids.length; i++) {
+        for (let j = i + 1; j < ids.length; j++) {
+          const idA = ids[i]
+          const idB = ids[j]
+          const turnoA = plan[idA]?.[mes]
+          const turnoB = plan[idB]?.[mes]
+          if (turnoA === turnoB) continue
+          if (
+            !intentarSwapMismoMesMT(plan, agentesById, idA, idB, mes)
+          ) {
+            continue
+          }
+          const spreadDesp = spreadMesesM(mtAgentes, plan)
+          if (spreadDesp >= spreadAntes) {
+            intentarSwapMismoMesMT(plan, agentesById, idA, idB, mes)
+            continue
+          }
+          mejorado = true
+        }
+      }
+    }
+
+    if (!mejorado) break
+  }
 }
 
 function capacidadN(fila: Fila, minDist: number) {
@@ -277,14 +384,18 @@ function asignarFila(
   cupos.T += cupos.N
   cupos.N = 0
 
-  for (const mes of huecos(fila)) {
-    if (cupos.T <= 0) break
-    fila[mes] = 'T'
-    cupos.T -= 1
-  }
+  if (esSoloMananaYTarde(agente.limitaciones)) {
+    colocarMesesMTEquilibrado(fila, { M: cupos.M, T: cupos.T })
+  } else {
+    for (const mes of huecos(fila)) {
+      if (cupos.T <= 0) break
+      fila[mes] = 'T'
+      cupos.T -= 1
+    }
 
-  for (const mes of huecos(fila)) {
-    fila[mes] = 'M'
+    for (const mes of huecos(fila)) {
+      fila[mes] = 'M'
+    }
   }
 
   return fila.map((turno) => turno ?? 'M')
@@ -840,6 +951,7 @@ export function generarPlanAnual(
   }
 
   equilibrarMesesPreservandoPreferencias(plan, agentesGenerar, objetivos)
+  equilibrarAgentesSoloMT(plan, agentesGenerar)
   for (const agente of agentesGenerar) {
     const fila = plan[agente.id]
     if (fila) evitarDiciembreNRepetido(agente, fila, planAnioAnterior)

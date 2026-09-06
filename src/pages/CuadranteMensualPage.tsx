@@ -168,6 +168,10 @@ export function CuadranteMensualPage() {
   useEffect(() => {
     setAnioPlan(anio)
   }, [anio, setAnioPlan])
+  const ids = useMemo(
+    () => agentesData.map((agente) => agente.id),
+    [agentesData],
+  )
 
   const agentesVisibles = useMemo(
     () =>
@@ -280,7 +284,7 @@ export function CuadranteMensualPage() {
   }
 
   function autogenerar() {
-    setCuadrante(generarCuadranteMensual(planAnual, agentesData, anio, mes))
+    setCuadrante(generarCuadranteMensual(planAnual, ids, anio, mes))
   }
 
   async function guardarCuadranteEnFirestore() {

@@ -32,3 +32,10 @@ export function turnosLaboralesPermitidos(lim: Limitaciones) {
 export function esSoloMananaYTarde(lim: Limitaciones) {
   return lim.M && lim.T && !lim.N
 }
+
+/** Reparto equilibrado de meses M/T (p. ej. 5-6 o 6-5 en 11 meses laborables). */
+export function cuposBalanceadosMananaTarde(libres: number) {
+  if (libres <= 0) return { M: 0, T: 0, N: 0 }
+  const M = Math.floor(libres / 2)
+  return { M, T: libres - M, N: 0 }
+}

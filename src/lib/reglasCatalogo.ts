@@ -198,6 +198,18 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     referencia: 'generarPlanAnual · diciembreNProhibido · validarTurnoEnPlan',
   },
   {
+    id: 'balance-mt-plan-anual',
+    categoria: 'PLAN_ANUAL',
+    titulo: 'Equilibrio M/T en agentes sin noches',
+    descripcion:
+      'Al autogenerar el plan anual, los agentes con limitación solo mañana y tarde reciben un reparto equilibrado de meses M y T (p. ej. 5-6 o 6-5), alternados a lo largo del año.',
+    estado: 'implementada',
+    detalle:
+      'Cada agente trabaja un solo turno por mes. El generador reparte M/T de forma alternada y equilibra entre agentes del mismo grupo para evitar acumulaciones (p. ej. todos los meses en mañana).',
+    referencia:
+      'generarPlanAnual · colocarMesesMTEquilibrado · equilibrarAgentesSoloMT',
+  },
+  {
     id: 'tolerancia-plan-anual',
     categoria: 'PLAN_ANUAL',
     titulo: 'Cuadre de porcentajes anuales',
@@ -218,15 +230,6 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     detalle:
       'El generador reparte el descanso sobrante en huecos distintos según el agente y mueve jornadas de días saturados a días cortos, respetando fatiga, descansos de 2+ y salida de noche.',
     referencia: 'generarCuadranteMensual · equilibrarCoberturaDiaria',
-  },
-  {
-    id: 'mix-mt-cuadrante-mensual',
-    categoria: 'CUADRANTE',
-    titulo: 'Reparto M/T sin noches',
-    descripcion:
-      'Los agentes con limitación solo mañana y tarde reciben un reparto equilibrado de jornadas M y T en el mes (p. ej. 8-9 en 17 días), sin violar T→M.',
-    estado: 'implementada',
-    referencia: 'generarCuadranteMensual · repartirMixMananaTarde',
   },
   {
     id: 'findes-consecutivos-max',

@@ -7,11 +7,15 @@ export function leerLimitaciones(valor: unknown): Limitaciones {
   const raw = valor as Record<string, unknown>
 
   if ('M' in raw || 'T' in raw || 'N' in raw) {
-    return {
+    const lim: Limitaciones = {
       M: raw.M !== false,
       T: raw.T !== false,
       N: raw.N !== false,
     }
+    if (raw.exentoNoches === true) {
+      lim.N = false
+    }
+    return lim
   }
 
   if (raw.soloManana === true) return { M: true, T: false, N: false }
@@ -40,17 +44,3 @@ export function cuposBalanceadosMananaTarde(libres: number) {
   return { M, T: libres - M, N: 0 }
 }
 
-/** Valida reparto M/T equilibrado para agentes sin noches. */
-export function filaCumpleBalanceMT(
-  lim: Limitaciones,
-  totales: { M: number; T: number; N: number },
-) {
-  if (!esSoloMananaYTarde(lim)) return true
-  const labor = totales.M + totales.T + totales.N
-  const esperado = cuposBalanceadosMananaTarde(labor)
-  return (
-    totales.N === 0 &&
-    totales.M === esperado.M &&
-    totales.T === esperado.T
-  )
-}

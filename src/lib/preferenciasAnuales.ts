@@ -5,10 +5,7 @@ import type {
   PatronPreferenciaAnual,
   PreferenciaAnual,
 } from '@/types'
-import {
-  cuposBalanceadosMananaTarde,
-  esSoloMananaYTarde,
-} from '@/lib/limitaciones'
+import { cuposBalanceadosMananaTarde } from '@/lib/limitaciones'
 
 export const PATRONES_FIJOS: PatronPreferenciaAnual[] = [
   '4-4-3',
@@ -96,6 +93,47 @@ export function patronCompatibleConLimitaciones(
 export function patronesCompatibles(lim: Limitaciones): PatronPreferenciaAnual[] {
   return PATRONES_FIJOS.filter((patron) =>
     patronCompatibleConLimitaciones(patron, lim),
+  )
+}
+
+/**
+ * Agente que debe repartir meses M/T equilibrados en el plan anual (sin noches).
+ * Incluye exento noches (N desactivado) y fichas con objetivoN=0 aunque N siga
+ * marcado en limitaciones.
+ */
+export function debeBalancearMTAnual(agente: FichaPolicia) {
+  const lim = agente.limitaciones
+  if (!lim.M || !lim.T) return false
+  if (!lim.N) return true
+
+  const pref = agente.preferenciaAnual
+  if ((pref.objetivoN ?? 0) === 0) return true
+
+  if (esSinPreferencia(pref) && patronesCompatibles(lim).length === 0) {
+    return true
+  }
+
+  if (
+    esPatronFijo(pref) &&
+    !patronCompatibleConLimitaciones(pref.modo, lim)
+  ) {
+    return true
+  }
+
+  return false
+}
+
+export function filaCumpleBalanceMT(
+  agente: FichaPolicia,
+  totales: Cupos & { V: number },
+) {
+  if (!debeBalancearMTAnual(agente)) return true
+  const labor = totales.M + totales.T + totales.N
+  const esperado = cuposBalanceadosMananaTarde(labor)
+  return (
+    totales.N === 0 &&
+    totales.M === esperado.M &&
+    totales.T === esperado.T
   )
 }
 
@@ -200,7 +238,7 @@ export function filaCumplePreferencia(
   if (esSinPreferencia(pref)) {
     const compatibles = patronesCompatibles(agente.limitaciones)
     if (compatibles.length === 0) {
-      if (esSoloMananaYTarde(agente.limitaciones)) {
+      if (debeBalancearMTAnual(agente)) {
         const labor = totales.M + totales.T + totales.N
         const esperado = cuposBalanceadosMananaTarde(labor)
         return (

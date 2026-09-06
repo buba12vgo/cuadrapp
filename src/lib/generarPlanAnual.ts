@@ -1,9 +1,11 @@
 import type { FichaPolicia, RolPolicia } from '@/types'
-import { turnosLaboralesPermitidos, esSoloMananaYTarde, cuposBalanceadosMananaTarde, filaCumpleBalanceMT } from '@/lib/limitaciones'
+import { turnosLaboralesPermitidos, cuposBalanceadosMananaTarde } from '@/lib/limitaciones'
 import {
   cuposDesdePatron,
+  debeBalancearMTAnual,
   esPatronFijo,
   esSinPreferencia,
+  filaCumpleBalanceMT,
   filaCumplePreferencia,
   patronesCompatibles,
   vacacionesObjetivoPreferencia,
@@ -167,7 +169,7 @@ function cuposLaborales(
 ): Cupos {
   if (libres <= 0) return { M: 0, T: 0, N: 0 }
 
-  if (esSoloMananaYTarde(agente.limitaciones)) {
+  if (debeBalancearMTAnual(agente)) {
     return cuposBalanceadosMananaTarde(libres)
   }
 
@@ -324,8 +326,8 @@ function intentarSwapMismoMesMT(
   const copiaB = [...filaB]
   copiaA[mes] = turnoB
   copiaB[mes] = turnoA
-  if (!filaCumpleBalanceMT(agenteA.limitaciones, contarFila(copiaA))) return false
-  if (!filaCumpleBalanceMT(agenteB.limitaciones, contarFila(copiaB))) return false
+  if (!filaCumpleBalanceMT(agenteA, contarFila(copiaA))) return false
+  if (!filaCumpleBalanceMT(agenteB, contarFila(copiaB))) return false
 
   plan[idA] = copiaA
   plan[idB] = copiaB
@@ -334,9 +336,7 @@ function intentarSwapMismoMesMT(
 
 /** Reconstruye y equilibra filas M/T de agentes sin noches. */
 function asegurarFilasSoloMT(plan: PlanAnual, agentes: FichaPolicia[]) {
-  const mtAgentes = agentes.filter((agente) =>
-    esSoloMananaYTarde(agente.limitaciones),
-  )
+  const mtAgentes = agentes.filter((agente) => debeBalancearMTAnual(agente))
   if (mtAgentes.length === 0) return
 
   mtAgentes.forEach((agente, indice) => {
@@ -444,7 +444,7 @@ function asignarFila(
   cupos.T += cupos.N
   cupos.N = 0
 
-  if (esSoloMananaYTarde(agente.limitaciones)) {
+  if (debeBalancearMTAnual(agente)) {
     colocarMesesMTEquilibrado(fila, { M: cupos.M, T: cupos.T })
   } else {
     for (const mes of huecos(fila)) {
@@ -667,7 +667,7 @@ function equilibrarMesesPreservandoPreferencias(
           // 1) Mismo agente: intercambiar surplus@mes con deficit@otroMes
           for (const id of ids) {
             const agente = agentesById.get(id)
-            if (agente && esSoloMananaYTarde(agente.limitaciones)) continue
+            if (agente && debeBalancearMTAnual(agente)) continue
             if (plan[id]?.[mes] !== surplus) continue
             for (let mesB = 0; mesB < MESES; mesB++) {
               if (mesB === mes) continue
@@ -692,7 +692,7 @@ function equilibrarMesesPreservandoPreferencias(
           if (conteo[surplus] > objetivoMes[surplus]) {
             for (const idA of ids) {
               const agenteA = agentesById.get(idA)
-              if (agenteA && esSoloMananaYTarde(agenteA.limitaciones)) continue
+              if (agenteA && debeBalancearMTAnual(agenteA)) continue
               if (plan[idA]?.[mes] !== surplus) continue
               for (let mesB = 0; mesB < MESES; mesB++) {
                 if (mesB === mes) continue
@@ -700,7 +700,7 @@ function equilibrarMesesPreservandoPreferencias(
                 for (const idB of ids) {
                   if (idB === idA) continue
                   const agenteB = agentesById.get(idB)
-                  if (agenteB && esSoloMananaYTarde(agenteB.limitaciones)) {
+                  if (agenteB && debeBalancearMTAnual(agenteB)) {
                     continue
                   }
                   if (plan[idB]?.[mes] !== deficit) continue
@@ -1019,11 +1019,14 @@ export function generarPlanAnual(
   }
 
   equilibrarMesesPreservandoPreferencias(plan, agentesGenerar, objetivos)
-  asegurarFilasSoloMT(plan, agentesGenerar)
   for (const agente of agentesGenerar) {
     const fila = plan[agente.id]
     if (fila) evitarDiciembreNRepetido(agente, fila, planAnioAnterior)
   }
+  asegurarFilasSoloMT(
+    plan,
+    agentes.filter((agente) => !esPoliciaBolsa(agente.rolBase)),
+  )
 
   return {
     plan,

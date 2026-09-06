@@ -240,13 +240,13 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
   {
     id: 'tolerancia-plan-anual',
     categoria: 'PLAN_ANUAL',
-    titulo: 'Cuadre de porcentajes anuales',
+    titulo: 'Cuadre de efectivos mensuales y % anual',
     descripcion:
-      'El plan intenta cuadrar el reparto M/T/N de la plantilla con una tolerancia de ±2 puntos porcentuales en el año.',
+      'El plan cuadra los efectivos M/T/N de cada mes con el reparto exacto del % selector sobre los activos de ese mes. El año global admite ±2 pp.',
     estado: 'implementada',
     detalle:
-      'El semáforo anual compara el % global con el objetivo (±2 pp). Por mes se usa tolerancia en cupos enteros (±2 % del activo, mínimo 1 agente). Al autogenerar, cada fila se coloca mirando el déficit de cada mes y se refinan los meses más desviados al final.',
-    referencia: 'TOLERANCIA_PCT_PLAN = 2 · validarTurnoEnPlan',
+      'Prioridad al autogenerar: (1) efectivos mensuales exactos según %, (2) % global anual (±2 pp), (3) preferencias de ficha. Cada fila se coloca mirando el déficit de columna y se refinan los meses desviados al final.',
+    referencia: 'cuposObjetivoMes · cuadraCupos · TOLERANCIA_PCT_PLAN = 2',
   },
   {
     id: 'cobertura-equilibrada-mes',

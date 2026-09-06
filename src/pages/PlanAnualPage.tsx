@@ -531,9 +531,10 @@ export function PlanAnualPage() {
             </p>
           ) : null}
           <p className="text-[11px] text-slate-600">
-            El generador prioriza el % global y mensual por encima de la
-            preferencia de la ficha (con limitaciones). Sin limitación de turnos
-            siempre se asigna 4-4-3, 4-3-4 o 5-3-3.{' '}
+            El generador prioriza los efectivos mensuales (M/T/N exactos según
+            el % y los activos del mes) por encima del % global y de la
+            preferencia de la ficha (con limitaciones). Sin limitación de
+            turnos siempre se asigna 4-4-3, 4-3-4 o 5-3-3.{' '}
             <span className="font-semibold text-violet-700">Flex</span> = sin
             preferencia. Totales y columna{' '}
             <span className="font-semibold">Pat</span> en verde cuando cumple

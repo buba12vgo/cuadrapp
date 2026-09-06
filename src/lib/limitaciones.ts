@@ -7,11 +7,15 @@ export function leerLimitaciones(valor: unknown): Limitaciones {
   const raw = valor as Record<string, unknown>
 
   if ('M' in raw || 'T' in raw || 'N' in raw) {
-    return {
+    const lim: Limitaciones = {
       M: raw.M !== false,
       T: raw.T !== false,
       N: raw.N !== false,
     }
+    if (raw.exentoNoches === true) {
+      lim.N = false
+    }
+    return lim
   }
 
   if (raw.soloManana === true) return { M: true, T: false, N: false }
@@ -27,3 +31,16 @@ export function turnosLaboralesPermitidos(lim: Limitaciones) {
   if (lim.N) turnos.push('N')
   return turnos
 }
+
+/** Solo mañana y tarde (sin noches). */
+export function esSoloMananaYTarde(lim: Limitaciones) {
+  return lim.M && lim.T && !lim.N
+}
+
+/** Reparto equilibrado de meses M/T (p. ej. 5-6 o 6-5 en 11 meses laborables). */
+export function cuposBalanceadosMananaTarde(libres: number) {
+  if (libres <= 0) return { M: 0, T: 0, N: 0 }
+  const M = Math.floor(libres / 2)
+  return { M, T: libres - M, N: 0 }
+}
+

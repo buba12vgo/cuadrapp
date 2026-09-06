@@ -5,6 +5,7 @@ import type {
   PatronPreferenciaAnual,
   PreferenciaAnual,
 } from '@/types'
+import { cuposBalanceadosMananaTarde } from '@/lib/limitaciones'
 
 /** Puede hacer mañana, tarde y noche (sin limitación de turnos). */
 export function agenteSinLimitacionesTurno(lim: Limitaciones) {
@@ -100,6 +101,47 @@ export function patronesCompatibles(lim: Limitaciones): PatronPreferenciaAnual[]
   )
 }
 
+/**
+ * Agente que debe repartir meses M/T equilibrados en el plan anual (sin noches).
+ * Incluye exento noches (N desactivado) y fichas con objetivoN=0 aunque N siga
+ * marcado en limitaciones.
+ */
+export function debeBalancearMTAnual(agente: FichaPolicia) {
+  const lim = agente.limitaciones
+  if (!lim.M || !lim.T) return false
+  if (!lim.N) return true
+
+  const pref = agente.preferenciaAnual
+  if ((pref.objetivoN ?? 0) === 0) return true
+
+  if (esSinPreferencia(pref) && patronesCompatibles(lim).length === 0) {
+    return true
+  }
+
+  if (
+    esPatronFijo(pref) &&
+    !patronCompatibleConLimitaciones(pref.modo, lim)
+  ) {
+    return true
+  }
+
+  return false
+}
+
+export function filaCumpleBalanceMT(
+  agente: FichaPolicia,
+  totales: Cupos & { V: number },
+) {
+  if (!debeBalancearMTAnual(agente)) return true
+  const labor = totales.M + totales.T + totales.N
+  const esperado = cuposBalanceadosMananaTarde(labor)
+  return (
+    totales.N === 0 &&
+    totales.M === esperado.M &&
+    totales.T === esperado.T
+  )
+}
+
 export function objetivosDesdeModo(modo: ModoPreferenciaAnual): PreferenciaAnual {
   if (modo === 'SIN_PREFERENCIA') {
     return { modo, ...OBJETIVOS_POR_PATRON['4-4-3'] }
@@ -170,8 +212,7 @@ export function cuposDesdePatron(
     return { M: libres - N, T: 0, N }
   }
   if (lim.M && lim.T && !lim.N) {
-    T = Math.min(Math.max(0, T), libres)
-    return { M: libres - T, T, N: 0 }
+    return cuposBalanceadosMananaTarde(libres)
   }
   if (lim.T && lim.N && !lim.M) {
     N = Math.min(Math.max(0, N), libres)
@@ -211,6 +252,16 @@ export function filaCumplePreferencia(
   if (esSinPreferencia(pref)) {
     const compatibles = patronesCompatibles(agente.limitaciones)
     if (compatibles.length === 0) {
+      if (debeBalancearMTAnual(agente)) {
+        const labor = totales.M + totales.T + totales.N
+        const esperado = cuposBalanceadosMananaTarde(labor)
+        return (
+          totales.V === vacacionesObjetivoPreferencia(pref) &&
+          totales.N === 0 &&
+          totales.M === esperado.M &&
+          totales.T === esperado.T
+        )
+      }
       return (
         totales.V === vacacionesObjetivoPreferencia(pref) &&
         totales.M + totales.T + totales.N === 11
@@ -238,6 +289,7 @@ export function patronCumplidoEnFila(
   }
 
   const real: Cupos = { M: totales.M, T: totales.T, N: totales.N }
+  const labor = real.M + real.T + real.N
 
   if (
     esSinPreferencia(agente.preferenciaAnual) ||
@@ -245,7 +297,7 @@ export function patronCumplidoEnFila(
   ) {
     const compatibles = patronesCompatibles(agente.limitaciones)
     for (const patron of compatibles) {
-      const esperado = cuposDesdePatron(agente, patron, 11)
+      const esperado = cuposDesdePatron(agente, patron, labor)
       if (
         real.M === esperado.M &&
         real.T === esperado.T &&
@@ -261,7 +313,7 @@ export function patronCumplidoEnFila(
     const esperado = cuposDesdePatron(
       agente,
       agente.preferenciaAnual.modo,
-      11,
+      labor,
     )
     if (
       real.M === esperado.M &&

@@ -1,9 +1,14 @@
 import type { FichaPolicia, RolPolicia } from '@/types'
-import { turnosLaboralesPermitidos } from '@/lib/limitaciones'
+import {
+  cuposBalanceadosMananaTarde,
+  turnosLaboralesPermitidos,
+} from '@/lib/limitaciones'
 import {
   agenteSinLimitacionesTurno,
   cuposDesdePatron,
+  debeBalancearMTAnual,
   esPatronFijo,
+  filaCumpleBalanceMT,
   filaCumplePatronObligatorio,
   patronCumplidoEnFila,
   patronesCompatibles,
@@ -257,6 +262,12 @@ function cuposLaborales(
   libres: number,
   cuposOverride?: Cupos,
 ): Cupos {
+  if (libres <= 0) return { M: 0, T: 0, N: 0 }
+
+  if (debeBalancearMTAnual(agente)) {
+    return cuposBalanceadosMananaTarde(libres)
+  }
+
   if (cuposOverride) return cuposOverride
 
   const lim = agente.limitaciones
@@ -269,8 +280,6 @@ function cuposLaborales(
   let M = lim.M ? Math.max(0, pref.objetivoM) : 0
   let T = lim.T ? Math.max(0, pref.objetivoT) : 0
   let N = lim.N ? Math.max(0, pref.objetivoN) : 0
-
-  if (libres <= 0) return { M: 0, T: 0, N: 0 }
 
   const permitidos = turnosLaboralesPermitidos(lim)
   if (permitidos.length === 0) return { M: 0, T: 0, N: 0 }
@@ -342,6 +351,168 @@ function cuentaInfraccionesGravesFila(
     }
   }
   return problemas
+}
+
+/** Reparte meses M/T alternando a lo largo del año (p. ej. 5-6 o 6-5). */
+function colocarMesesMTEquilibrado(
+  fila: Fila,
+  cupos: { M: number; T: number },
+) {
+  const mesesLibres = huecos(fila)
+  let siguiente: 'M' | 'T' =
+    cupos.T > cupos.M ? 'T' : cupos.M > cupos.T ? 'M' : 'M'
+  let restoM = cupos.M
+  let restoT = cupos.T
+
+  for (const mes of mesesLibres) {
+    if (restoM <= 0 && restoT <= 0) break
+    if (restoM <= 0) {
+      fila[mes] = 'T'
+      restoT -= 1
+      continue
+    }
+    if (restoT <= 0) {
+      fila[mes] = 'M'
+      restoM -= 1
+      continue
+    }
+    fila[mes] = siguiente
+    if (siguiente === 'M') restoM -= 1
+    else restoT -= 1
+    siguiente = siguiente === 'M' ? 'T' : 'M'
+  }
+}
+
+function mesesNoVacaciones(fila: FilaPlanAnual) {
+  const meses: number[] = []
+  for (let mes = 0; mes < MESES; mes++) {
+    if (fila[mes] !== 'V') meses.push(mes)
+  }
+  return meses
+}
+
+function reconstruirFilaSoloMT(fila: FilaPlanAnual, desfase = 0): FilaPlanAnual {
+  const nueva = [...fila]
+  const meses = mesesNoVacaciones(fila)
+  const cupos = cuposBalanceadosMananaTarde(meses.length)
+  let restoM = cupos.M
+  let restoT = cupos.T
+  let siguiente: 'M' | 'T' =
+    cupos.T > cupos.M ? 'T' : cupos.M > cupos.T ? 'M' : 'M'
+  if (desfase % 2 === 1) siguiente = siguiente === 'M' ? 'T' : 'M'
+
+  for (const mes of meses) {
+    if (restoM <= 0 && restoT <= 0) break
+    if (restoM <= 0) {
+      nueva[mes] = 'T'
+      restoT -= 1
+      continue
+    }
+    if (restoT <= 0) {
+      nueva[mes] = 'M'
+      restoM -= 1
+      continue
+    }
+    nueva[mes] = siguiente
+    if (siguiente === 'M') restoM -= 1
+    else restoT -= 1
+    siguiente = siguiente === 'M' ? 'T' : 'M'
+  }
+
+  return nueva
+}
+
+function spreadMesesM(agentes: FichaPolicia[], plan: PlanAnual) {
+  if (agentes.length === 0) return 0
+  const mesesM = agentes.map((agente) => contarFila(plan[agente.id] ?? []).M)
+  return Math.max(...mesesM) - Math.min(...mesesM)
+}
+
+function intentarSwapMismoMesMT(
+  plan: PlanAnual,
+  agentesById: Map<string, FichaPolicia>,
+  idA: string,
+  idB: string,
+  mes: number,
+) {
+  const filaA = plan[idA]
+  const filaB = plan[idB]
+  const agenteA = agentesById.get(idA)
+  const agenteB = agentesById.get(idB)
+  if (!filaA || !filaB || !agenteA || !agenteB) return false
+
+  const turnoA = filaA[mes]
+  const turnoB = filaB[mes]
+  if (turnoA === 'V' || turnoB === 'V' || turnoA === turnoB) return false
+  if (turnoA !== 'M' && turnoA !== 'T') return false
+  if (turnoB !== 'M' && turnoB !== 'T') return false
+
+  const copiaA = [...filaA]
+  const copiaB = [...filaB]
+  copiaA[mes] = turnoB
+  copiaB[mes] = turnoA
+  if (!filaCumpleBalanceMT(agenteA, contarFila(copiaA))) return false
+  if (!filaCumpleBalanceMT(agenteB, contarFila(copiaB))) return false
+
+  plan[idA] = copiaA
+  plan[idB] = copiaB
+  return true
+}
+
+/** Reconstruye y equilibra filas M/T de agentes sin noches. */
+function asegurarFilasSoloMT(plan: PlanAnual, agentes: FichaPolicia[]) {
+  const mtAgentes = agentes.filter((agente) => debeBalancearMTAnual(agente))
+  if (mtAgentes.length === 0) return
+
+  mtAgentes.forEach((agente, indice) => {
+    const fila = plan[agente.id]
+    if (!fila) return
+    plan[agente.id] = reconstruirFilaSoloMT(fila, indice)
+  })
+
+  if (mtAgentes.length < 2) return
+
+  const agentesById = new Map(agentes.map((agente) => [agente.id, agente]))
+  const ids = mtAgentes.map((agente) => agente.id)
+
+  for (let pase = 0; pase < 50; pase++) {
+    const spreadAntes = spreadMesesM(mtAgentes, plan)
+    if (spreadAntes <= 1) break
+
+    let mejorado = false
+    const conteos = new Map(
+      ids.map((id) => [id, contarFila(plan[id] ?? []).M]),
+    )
+    const maxM = Math.max(...conteos.values())
+    const minM = Math.min(...conteos.values())
+    const idsMax = ids.filter((id) => conteos.get(id) === maxM)
+    const idsMin = ids.filter((id) => conteos.get(id) === minM)
+
+    for (let mes = 0; mes < MESES; mes++) {
+      for (const idMax of idsMax) {
+        if (plan[idMax]?.[mes] !== 'M') continue
+        for (const idMin of idsMin) {
+          if (plan[idMin]?.[mes] !== 'T') continue
+          if (
+            !intentarSwapMismoMesMT(plan, agentesById, idMax, idMin, mes)
+          ) {
+            continue
+          }
+          const spreadDesp = spreadMesesM(mtAgentes, plan)
+          if (spreadDesp >= spreadAntes) {
+            intentarSwapMismoMesMT(plan, agentesById, idMax, idMin, mes)
+            continue
+          }
+          mejorado = true
+          break
+        }
+        if (mejorado) break
+      }
+      if (mejorado) break
+    }
+
+    if (!mejorado) break
+  }
 }
 
 function puntajeFilaSinLimitaciones(
@@ -461,8 +632,12 @@ function asignarFila(
     }
   }
 
-  for (const mes of huecos(fila)) {
-    if (agente.limitaciones.M) fila[mes] = 'M'
+  if (debeBalancearMTAnual(agente)) {
+    colocarMesesMTEquilibrado(fila, { M: cupos.M, T: cupos.T })
+  } else {
+    for (const mes of huecos(fila)) {
+      if (agente.limitaciones.M) fila[mes] = 'M'
+    }
   }
 
   return fila
@@ -653,6 +828,8 @@ function intentarMejorarMes(
       if (surplus === deficit) continue
 
       for (const id of ids) {
+        const agente = agentesById.get(id)
+        if (agente && debeBalancearMTAnual(agente)) continue
         if (plan[id]?.[mes] !== surplus) continue
         for (let mesB = 0; mesB < MESES; mesB++) {
           if (mesB === mes) continue
@@ -693,12 +870,16 @@ function intentarMejorarMes(
       if (conteoActual[deficit] >= objetivoActual[deficit]) continue
 
       for (const idA of ids) {
+        const agenteA = agentesById.get(idA)
+        if (agenteA && debeBalancearMTAnual(agenteA)) continue
         if (plan[idA]?.[mes] !== surplus) continue
         for (let mesB = 0; mesB < MESES; mesB++) {
           if (mesB === mes) continue
           if (plan[idA]?.[mesB] !== deficit) continue
           for (const idB of ids) {
             if (idB === idA) continue
+            const agenteB = agentesById.get(idB)
+            if (agenteB && debeBalancearMTAnual(agenteB)) continue
             if (plan[idB]?.[mes] !== deficit) continue
             if (plan[idB]?.[mesB] !== surplus) continue
             const puntajeAntes = puntajeEquilibrioMeses(plan, ids, objetivos)
@@ -1671,6 +1852,10 @@ export function generarPlanAnual(
     agentesGenerar,
     objetivos,
     planAnioAnterior,
+  )
+  asegurarFilasSoloMT(
+    plan,
+    agentes.filter((agente) => !esPoliciaBolsa(agente.rolBase)),
   )
   return {
     plan,

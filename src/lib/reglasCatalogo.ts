@@ -226,6 +226,18 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     referencia: 'generarPlanAnual · diciembreNProhibido · validarTurnoEnPlan',
   },
   {
+    id: 'balance-mt-plan-anual',
+    categoria: 'PLAN_ANUAL',
+    titulo: 'Equilibrio M/T en agentes sin noches',
+    descripcion:
+      'Al autogenerar el plan anual, los agentes con limitación solo mañana y tarde reciben un reparto equilibrado de meses M y T (p. ej. 5-6 o 6-5), alternados a lo largo del año.',
+    estado: 'implementada',
+    detalle:
+      'Cada agente trabaja un solo turno por mes. El generador reparte M/T de forma alternada y equilibra entre agentes del mismo grupo para evitar acumulaciones (p. ej. todos los meses en mañana).',
+    referencia:
+      'generarPlanAnual · colocarMesesMTEquilibrado · asegurarFilasSoloMT',
+  },
+  {
     id: 'tolerancia-plan-anual',
     categoria: 'PLAN_ANUAL',
     titulo: 'Cuadre de porcentajes anuales',

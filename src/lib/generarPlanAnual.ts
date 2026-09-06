@@ -353,12 +353,61 @@ function cuentaInfraccionesGravesFila(
   return problemas
 }
 
-/** Reparte meses M/T alternando a lo largo del año (p. ej. 5-6 o 6-5). */
+type ContextoColumnasMes = {
+  plan: PlanAnual
+  ids: string[]
+  objetivos: ObjetivosGlobales
+}
+
+function deficitTurnoMes(
+  plan: PlanAnual,
+  ids: string[],
+  mes: number,
+  turno: TurnoActivo,
+  objetivos: ObjetivosGlobales,
+) {
+  const conteo = { M: 0, T: 0, N: 0 }
+  for (const id of ids) {
+    const t = plan[id]?.[mes]
+    if (t === 'M' || t === 'T' || t === 'N') conteo[t] += 1
+  }
+  const activos = conteo.M + conteo.T + conteo.N
+  const esperado = cuposDesdePorcentajes(activos + 1, objetivos)
+  return esperado[turno] - conteo[turno]
+}
+
+function ordenarMesesPorDeficit(
+  meses: number[],
+  columnas: ContextoColumnasMes,
+  turno: TurnoActivo,
+) {
+  return [...meses].sort((a, b) => {
+    const db =
+      deficitTurnoMes(columnas.plan, columnas.ids, b, turno, columnas.objetivos) -
+      deficitTurnoMes(columnas.plan, columnas.ids, a, turno, columnas.objetivos)
+    return db !== 0 ? db : a - b
+  })
+}
+
+/** Reparte meses M/T alternando; si hay contexto de columnas, prioriza meses con más déficit. */
 function colocarMesesMTEquilibrado(
   fila: Fila,
   cupos: { M: number; T: number },
+  columnas?: ContextoColumnasMes,
 ) {
   const mesesLibres = huecos(fila)
+  if (columnas && cupos.M > 0 && cupos.T > 0) {
+    const scored = mesesLibres.map((mes) => ({
+      mes,
+      dm: deficitTurnoMes(columnas.plan, columnas.ids, mes, 'M', columnas.objetivos),
+      dt: deficitTurnoMes(columnas.plan, columnas.ids, mes, 'T', columnas.objetivos),
+    }))
+    scored.sort((a, b) => b.dm - b.dt - (a.dm - a.dt))
+    for (let i = 0; i < cupos.M; i++) fila[scored[i].mes] = 'M'
+    for (let i = cupos.M; i < scored.length; i++) fila[scored[i].mes] = 'T'
+    return
+  }
+
   let siguiente: 'M' | 'T' =
     cupos.T > cupos.M ? 'T' : cupos.M > cupos.T ? 'M' : 'M'
   let restoM = cupos.M
@@ -541,10 +590,17 @@ function asignarFilaSinLimitaciones(
   acumulado: Cupos,
   objetivos: ObjetivosGlobales,
   planAnioAnterior?: PlanAnual,
+  columnas?: ContextoColumnasMes,
 ): FilaPlanAnual {
   const libres = MESES - vacacionesObjetivo(agente)
   const patrones = patronesCompatibles(agente.limitaciones)
-  let mejorFila = asignarFila(agente, anio, undefined, planAnioAnterior)
+  let mejorFila = asignarFila(
+    agente,
+    anio,
+    undefined,
+    planAnioAnterior,
+    columnas,
+  )
   let mejorPuntaje = puntajeFilaSinLimitaciones(
     agente,
     mejorFila,
@@ -555,7 +611,7 @@ function asignarFilaSinLimitaciones(
 
   for (const patron of patrones) {
     const cupos = cuposDesdePatron(agente, patron, libres)
-    const fila = asignarFila(agente, anio, cupos, planAnioAnterior)
+    const fila = asignarFila(agente, anio, cupos, planAnioAnterior, columnas)
     const puntaje = puntajeFilaSinLimitaciones(
       agente,
       fila,
@@ -591,6 +647,7 @@ function asignarFila(
   anio: number,
   cuposOverride?: Cupos,
   planAnioAnterior?: PlanAnual,
+  columnas?: ContextoColumnasMes,
 ): FilaPlanAnual {
   const fila: Fila = Array.from({ length: MESES }, () => null)
   for (const mes of mesesVacacionesEnPlan(
@@ -607,7 +664,16 @@ function asignarFila(
 
   for (const invertido of [false, true]) {
     if (cupos.N <= 0) break
-    const candidatos = invertido ? [...huecos(fila)].reverse() : huecos(fila)
+    const libres = huecos(fila)
+    const candidatos = columnas
+      ? ordenarMesesPorDeficit(
+          invertido ? [...libres].reverse() : libres,
+          columnas,
+          'N',
+        )
+      : invertido
+        ? [...libres].reverse()
+        : libres
     for (const mes of candidatos) {
       if (cupos.N <= 0) break
       if (!puedeNoche(fila, mes, diciembreAnteriorN)) continue
@@ -621,7 +687,16 @@ function asignarFila(
   for (const maxRacha of [1, MAX_TARDES_SEGUIDAS]) {
     for (const invertido of [false, true]) {
       if (cupos.T <= 0) break
-      const candidatos = invertido ? [...huecos(fila)].reverse() : huecos(fila)
+      const libres = huecos(fila)
+      const candidatos = columnas
+        ? ordenarMesesPorDeficit(
+            invertido ? [...libres].reverse() : libres,
+            columnas,
+            'T',
+          )
+        : invertido
+          ? [...libres].reverse()
+          : libres
       for (const mes of candidatos) {
         if (cupos.T <= 0) break
         if (!agente.limitaciones.T) continue
@@ -633,9 +708,13 @@ function asignarFila(
   }
 
   if (debeBalancearMTAnual(agente)) {
-    colocarMesesMTEquilibrado(fila, { M: cupos.M, T: cupos.T })
+    colocarMesesMTEquilibrado(fila, { M: cupos.M, T: cupos.T }, columnas)
   } else {
-    for (const mes of huecos(fila)) {
+    const libres = huecos(fila)
+    const candidatos = columnas
+      ? ordenarMesesPorDeficit(libres, columnas, 'M')
+      : libres
+    for (const mes of candidatos) {
       if (agente.limitaciones.M) fila[mes] = 'M'
     }
   }
@@ -996,8 +1075,67 @@ function reequilibrarMesesTrasAjustes(
     agentes,
     objetivos,
     planAnioAnterior,
-    12,
+    15,
   )
+  afinarMesesResistentes(plan, agentes, objetivos, planAnioAnterior)
+}
+
+function desviacionMesUnico(
+  plan: PlanAnual,
+  ids: string[],
+  mes: number,
+  objetivos: ObjetivosGlobales,
+) {
+  const conteo = conteoMes(plan, ids, mes)
+  const activos = conteo.M + conteo.T + conteo.N
+  if (activos <= 0) return 0
+  if (cuadraCupos(conteo, objetivos)) return 0
+  return desviacionObjetivo(
+    conteo,
+    cuposDesdePorcentajes(activos, objetivos),
+  )
+}
+
+/** Pasadas intensivas en los meses con mayor desviación. */
+function afinarMesesResistentes(
+  plan: PlanAnual,
+  agentes: FichaPolicia[],
+  objetivos: ObjetivosGlobales,
+  planAnioAnterior?: PlanAnual,
+) {
+  const agentesById = new Map(agentes.map((agente) => [agente.id, agente]))
+  const ids = agentes.map((agente) => agente.id)
+
+  for (let ronda = 0; ronda < 40; ronda++) {
+    const pendientes = mesesPendientesCuadre(plan, ids, objetivos)
+    if (pendientes.length === 0) break
+    pendientes.sort(
+      (a, b) =>
+        desviacionMesUnico(plan, ids, b, objetivos) -
+        desviacionMesUnico(plan, ids, a, objetivos),
+    )
+
+    let mejorado = false
+    for (const mes of pendientes) {
+      for (let pase = 0; pase < 20; pase++) {
+        if (
+          !intentarMejorarMes(
+            plan,
+            agentesById,
+            ids,
+            mes,
+            objetivos,
+            planAnioAnterior,
+          )
+        ) {
+          break
+        }
+        mejorado = true
+        if (cuadraCupos(conteoMes(plan, ids, mes), objetivos)) break
+      }
+    }
+    if (!mejorado) break
+  }
 }
 
 /**
@@ -1803,6 +1941,8 @@ export function generarPlanAnual(
   const sinLimitaciones = agentesGenerar.filter((agente) =>
     agenteSinLimitacionesTurno(agente.limitaciones),
   )
+  const idsGenerar = agentesGenerar.map((agente) => agente.id)
+  const columnasMes: ContextoColumnasMes = { plan, ids: idsGenerar, objetivos }
 
   for (const agente of conLimitaciones) {
     const libres = MESES - vacacionesObjetivo(agente)
@@ -1812,7 +1952,7 @@ export function generarPlanAnual(
       objetivos,
       libres,
     )
-    const fila = asignarFila(agente, anio, cupos, planAnioAnterior)
+    const fila = asignarFila(agente, anio, cupos, planAnioAnterior, columnasMes)
     plan[agente.id] = fila
     sumarCupos(acumulado, fila)
   }
@@ -1824,6 +1964,7 @@ export function generarPlanAnual(
       acumulado,
       objetivos,
       planAnioAnterior,
+      columnasMes,
     )
     plan[agente.id] = fila
     sumarCupos(acumulado, fila)

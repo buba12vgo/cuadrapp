@@ -201,7 +201,8 @@ export function filaCumplePreferencia(
     const compatibles = patronesCompatibles(agente.limitaciones)
     if (compatibles.length === 0) {
       if (esSoloMananaYTarde(agente.limitaciones)) {
-        const esperado = cuposBalanceadosMananaTarde(11)
+        const labor = totales.M + totales.T + totales.N
+        const esperado = cuposBalanceadosMananaTarde(labor)
         return (
           totales.V === vacacionesObjetivoPreferencia(pref) &&
           totales.N === 0 &&
@@ -236,11 +237,12 @@ export function patronCumplidoEnFila(
   }
 
   const real: Cupos = { M: totales.M, T: totales.T, N: totales.N }
+  const labor = real.M + real.T + real.N
 
   if (esSinPreferencia(agente.preferenciaAnual)) {
     const compatibles = patronesCompatibles(agente.limitaciones)
     for (const patron of compatibles) {
-      const esperado = cuposDesdePatron(agente, patron, 11)
+      const esperado = cuposDesdePatron(agente, patron, labor)
       if (
         real.M === esperado.M &&
         real.T === esperado.T &&
@@ -256,7 +258,7 @@ export function patronCumplidoEnFila(
     const esperado = cuposDesdePatron(
       agente,
       agente.preferenciaAnual.modo,
-      11,
+      labor,
     )
     if (
       real.M === esperado.M &&

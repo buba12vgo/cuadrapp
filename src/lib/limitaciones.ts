@@ -39,3 +39,18 @@ export function cuposBalanceadosMananaTarde(libres: number) {
   const M = Math.floor(libres / 2)
   return { M, T: libres - M, N: 0 }
 }
+
+/** Valida reparto M/T equilibrado para agentes sin noches. */
+export function filaCumpleBalanceMT(
+  lim: Limitaciones,
+  totales: { M: number; T: number; N: number },
+) {
+  if (!esSoloMananaYTarde(lim)) return true
+  const labor = totales.M + totales.T + totales.N
+  const esperado = cuposBalanceadosMananaTarde(labor)
+  return (
+    totales.N === 0 &&
+    totales.M === esperado.M &&
+    totales.T === esperado.T
+  )
+}

@@ -207,7 +207,7 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     detalle:
       'Cada agente trabaja un solo turno por mes. El generador reparte M/T de forma alternada y equilibra entre agentes del mismo grupo para evitar acumulaciones (p. ej. todos los meses en mañana).',
     referencia:
-      'generarPlanAnual · colocarMesesMTEquilibrado · equilibrarAgentesSoloMT',
+      'generarPlanAnual · colocarMesesMTEquilibrado · asegurarFilasSoloMT',
   },
   {
     id: 'tolerancia-plan-anual',

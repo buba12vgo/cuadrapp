@@ -6,6 +6,7 @@ import { usePlanAnual, planParaAnio } from '@/lib/planAnualStore'
 import {
   agentePerteneceGrupo,
   calcularMarcas,
+  cuadraConteoTurno,
   dentroToleranciaPctPlan,
   filaVaciaPlanAnual,
   generarPlanAnual,
@@ -106,6 +107,18 @@ function porcentaje(cantidad: number, base: number) {
 function claseSemaforoPct(real: number | null, objetivo: number) {
   if (real == null) return 'bg-gray-200 text-slate-500'
   return dentroToleranciaPctPlan(real, objetivo)
+    ? 'bg-green-100 font-bold text-green-800'
+    : 'bg-red-200 font-bold text-red-900'
+}
+
+function claseSemaforoMes(
+  cantidad: number,
+  activos: number,
+  turno: 'M' | 'T' | 'N',
+  objetivos: ObjetivosGlobales,
+) {
+  if (activos <= 0) return 'bg-gray-200 text-slate-500'
+  return cuadraConteoTurno(cantidad, activos, turno, objetivos)
     ? 'bg-green-100 font-bold text-green-800'
     : 'bg-red-200 font-bold text-red-900'
 }
@@ -765,9 +778,11 @@ export function PlanAnualPage() {
                     return (
                       <td
                         key={MESES[mes]}
-                        className={`${CELDA_PIE} text-center tabular-nums ${claseSemaforoPct(
-                          real,
-                          objetivosGlobales[turnoPie],
+                        className={`${CELDA_PIE} text-center tabular-nums ${claseSemaforoMes(
+                          cantidad,
+                          activos,
+                          turnoPie,
+                          objetivosGlobales,
                         )} ${
                           mesesMarcados.has(mes)
                             ? 'ring-2 ring-inset ring-amber-500'

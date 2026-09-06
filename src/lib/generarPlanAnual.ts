@@ -704,7 +704,7 @@ function cuadraMesPorcentajes(
 ) {
   const activos = conteo.M + conteo.T + conteo.N
   if (activos <= 0) return false
-  return cuadraPorcentajes(pctDesdeCupos(conteo), objetivos)
+  return cuadraCupos(conteo, objetivos)
 }
 
 /** Tolerancia en agentes-mes (±2 % del total activo, mínimo 1). */
@@ -818,8 +818,7 @@ function intentarMejorarMes(
   const activos = conteo.M + conteo.T + conteo.N
   if (activos <= 0) return false
 
-  const objetivoMes = cuposDesdePorcentajes(activos, objetivos)
-  if (desviacionObjetivo(conteo, objetivoMes) === 0) return false
+  if (cuadraCupos(conteo, objetivos)) return false
 
   let mejorado = false
 
@@ -956,15 +955,16 @@ function equilibrarMesesInterno(
   }
 }
 
-/** Pasadas extra solo sobre meses que aún no cuadran (±2 % en el % mostrado). */
+/** Pasadas extra solo sobre meses que aún no cuadran (tolerancia en cupos enteros). */
 function equilibrarMesesPendientes(
   plan: PlanAnual,
   agentes: FichaPolicia[],
   objetivos: ObjetivosGlobales,
   planAnioAnterior?: PlanAnual,
+  maxRondas = 6,
 ) {
   const ids = agentes.map((agente) => agente.id)
-  for (let ronda = 0; ronda < 6; ronda++) {
+  for (let ronda = 0; ronda < maxRondas; ronda++) {
     const pendientes = mesesPendientesCuadre(plan, ids, objetivos)
     if (pendientes.length === 0) break
     equilibrarMesesInterno(
@@ -976,6 +976,28 @@ function equilibrarMesesPendientes(
       pendientes,
     )
   }
+}
+
+/** Reequilibra meses tras ajustes que alteran filas (p. ej. balance M/T). */
+function reequilibrarMesesTrasAjustes(
+  plan: PlanAnual,
+  agentes: FichaPolicia[],
+  objetivos: ObjetivosGlobales,
+  planAnioAnterior?: PlanAnual,
+) {
+  equilibrarMesesPreservandoPreferencias(
+    plan,
+    agentes,
+    objetivos,
+    planAnioAnterior,
+  )
+  equilibrarMesesPendientes(
+    plan,
+    agentes,
+    objetivos,
+    planAnioAnterior,
+    12,
+  )
 }
 
 /**
@@ -1856,6 +1878,12 @@ export function generarPlanAnual(
   asegurarFilasSoloMT(
     plan,
     agentes.filter((agente) => !esPoliciaBolsa(agente.rolBase)),
+  )
+  reequilibrarMesesTrasAjustes(
+    plan,
+    agentesGenerar,
+    objetivos,
+    planAnioAnterior,
   )
   return {
     plan,

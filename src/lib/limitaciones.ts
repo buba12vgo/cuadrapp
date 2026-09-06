@@ -27,3 +27,8 @@ export function turnosLaboralesPermitidos(lim: Limitaciones) {
   if (lim.N) turnos.push('N')
   return turnos
 }
+
+/** Solo mañana y tarde (sin noches). */
+export function esSoloMananaYTarde(lim: Limitaciones) {
+  return lim.M && lim.T && !lim.N
+}

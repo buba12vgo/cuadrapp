@@ -220,6 +220,15 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     referencia: 'generarCuadranteMensual · equilibrarCoberturaDiaria',
   },
   {
+    id: 'mix-mt-cuadrante-mensual',
+    categoria: 'CUADRANTE',
+    titulo: 'Reparto M/T sin noches',
+    descripcion:
+      'Los agentes con limitación solo mañana y tarde reciben un reparto equilibrado de jornadas M y T en el mes (p. ej. 8-9 en 17 días), sin violar T→M.',
+    estado: 'implementada',
+    referencia: 'generarCuadranteMensual · repartirMixMananaTarde',
+  },
+  {
     id: 'findes-consecutivos-max',
     categoria: 'CUADRANTE',
     titulo: 'Fines de semana consecutivos',

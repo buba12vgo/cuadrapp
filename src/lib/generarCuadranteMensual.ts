@@ -1,5 +1,6 @@
-import type { Turno } from '@/types'
+import type { Turno, FichaPolicia } from '@/types'
 import type { PlanAnual, TurnoAnual } from '@/lib/generarPlanAnual'
+import { esSoloMananaYTarde } from '@/lib/limitaciones'
 import {
   MAX_DIAS_CONTINUOS,
   MIN_DESCANSO_SEGUIDO,
@@ -157,13 +158,149 @@ function construirFila(
   return fila
 }
 
-function turnoTrabajoDeFila(
-  fila: Turno[],
-): Exclude<Turno, 'V' | 'D' | 'L'> | null {
-  for (const turno of fila) {
-    if (turno === 'M' || turno === 'T' || turno === 'N') return turno
+function indicesJornada(fila: Turno[]) {
+  const indices: number[] = []
+  for (let i = 0; i < fila.length; i++) {
+    if (esDiaTrabajado(fila[i])) indices.push(i)
   }
+  return indices
+}
+
+function contarTurnoLaboral(fila: Turno[], turno: 'M' | 'T') {
+  let n = 0
+  for (const valor of fila) {
+    if (valor === turno) n += 1
+  }
+  return n
+}
+
+function tieneSecuenciaProhibidaTM(fila: Turno[]) {
+  for (let i = 1; i < fila.length; i++) {
+    if (fila[i - 1] === 'T' && fila[i] === 'M') return true
+  }
+  return false
+}
+
+function turnoLaboralEnIndice(fila: Turno[], indice: number) {
+  const turno = fila[indice]
+  if (turno === 'M' || turno === 'T' || turno === 'N') return turno
   return null
+}
+
+function puedeAsignarTurnoMT(fila: Turno[], indice: number, turno: 'M' | 'T') {
+  if (turno === 'M' && indice > 0 && fila[indice - 1] === 'T') return false
+  if (turno === 'T' && indice < fila.length - 1 && fila[indice + 1] === 'M') {
+    return false
+  }
+  return true
+}
+
+function filaMixMTValida(fila: Turno[]) {
+  if (!filaSinGraves(fila)) return false
+  return !tieneSecuenciaProhibidaTM(fila)
+}
+
+/**
+ * Reparte jornadas entre M y T (~50/50, p. ej. 8-9 en un mes de 17 días)
+ * para agentes sin noches. Respeta T→M prohibido.
+ */
+export function repartirMixMananaTarde(fila: Turno[]): Turno[] {
+  const indices = indicesJornada(fila)
+  const n = indices.length
+  if (n < 2) return fila
+
+  const objetivoM = Math.floor(n / 2)
+  const objetivoT = n - objetivoM
+  const prueba = [...fila]
+
+  function buscar(
+    pos: number,
+    m: number,
+    t: number,
+  ): Turno[] | null {
+    if (pos === indices.length) {
+      if (m !== objetivoM || t !== objetivoT) return null
+      return filaMixMTValida(prueba) ? [...prueba] : null
+    }
+
+    const indice = indices[pos]
+    for (const turno of ['M', 'T'] as const) {
+      if (turno === 'M' && m >= objetivoM) continue
+      if (turno === 'T' && t >= objetivoT) continue
+      if (!puedeAsignarTurnoMT(prueba, indice, turno)) continue
+      prueba[indice] = turno
+      const solucion = buscar(
+        pos + 1,
+        m + (turno === 'M' ? 1 : 0),
+        t + (turno === 'T' ? 1 : 0),
+      )
+      if (solucion) return solucion
+    }
+    return null
+  }
+
+  return buscar(0, 0, 0) ?? fila
+}
+
+function equilibrarMixMTEntreAgentes(
+  cuadrante: CuadranteMensual,
+  ids: string[],
+  anio: number,
+  mes: number,
+) {
+  const mtIds = ids.filter((id) => {
+    const fila = cuadrante[id]
+    if (!fila) return false
+    return fila.some((turno) => turno === 'M') && fila.some((turno) => turno === 'T')
+  })
+  if (mtIds.length < 2) return
+
+  const nDias = cuadrante[mtIds[0]]?.length ?? 0
+  for (let iter = 0; iter < 120; iter++) {
+    let cambio = false
+    const cargas = mtIds.map((id) => {
+      const fila = cuadrante[id]!
+      return {
+        id,
+        m: contarTurnoLaboral(fila, 'M'),
+        t: contarTurnoLaboral(fila, 'T'),
+      }
+    })
+    cargas.sort((a, b) => b.m - a.m - (a.t - b.t))
+
+    const masM = cargas[0]
+    const masT = cargas[cargas.length - 1]
+    if (!masM || !masT || masM.id === masT.id) break
+    if (masM.m - masM.t <= 1 && masT.t - masM.m <= 1) break
+
+    const filaA = cuadrante[masM.id]!
+    const filaB = cuadrante[masT.id]!
+
+    for (let dia = 0; dia < nDias; dia++) {
+      if (filaA[dia] !== 'M' || filaB[dia] !== 'T') continue
+      const pruebaA = [...filaA]
+      const pruebaB = [...filaB]
+      pruebaA[dia] = 'T'
+      pruebaB[dia] = 'M'
+      if (
+        !filaMixMTValida(pruebaA) ||
+        !filaMixMTValida(pruebaB) ||
+        !filaAceptable(pruebaA, filaA, anio, mes, true) ||
+        !filaAceptable(pruebaB, filaB, anio, mes, true)
+      ) {
+        continue
+      }
+      cuadrante[masM.id] = pruebaA
+      cuadrante[masT.id] = pruebaB
+      cambio = true
+      break
+    }
+    if (!cambio) break
+  }
+}
+
+function filaTieneJornadas(fila: Turno[]) {
+  return indicesJornada(fila).length > 0
 }
 
 function minDescansoInterno(fila: Turno[]) {
@@ -333,7 +470,7 @@ export function equilibrarCoberturaDiaria(
   const nDias = diasDelMes(anio, mes)
   const ids = agenteIds.filter((id) => {
     const fila = cuadrante[id]
-    return fila != null && turnoTrabajoDeFila(fila) != null
+    return fila != null && filaTieneJornadas(fila)
   })
 
   const intentarMover = (
@@ -355,6 +492,8 @@ export function equilibrarCoberturaDiaria(
           const fila = cuadrante[id]
           if (!fila) continue
           if (!esDiaTrabajado(fila[alto]) || fila[bajo] !== 'D') continue
+          const turnoCelda = turnoLaboralEnIndice(fila, alto)
+          if (!turnoCelda) continue
           const priorizaCero = cobertura[bajo] === 0 ? 1000 : 0
           candidatos.push({
             id,
@@ -372,7 +511,7 @@ export function equilibrarCoberturaDiaria(
     for (const cand of candidatos) {
       const fila = cuadrante[cand.id]
       if (!fila) continue
-      const turno = turnoTrabajoDeFila(fila)
+      const turno = turnoLaboralEnIndice(fila, cand.alto)
       if (!turno) continue
       const siguiente = intentarTraslado(
         fila,
@@ -474,11 +613,14 @@ export function generarFilaMensual(
 
 export function generarCuadranteMensual(
   planAnual: PlanAnual,
-  agenteIds: string[],
+  agentes: FichaPolicia[],
   anio: number,
   mes: number,
 ): CuadranteMensual {
+  const agentePorId = new Map(agentes.map((agente) => [agente.id, agente]))
+  const agenteIds = agentes.map((agente) => agente.id)
   const cuadrante: CuadranteMensual = {}
+
   agenteIds.forEach((id, indice) => {
     const turnoBase = planAnual[id]?.[mes - 1]
     if (!turnoBase) {
@@ -486,8 +628,20 @@ export function generarCuadranteMensual(
       cuadrante[id] = Array.from({ length: nDias }, () => 'D')
       return
     }
-    cuadrante[id] = generarFilaMensual(turnoBase, anio, mes, indice)
+
+    let fila = generarFilaMensual(turnoBase, anio, mes, indice)
+    const agente = agentePorId.get(id)
+    if (
+      agente &&
+      esSoloMananaYTarde(agente.limitaciones) &&
+      turnoBase !== 'V'
+    ) {
+      fila = repartirMixMananaTarde(fila)
+    }
+    cuadrante[id] = fila
   })
+
+  equilibrarMixMTEntreAgentes(cuadrante, agenteIds, anio, mes)
   return equilibrarCoberturaDiaria(cuadrante, agenteIds, anio, mes)
 }
 

@@ -311,6 +311,15 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     referencia: 'variablesCobro · ListadosPage',
   },
   {
+    id: 'variable-conciliacion-sabado-tarde',
+    categoria: 'VARIABLES_COBRO',
+    titulo: 'Conciliación sábado tarde',
+    descripcion:
+      'Cada jornada de tarde (T) en sábado genera una unidad de conciliación sábado tarde.',
+    estado: 'implementada',
+    referencia: 'variablesCobro · ListadosPage',
+  },
+  {
     id: 'variable-festivo',
     categoria: 'VARIABLES_COBRO',
     titulo: 'Festivo',
@@ -326,7 +335,7 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     categoria: 'VARIABLES_COBRO',
     titulo: 'Conciliaciones y festivo compatibles',
     descripcion:
-      'Las conciliaciones de finde y el festivo se suman: un sábado festivo con turno M genera conciliación sábado mañana y festivo.',
+      'Las conciliaciones de finde y el festivo se suman: un sábado festivo con turno M genera conciliación sábado mañana y festivo; con turno T, conciliación sábado tarde y festivo.',
     estado: 'implementada',
     referencia: 'variablesCobro · contarVariablesCobroAgente',
   },

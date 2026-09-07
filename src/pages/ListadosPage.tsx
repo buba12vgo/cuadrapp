@@ -309,7 +309,8 @@ export function ListadosPage() {
 
       <p className="shrink-0 px-1 py-1 text-[11px] text-slate-600">
         Conciliaciones y festivo son compatibles (ej. sábado festivo con M →
-        conciliación sábado + festivo). Noche sábado con domingo festivo suma
+        conciliación sábado mañana + festivo; con T → conciliación sábado tarde
+        + festivo). Noche sábado con domingo festivo suma festivo por el tramo
         festivo por el tramo del turno 22–06 en domingo si ese día no se cobró ya.
       </p>
     </section>

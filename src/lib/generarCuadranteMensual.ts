@@ -39,6 +39,10 @@ import {
   OBJETIVO_FINDES_MES,
   paresFindeCompletos,
 } from '@/lib/finesSemana'
+import {
+  type ContextoMetricasCuadrante,
+  puntuacionGlobalCuadrante,
+} from '@/lib/metricasRefinadoCuadrante'
 
 export type CuadranteMensual = Record<string, Turno[]>
 
@@ -84,6 +88,14 @@ function desfasarFilaMensual(
 ): Turno[] {
   const n = fila.length
   if (n === 0) return fila
+
+  for (let t = 0; t < n; t++) {
+    const pasos = (indice * 7 + t) % n
+    if (pasos === 0) continue
+    const rotada = rotarFilaCiclica(fila, pasos)
+    if (filaAceptable(rotada, fila, anio, mes, true)) return rotada
+    if (filaAceptable(rotada, fila, anio, mes, false)) return rotada
+  }
 
   for (let t = 0; t < n; t++) {
     const pasos = (indice * 7 + t) % n
@@ -916,36 +928,6 @@ function maxIteracionesMinimos(nAgentes: number) {
   return Math.min(500, 200 + nAgentes * 8)
 }
 
-function contarDeficitsMinimos(
-  cuadrante: CuadranteMensual,
-  agenteIds: string[],
-  planAnual: PlanAnual,
-  anio: number,
-  mes: number,
-  minimosSemana: MinimosSemana,
-  puestos: PuestoConfig[],
-  eventos: EventoOperativo[],
-) {
-  const nDias = diasDelMes(anio, mes)
-  const grupos = agentesPorTurnoMes(cuadrante, agenteIds, planAnual, mes, nDias)
-  let total = 0
-  for (const turno of ['M', 'T', 'N'] as TurnoOperativo[]) {
-    const ids = grupos.get(turno) ?? []
-    for (let dia = 0; dia < nDias; dia++) {
-      const minimos = minimosParaFecha(
-        isoFechaCuadrante(anio, mes, dia + 1),
-        eventos,
-        minimosSemana,
-        puestos,
-      )
-      const minimo = totalMinimosTurno(minimos, turno, puestos)
-      const deficit = minimo - conteoTurnoDia(cuadrante, ids, dia, turno)
-      if (deficit > 0) total += deficit
-    }
-  }
-  return total
-}
-
 /**
  * Prioriza días por debajo del mínimo operativo M/T/N (columnas del pie).
  */
@@ -958,6 +940,7 @@ function equilibrarMinimosOperativos(
   minimosSemana: MinimosSemana,
   puestos: PuestoConfig[],
   eventos: EventoOperativo[],
+  opciones?: OpcionesGeneracionCuadranteMensual,
 ) {
   const nDias = diasDelMes(anio, mes)
   const grupos = agentesPorTurnoMes(cuadrante, agenteIds, planAnual, mes, nDias)
@@ -1040,7 +1023,20 @@ function equilibrarMinimosOperativos(
               mes,
             )
             if (!siguiente) continue
-            cuadrante[cand.id] = siguiente
+            const aplicado = intentarMejoraGlobal(
+              cuadrante,
+              [cand.id],
+              () => {
+                cuadrante[cand.id] = siguiente
+              },
+              agenteIds,
+              planAnual,
+              anio,
+              mes,
+              eventos,
+              opciones ?? { minimosSemana, puestos },
+            )
+            if (!aplicado) continue
             mejorado = true
             progresoEnDia = true
             break
@@ -1058,7 +1054,20 @@ function equilibrarMinimosOperativos(
                 mes,
               )
               if (!rotada) continue
-              cuadrante[id] = rotada
+              const aplicado = intentarMejoraGlobal(
+                cuadrante,
+                [id],
+                () => {
+                  cuadrante[id] = rotada
+                },
+                agenteIds,
+                planAnual,
+                anio,
+                mes,
+                eventos,
+                opciones ?? { minimosSemana, puestos },
+              )
+              if (!aplicado) continue
               mejorado = true
               progresoEnDia = true
               break
@@ -1080,8 +1089,21 @@ function equilibrarMinimosOperativos(
                   mes,
                 )
                 if (!intercambio) continue
-                cuadrante[ids[a]] = intercambio[0]
-                cuadrante[ids[b]] = intercambio[1]
+                const aplicado = intentarMejoraGlobal(
+                  cuadrante,
+                  [ids[a], ids[b]],
+                  () => {
+                    cuadrante[ids[a]] = intercambio[0]
+                    cuadrante[ids[b]] = intercambio[1]
+                  },
+                  agenteIds,
+                  planAnual,
+                  anio,
+                  mes,
+                  eventos,
+                  opciones ?? { minimosSemana, puestos },
+                )
+                if (!aplicado) continue
                 mejorado = true
                 progresoEnDia = true
                 break
@@ -1097,6 +1119,46 @@ function equilibrarMinimosOperativos(
   }
 }
 
+function refinarFilaFindes(
+  fila: Turno[],
+  turno: TurnoOperativoMes,
+  anio: number,
+  mes: number,
+) {
+  let actualizada = unificarFindesPartidos(fila, turno, anio, mes)
+  const conFindes = equilibrarFindesConsecutivos(
+    actualizada,
+    anio,
+    mes,
+    turno,
+    (prueba, original) => filaAceptable(prueba, original, anio, mes, true),
+  )
+  if (filaAceptable(conFindes, actualizada, anio, mes, true)) {
+    actualizada = conFindes
+  }
+  const conUnico = equilibrarFindesUnicoMes(
+    actualizada,
+    anio,
+    mes,
+    turno,
+    (prueba, original) => filaAceptable(prueba, original, anio, mes, true),
+  )
+  if (filaAceptable(conUnico, actualizada, anio, mes, true)) {
+    actualizada = conUnico
+  }
+  const conTope = equilibrarFindesLaboradosMes(
+    actualizada,
+    anio,
+    mes,
+    turno,
+    (prueba, original) => filaAceptable(prueba, original, anio, mes, true),
+  )
+  if (filaAceptable(conTope, actualizada, anio, mes, true)) {
+    actualizada = conTope
+  }
+  return actualizada
+}
+
 function refinarReglasFindesFilas(
   cuadrante: CuadranteMensual,
   agenteIds: string[],
@@ -1109,39 +1171,125 @@ function refinarReglasFindesFilas(
     const turno = turnoOperativoMes(planAnual[id]?.[mes - 1])
     const fila = cuadrante[id]
     if (!turno || !fila || fila.length !== nDias) continue
+    cuadrante[id] = refinarFilaFindes(fila, turno, anio, mes)
+  }
+}
 
-    let actualizada = unificarFindesPartidos(fila, turno, anio, mes)
-    const conFindes = equilibrarFindesConsecutivos(
-      actualizada,
+function refinarFindesFilasConScore(
+  cuadrante: CuadranteMensual,
+  agenteIds: string[],
+  planAnual: PlanAnual,
+  anio: number,
+  mes: number,
+  eventos: EventoOperativo[],
+  opciones?: OpcionesGeneracionCuadranteMensual,
+) {
+  const nDias = diasDelMes(anio, mes)
+  let mejorado = false
+  for (const id of agenteIds) {
+    const turno = turnoOperativoMes(planAnual[id]?.[mes - 1])
+    const fila = cuadrante[id]
+    if (!turno || !fila || fila.length !== nDias) continue
+    const refinada = refinarFilaFindes(fila, turno, anio, mes)
+    if (refinada.every((t, i) => t === fila[i])) continue
+    const aplicado = intentarMejoraGlobal(
+      cuadrante,
+      [id],
+      () => {
+        cuadrante[id] = refinada
+      },
+      agenteIds,
+      planAnual,
       anio,
       mes,
-      turno,
-      (prueba, original) => filaAceptable(prueba, original, anio, mes, true),
+      eventos,
+      opciones,
     )
-    if (filaAceptable(conFindes, actualizada, anio, mes, true)) {
-      actualizada = conFindes
-    }
-    const conUnico = equilibrarFindesUnicoMes(
-      actualizada,
+    if (aplicado) mejorado = true
+  }
+  return mejorado
+}
+
+/**
+ * Refinado final coordinado: solo acepta movimientos que mejoran la puntuación global
+ * (mínimos → findes nf → equilibrio NF festivos/conciliaciones).
+ */
+function refinarCuadranteSudoku(
+  cuadrante: CuadranteMensual,
+  agenteIds: string[],
+  planAnual: PlanAnual,
+  anio: number,
+  mes: number,
+  eventos: EventoOperativo[],
+  opciones: OpcionesGeneracionCuadranteMensual,
+) {
+  const minimosSemana = opciones.minimosSemana!
+  const puestos = opciones.puestos!
+  const maxRondas = 80
+
+  for (let ronda = 0; ronda < maxRondas; ronda++) {
+    const scoreAntes = puntuarCuadrante(
+      cuadrante,
+      agenteIds,
+      planAnual,
       anio,
       mes,
-      turno,
-      (prueba, original) => filaAceptable(prueba, original, anio, mes, true),
+      eventos,
+      opciones,
     )
-    if (filaAceptable(conUnico, actualizada, anio, mes, true)) {
-      actualizada = conUnico
-    }
-    const conTope = equilibrarFindesLaboradosMes(
-      actualizada,
+
+    equilibrarVariablesCobro(
+      cuadrante,
+      agenteIds,
+      planAnual,
       anio,
       mes,
-      turno,
-      (prueba, original) => filaAceptable(prueba, original, anio, mes, true),
+      eventos,
+      opciones,
     )
-    if (filaAceptable(conTope, actualizada, anio, mes, true)) {
-      actualizada = conTope
-    }
-    cuadrante[id] = actualizada
+    equilibrarMinimosOperativos(
+      cuadrante,
+      agenteIds,
+      planAnual,
+      anio,
+      mes,
+      minimosSemana,
+      puestos,
+      eventos,
+      opciones,
+    )
+    refinarFindesFilasConScore(
+      cuadrante,
+      agenteIds,
+      planAnual,
+      anio,
+      mes,
+      eventos,
+      opciones,
+    )
+    equilibrarMinimosOperativos(
+      cuadrante,
+      agenteIds,
+      planAnual,
+      anio,
+      mes,
+      minimosSemana,
+      puestos,
+      eventos,
+      opciones,
+    )
+
+    const scoreDespues = puntuarCuadrante(
+      cuadrante,
+      agenteIds,
+      planAnual,
+      anio,
+      mes,
+      eventos,
+      opciones,
+    )
+    if (scoreDespues === 0) break
+    if (scoreDespues >= scoreAntes) break
   }
 }
 
@@ -1173,7 +1321,15 @@ function aplicarRefinadoCuadrante(
     opciones,
     eventos,
   )
-  equilibrarVariablesCobro(cuadrante, agenteIds, planAnual, anio, mes, eventos)
+  equilibrarVariablesCobro(
+    cuadrante,
+    agenteIds,
+    planAnual,
+    anio,
+    mes,
+    eventos,
+    opciones,
+  )
   if (tieneContextoMinimos(opciones)) {
     equilibrarMinimosOperativos(
       cuadrante,
@@ -1184,6 +1340,7 @@ function aplicarRefinadoCuadrante(
       opciones!.minimosSemana!,
       opciones!.puestos!,
       eventos,
+      opciones,
     )
   }
   refinarReglasFindesFilas(cuadrante, agenteIds, planAnual, anio, mes)
@@ -1197,6 +1354,7 @@ function aplicarRefinadoCuadrante(
       opciones!.minimosSemana!,
       opciones!.puestos!,
       eventos,
+      opciones,
     )
   }
 }
@@ -1215,45 +1373,94 @@ function aplicarRefinadoFinalCuadrante(
     return
   }
 
-  for (let pase = 0; pase < 3; pase++) {
-    equilibrarVariablesCobro(cuadrante, agenteIds, planAnual, anio, mes, eventos)
-    equilibrarMinimosOperativos(
-      cuadrante,
-      agenteIds,
-      planAnual,
-      anio,
-      mes,
-      opciones!.minimosSemana!,
-      opciones!.puestos!,
-      eventos,
-    )
-    refinarReglasFindesFilas(cuadrante, agenteIds, planAnual, anio, mes)
-    equilibrarMinimosOperativos(
-      cuadrante,
-      agenteIds,
-      planAnual,
-      anio,
-      mes,
-      opciones!.minimosSemana!,
-      opciones!.puestos!,
-      eventos,
-    )
-    const pendientes = contarDeficitsMinimos(
-      cuadrante,
-      agenteIds,
-      planAnual,
-      anio,
-      mes,
-      opciones!.minimosSemana!,
-      opciones!.puestos!,
-      eventos,
-    )
-    if (pendientes === 0) break
-  }
+  refinarCuadranteSudoku(
+    cuadrante,
+    agenteIds,
+    planAnual,
+    anio,
+    mes,
+    eventos,
+    opciones!,
+  )
 }
 
 function tieneContextoMinimos(opciones?: OpcionesGeneracionCuadranteMensual) {
   return Boolean(opciones?.minimosSemana && opciones?.puestos?.length)
+}
+
+function contextoMetricasCuadrante(
+  opciones?: OpcionesGeneracionCuadranteMensual,
+): ContextoMetricasCuadrante | undefined {
+  if (!tieneContextoMinimos(opciones)) return undefined
+  return {
+    minimosSemana: opciones!.minimosSemana,
+    puestos: opciones!.puestos,
+  }
+}
+
+function puntuarCuadrante(
+  cuadrante: CuadranteMensual,
+  agenteIds: string[],
+  planAnual: PlanAnual,
+  anio: number,
+  mes: number,
+  eventos: EventoOperativo[],
+  opciones?: OpcionesGeneracionCuadranteMensual,
+) {
+  return puntuacionGlobalCuadrante(
+    cuadrante,
+    agenteIds,
+    planAnual,
+    anio,
+    mes,
+    eventos,
+    contextoMetricasCuadrante(opciones),
+  )
+}
+
+function intentarMejoraGlobal(
+  cuadrante: CuadranteMensual,
+  idsAfectados: string[],
+  aplicar: () => void,
+  agenteIds: string[],
+  planAnual: PlanAnual,
+  anio: number,
+  mes: number,
+  eventos: EventoOperativo[],
+  opciones?: OpcionesGeneracionCuadranteMensual,
+) {
+  const ctx = contextoMetricasCuadrante(opciones)
+  if (!ctx) {
+    aplicar()
+    return true
+  }
+  const backup = new Map(
+    idsAfectados.map((id) => [id, [...(cuadrante[id] ?? [])]]),
+  )
+  const antes = puntuacionGlobalCuadrante(
+    cuadrante,
+    agenteIds,
+    planAnual,
+    anio,
+    mes,
+    eventos,
+    ctx,
+  )
+  aplicar()
+  const despues = puntuacionGlobalCuadrante(
+    cuadrante,
+    agenteIds,
+    planAnual,
+    anio,
+    mes,
+    eventos,
+    ctx,
+  )
+  if (despues > antes) {
+    for (const [id, fila] of backup) cuadrante[id] = fila
+    return false
+  }
+  return true
 }
 
 async function aplicarRefinadoCuadranteAsync(
@@ -1294,6 +1501,7 @@ async function aplicarRefinadoCuadranteAsync(
     anio,
     mes,
     eventos,
+    opciones,
   )
   await yieldToMain()
   if (tieneContextoMinimos(opciones)) {
@@ -1306,6 +1514,7 @@ async function aplicarRefinadoCuadranteAsync(
       opciones!.minimosSemana!,
       opciones!.puestos!,
       eventos,
+      opciones,
     )
     await yieldToMain()
   }
@@ -1321,6 +1530,7 @@ async function aplicarRefinadoCuadranteAsync(
       opciones!.minimosSemana!,
       opciones!.puestos!,
       eventos,
+      opciones,
     )
     await yieldToMain()
   }
@@ -1489,15 +1699,9 @@ function filasValidasTrasSwapVariables(
   anio: number,
   mes: number,
 ) {
-  if (
-    filaAceptable(pruebaA, filaA, anio, mes, false) &&
-    filaAceptable(pruebaB, filaB, anio, mes, false)
-  ) {
-    return true
-  }
   return (
-    filaAceptable(pruebaA, filaA, anio, mes, true) &&
-    filaAceptable(pruebaB, filaB, anio, mes, true)
+    filaAceptableParaMinimos(pruebaA, filaA, anio, mes) &&
+    filaAceptableParaMinimos(pruebaB, filaB, anio, mes)
   )
 }
 
@@ -1511,6 +1715,7 @@ function equilibrarVariablesCobro(
   anio: number,
   mes: number,
   eventos: EventoOperativo[] = [],
+  opciones?: OpcionesGeneracionCuadranteMensual,
 ): CuadranteMensual {
   return equilibrarVariablesCobroInterno(
     cuadrante,
@@ -1519,6 +1724,7 @@ function equilibrarVariablesCobro(
     anio,
     mes,
     eventos,
+    opciones,
   )
 }
 
@@ -1529,6 +1735,7 @@ async function equilibrarVariablesCobroAsync(
   anio: number,
   mes: number,
   eventos: EventoOperativo[] = [],
+  opciones?: OpcionesGeneracionCuadranteMensual,
 ): Promise<CuadranteMensual> {
   const nDias = diasDelMes(anio, mes)
   const grupos = agentesPorTurnoMes(cuadrante, agenteIds, planAnual, mes, nDias)
@@ -1542,12 +1749,15 @@ async function equilibrarVariablesCobroAsync(
       if (
         !equilibrarVariablesCobroPaso(
           cuadrante,
+          agenteIds,
+          planAnual,
           ids,
           turno,
           anio,
           mes,
           nDias,
           eventos,
+          opciones,
         )
       ) {
         break
@@ -1565,6 +1775,7 @@ function equilibrarVariablesCobroInterno(
   anio: number,
   mes: number,
   eventos: EventoOperativo[],
+  opciones?: OpcionesGeneracionCuadranteMensual,
 ): CuadranteMensual {
   const nDias = diasDelMes(anio, mes)
   const grupos = agentesPorTurnoMes(cuadrante, agenteIds, planAnual, mes, nDias)
@@ -1577,12 +1788,15 @@ function equilibrarVariablesCobroInterno(
       if (
         !equilibrarVariablesCobroPaso(
           cuadrante,
+          agenteIds,
+          planAnual,
           ids,
           turno,
           anio,
           mes,
           nDias,
           eventos,
+          opciones,
         )
       ) {
         break
@@ -1595,21 +1809,33 @@ function equilibrarVariablesCobroInterno(
 
 function equilibrarVariablesCobroPaso(
   cuadrante: CuadranteMensual,
+  agenteIds: string[],
+  planAnual: PlanAnual,
   ids: string[],
   turno: TurnoOperativoMes,
   anio: number,
   mes: number,
   nDias: number,
   eventos: EventoOperativo[],
+  opciones?: OpcionesGeneracionCuadranteMensual,
 ) {
-  const puntajeAntes = puntajeVariablesGrupo(
+  const scoreAntes = puntuarCuadrante(
+    cuadrante,
+    agenteIds,
+    planAnual,
+    anio,
+    mes,
+    eventos,
+    opciones,
+  )
+  const puntajeVariablesAntes = puntajeVariablesGrupo(
     cuadrante,
     ids,
     anio,
     mes,
     eventos,
   )
-  if (puntajeAntes === 0) return false
+  if (puntajeVariablesAntes === 0 && scoreAntes === 0) return false
 
   const limitePares = Math.min(8, Math.max(3, Math.ceil(ids.length / 4)))
   const conteos = conteosVariablesGrupo(cuadrante, ids, anio, mes, eventos)
@@ -1665,17 +1891,19 @@ function equilibrarVariablesCobroPaso(
         }
 
         const copia = { ...cuadrante, [idA]: pruebaA, [idB]: pruebaB }
-        const puntajeDesp = puntajeVariablesGrupo(
+        const scoreDesp = puntuarCuadrante(
           copia,
-          ids,
+          agenteIds,
+          planAnual,
           anio,
           mes,
           eventos,
+          opciones,
         )
-        if (puntajeDesp >= puntajeAntes) continue
+        if (scoreDesp >= scoreAntes) continue
 
-        if (!mejorSwap || puntajeDesp < mejorSwap.puntaje) {
-          mejorSwap = { idA, idB, idx, puntaje: puntajeDesp }
+        if (!mejorSwap || scoreDesp < mejorSwap.puntaje) {
+          mejorSwap = { idA, idB, idx, puntaje: scoreDesp }
         }
       }
     }

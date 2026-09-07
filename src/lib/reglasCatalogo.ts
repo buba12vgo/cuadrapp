@@ -256,9 +256,9 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
       'Al autogenerar el cuadrante mensual no se cubre desde el día 1 dejando el final a cero. Los descansos se desfasan entre agentes y se reequilibra para que, si falta gente, no falten todos el mismo día.',
     estado: 'implementada',
     detalle:
-      'El generador reparte el descanso sobrante en huecos distintos según el agente y mueve jornadas de días saturados a días cortos, respetando fatiga, descansos de 2+ y salida de noche. Además equilibra por separado las columnas M, T y N de cada día entre agentes del mismo turno mensual. Tras construir las filas aplica varias pasadas de refinado (cobertura, mínimos operativos del día, variables de cobro y findes).',
+      'El generador reparte el descanso sobrante en huecos distintos según el agente y mueve jornadas de días saturados a días cortos, respetando fatiga, descansos de 2+ y salida de noche. Además equilibra por separado las columnas M, T y N de cada día entre agentes del mismo turno mensual. Tras construir las filas aplica varias pasadas de refinado (cobertura, mínimos operativos del día, variables de cobro y findes) y un refinado final coordinado que solo acepta movimientos que mejoran la puntuación global (mínimos → nf → NF festivos/conciliaciones).',
     referencia:
-      'generarCuadranteMensual · equilibrarCoberturaDiaria · equilibrarCoberturaPorTurno',
+      'generarCuadranteMensual · refinarCuadranteSudoku · metricasRefinadoCuadrante',
   },
   {
     id: 'findes-mes-max',

@@ -14,8 +14,8 @@ import {
 
 const TURNOS: TurnoOperativo[] = ['M', 'T', 'N']
 const INPUT_MIN =
-  'h-7 w-11 border border-slate-300 bg-white p-0.5 text-center text-xs tabular-nums outline-none focus:border-slate-700'
-const CELDA = 'border border-slate-300 px-1.5 py-1 text-xs'
+  'h-6 w-7 border border-slate-300 bg-white p-0 text-center text-[11px] tabular-nums outline-none focus:border-slate-700 focus:ring-1 focus:ring-slate-400'
+const CELDA = 'border border-slate-200 px-0.5 py-0.5 align-middle'
 const DEBOUNCE_MS = 700
 
 function leerNumero(valor: string) {
@@ -31,6 +31,10 @@ function etiquetasDias(dias: DiaSemana[]) {
         DIAS_SEMANA_CONFIG.find((item) => item.dia === dia)?.label ?? String(dia),
     )
     .join(', ')
+}
+
+function esFinde(dia: DiaSemana) {
+  return dia === 6 || dia === 7
 }
 
 export function MinimosPage() {
@@ -105,16 +109,17 @@ export function MinimosPage() {
   }
 
   function actualizar(
+    dia: DiaSemana,
     puestoNombre: string,
     turno: TurnoOperativo,
     valor: number,
   ) {
     setMinimos((actual) => ({
       ...actual,
-      [diaActivo]: {
-        ...actual[diaActivo],
+      [dia]: {
+        ...actual[dia],
         [puestoNombre]: {
-          ...(actual[diaActivo][puestoNombre] ?? { M: 0, T: 0, N: 0 }),
+          ...(actual[dia][puestoNombre] ?? { M: 0, T: 0, N: 0 }),
           [turno]: valor,
         },
       },
@@ -157,12 +162,10 @@ export function MinimosPage() {
     <section className="flex h-full min-h-0 flex-col gap-2">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 px-1">
         <div>
-          <h1 className="text-sm font-bold text-slate-900">
-            Mínimos por día
-          </h1>
+          <h1 className="text-sm font-bold text-slate-900">Mínimos semanales</h1>
           <p className="text-[11px] text-slate-500">
-            Dotación mínima de cada puesto según el día de la semana. Se guarda
-            automáticamente en Firestore.
+            Dotación mínima por puesto y día. Clic en un día para copiarlo a
+            otros. Guardado automático.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -184,7 +187,7 @@ export function MinimosPage() {
             onClick={() => setPanelCopiaAbierto((abierto) => !abierto)}
             aria-expanded={panelCopiaAbierto}
           >
-            Copiar {diaInfo.label} → otros días
+            Copiar {diaInfo.clave} → otros días
           </button>
         </div>
       </div>
@@ -192,8 +195,8 @@ export function MinimosPage() {
       {panelCopiaAbierto ? (
         <div className="shrink-0 border border-slate-300 bg-slate-50 px-3 py-2">
           <p className="mb-2 text-[11px] text-slate-600">
-            Elige a qué días pegar los mínimos de <strong>{diaInfo.label}</strong>
-            .
+            Origen: <strong>{diaInfo.label}</strong> (clic en la cabecera de un
+            día de la tabla para cambiar el origen). Elige destinos:
           </p>
           <div className="mb-2 flex flex-wrap gap-1">
             {diasDisponibles.map((item) => {
@@ -202,7 +205,7 @@ export function MinimosPage() {
                 <button
                   key={item.dia}
                   type="button"
-                  className={`h-8 min-w-16 px-2 text-xs font-semibold ${
+                  className={`h-7 min-w-9 px-2 text-xs font-semibold ${
                     seleccionado
                       ? 'bg-slate-900 text-white'
                       : 'border border-slate-300 bg-white text-slate-700 hover:bg-white'
@@ -210,7 +213,7 @@ export function MinimosPage() {
                   aria-pressed={seleccionado}
                   onClick={() => alternarDiaDestino(item.dia)}
                 >
-                  {item.label}
+                  {item.clave}
                 </button>
               )
             })}
@@ -256,75 +259,106 @@ export function MinimosPage() {
         </p>
       ) : null}
 
-      <div className="flex shrink-0 flex-wrap gap-1 px-1">
-        {DIAS_SEMANA_CONFIG.map((item) => (
-          <button
-            key={item.dia}
-            type="button"
-            className={`h-8 min-w-16 px-2 text-xs font-semibold ${
-              diaActivo === item.dia
-                ? 'bg-slate-900 text-white'
-                : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
-            }`}
-            onClick={() => cambiarDiaActivo(item.dia)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
-
       <div className="min-h-0 flex-1 overflow-auto border border-slate-300 bg-white">
         {puestos.length === 0 ? (
           <p className="px-4 py-8 text-center text-xs text-slate-500">
             Primero configura puestos en el panel Puestos.
           </p>
         ) : (
-          <table className="w-full border-collapse text-xs">
-            <thead>
-              <tr className="bg-slate-50 text-slate-600">
-                <th className={`${CELDA} text-left font-semibold`}>Puesto</th>
-                {TURNOS.map((turno) => (
-                  <th
-                    key={turno}
-                    className={`${CELDA} text-center font-semibold`}
-                    title={
-                      turno === 'M'
-                        ? 'Mañana'
-                        : turno === 'T'
-                          ? 'Tarde'
-                          : 'Noche'
-                    }
-                  >
-                    {turno}
-                  </th>
-                ))}
+          <table className="w-max min-w-full border-collapse text-[11px]">
+            <thead className="sticky top-0 z-20 bg-slate-100">
+              <tr className="text-slate-600">
+                <th
+                  className={`${CELDA} sticky left-0 z-30 min-w-[52px] bg-slate-100 px-1.5 text-left font-semibold`}
+                  rowSpan={2}
+                >
+                  Puesto
+                </th>
+                {DIAS_SEMANA_CONFIG.map((item) => {
+                  const activo = diaActivo === item.dia
+                  return (
+                    <th
+                      key={item.dia}
+                      colSpan={3}
+                      className={`${CELDA} border-b-0 px-0.5 text-center font-semibold ${
+                        esFinde(item.dia) ? 'bg-slate-200/80' : ''
+                      } ${
+                        activo
+                          ? 'bg-amber-100 text-amber-950 ring-1 ring-inset ring-amber-400'
+                          : ''
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        className="w-full px-1 py-0.5 hover:underline"
+                        title={`${item.label} — clic para usar como origen al copiar`}
+                        onClick={() => cambiarDiaActivo(item.dia)}
+                      >
+                        {item.clave}
+                      </button>
+                    </th>
+                  )
+                })}
+              </tr>
+              <tr className="text-[10px] text-slate-500">
+                {DIAS_SEMANA_CONFIG.map((item) =>
+                  TURNOS.map((turno) => (
+                    <th
+                      key={`${item.dia}-${turno}`}
+                      className={`${CELDA} w-8 px-0 text-center font-medium ${
+                        esFinde(item.dia) ? 'bg-slate-50' : 'bg-slate-100'
+                      } ${
+                        diaActivo === item.dia
+                          ? 'bg-amber-50 text-amber-900'
+                          : ''
+                      }`}
+                      title={
+                        turno === 'M'
+                          ? 'Mañana'
+                          : turno === 'T'
+                            ? 'Tarde'
+                            : 'Noche'
+                      }
+                    >
+                      {turno}
+                    </th>
+                  )),
+                )}
               </tr>
             </thead>
             <tbody>
-              {puestos.map((puesto) => {
-                const fila = minimos[diaActivo][puesto.nombre] ?? {
-                  M: 0,
-                  T: 0,
-                  N: 0,
-                }
-                return (
-                  <tr key={puesto.codigo} className="hover:bg-slate-50">
-                    <td className={`${CELDA} font-medium text-slate-800`}>
-                      <span className="font-mono text-slate-500">
-                        {puesto.abreviatura}
-                      </span>{' '}
-                      {puesto.nombre}
-                    </td>
-                    {TURNOS.map((turno) => (
-                      <td key={turno} className={`${CELDA} text-center`}>
+              {puestos.map((puesto) => (
+                <tr key={puesto.codigo} className="hover:bg-slate-50/80">
+                  <td
+                    className={`${CELDA} sticky left-0 z-10 bg-white px-1.5 font-mono font-semibold text-slate-700`}
+                    title={puesto.nombre}
+                  >
+                    {puesto.abreviatura}
+                  </td>
+                  {DIAS_SEMANA_CONFIG.map((item) => {
+                    const fila = minimos[item.dia][puesto.nombre] ?? {
+                      M: 0,
+                      T: 0,
+                      N: 0,
+                    }
+                    const columnaActiva = diaActivo === item.dia
+                    return TURNOS.map((turno) => (
+                      <td
+                        key={`${puesto.codigo}-${item.dia}-${turno}`}
+                        className={`${CELDA} text-center ${
+                          esFinde(item.dia) ? 'bg-slate-50/60' : ''
+                        } ${columnaActiva ? 'bg-amber-50/50' : ''}`}
+                      >
                         <input
                           type="number"
                           min={0}
                           max={99}
                           className={INPUT_MIN}
+                          aria-label={`${puesto.nombre}, ${item.label}, ${turno}`}
                           value={fila[turno]}
                           onChange={(event) =>
                             actualizar(
+                              item.dia,
                               puesto.nombre,
                               turno,
                               leerNumero(event.target.value),
@@ -332,18 +366,46 @@ export function MinimosPage() {
                           }
                         />
                       </td>
-                    ))}
-                  </tr>
-                )
-              })}
+                    ))
+                  })}
+                </tr>
+              ))}
             </tbody>
+            <tfoot className="sticky bottom-0 z-10 bg-slate-100 text-[10px] text-slate-600">
+              <tr>
+                <td
+                  className={`${CELDA} sticky left-0 z-20 bg-slate-100 px-1.5 font-semibold`}
+                >
+                  Σ día
+                </td>
+                {DIAS_SEMANA_CONFIG.map((item) => {
+                  let total = 0
+                  for (const puesto of puestos) {
+                    const fila = minimos[item.dia][puesto.nombre]
+                    if (!fila) continue
+                    total += fila.M + fila.T + fila.N
+                  }
+                  return (
+                    <td
+                      key={`total-${item.dia}`}
+                      colSpan={3}
+                      className={`${CELDA} text-center font-semibold tabular-nums ${
+                        esFinde(item.dia) ? 'bg-slate-200/60' : ''
+                      } ${diaActivo === item.dia ? 'bg-amber-100/80' : ''}`}
+                    >
+                      {total}
+                    </td>
+                  )
+                })}
+              </tr>
+            </tfoot>
           </table>
         )}
       </div>
 
       <p className="shrink-0 px-1 text-[10px] text-slate-500">
-        Vista: {diaInfo.label}. El calendario puede sobrescribir un día
-        concreto.
+        Vista semanal compacta. Columna resaltada ({diaInfo.clave}): origen al
+        copiar. El calendario puede sobrescribir un día concreto.
       </p>
     </section>
   )

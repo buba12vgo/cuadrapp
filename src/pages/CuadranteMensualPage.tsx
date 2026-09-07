@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { BolsaPuestosPanel, filtroTurnoInicial } from '@/components/BolsaPuestosPanel'
 import { PopoverPuestosCelda } from '@/components/PopoverPuestosCelda'
 import { RepartoOperativoModal } from '@/components/RepartoOperativoModal'
@@ -99,7 +99,7 @@ const ROL_LABEL: Record<RolPolicia, string> = {
 
 const ANIO_ACTUAL = 2026
 const ANCHO_DIA = 36
-const ANCHO_TOT = 28
+const ANCHO_TOT = 32
 const ANCHO_AGENTE = 36
 
 const CELDA =
@@ -158,6 +158,52 @@ function leerFecha(valor: string) {
 function claseMinimo(real: number, minimo: number, especial: boolean) {
   if (real < minimo) return 'bg-red-200 font-bold text-red-900'
   return especial ? 'bg-amber-50' : 'bg-white'
+}
+
+function CeldaSumatorioMinimo({
+  real,
+  minimo,
+  turno,
+  especial,
+  className = CELDA,
+  style,
+}: {
+  real: number
+  minimo: number
+  turno: TurnoOperativo
+  especial: boolean
+  className?: string
+  style?: CSSProperties
+}) {
+  const bajoMinimo = real < minimo
+  return (
+    <td
+      className={`${className} sticky z-10 text-center tabular-nums ${claseMinimo(
+        real,
+        minimo,
+        especial,
+      )}`}
+      style={style}
+      title={`${real} en ${turno} · mínimo ${minimo}`}
+    >
+      <div className="flex h-full flex-col leading-tight">
+        <span
+          className={`flex flex-1 items-center justify-center text-[11px] font-bold ${
+            bajoMinimo ? 'text-red-900' : ''
+          }`}
+        >
+          {real}
+        </span>
+        <span
+          className={`flex flex-1 items-center justify-center text-[8px] font-semibold ${
+            bajoMinimo ? 'text-red-800' : 'text-slate-500'
+          }`}
+        >
+          /{minimo}
+        </span>
+      </div>
+    </td>
+  )
 }
 
 function stickyDerecha(indice: number) {
@@ -873,7 +919,7 @@ export function CuadranteMensualPage() {
                     indice === 0 ? 'border-l-2 border-l-slate-600' : ''
                   }`}
                   style={stickyDerecha(indice)}
-                  title={`Agentes en ${turno} · el rojo es si no llega al mínimo de puestos de ese día`}
+                  title={`${turno}: asignados / mínimo del día · rojo si no llega`}
                 >
                   {turno}
                 </th>
@@ -1028,16 +1074,17 @@ export function CuadranteMensualPage() {
                   {TURNOS_OP.map((turno, indice) => {
                     const minimo = totalMinimosTurno(minimosDia, turno, puestos)
                     return (
-                      <td
+                      <CeldaSumatorioMinimo
                         key={turno}
-                        className={`${CELDA} sticky z-10 text-center tabular-nums ${
+                        real={totales[turno]}
+                        minimo={minimo}
+                        turno={turno}
+                        especial={especial}
+                        className={`${CELDA} ${
                           indice === 0 ? 'border-l-2 border-l-slate-600' : ''
-                        } ${claseMinimo(totales[turno], minimo, especial)}`}
+                        }`}
                         style={stickyDerecha(indice)}
-                        title={`${totales[turno]} en ${turno} · mínimo ${minimo}`}
-                      >
-                        {totales[turno]}
-                      </td>
+                      />
                     )
                   })}
                 </tr>

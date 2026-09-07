@@ -4,11 +4,12 @@ import {
   MIN_DESCANSO_TRAS_NOCHE,
   esDiaTrabajado,
   esDescanso,
+  esFinDeSemana,
 } from '@/lib/convenio'
 import {
   MAX_FINDES_CONSECUTIVOS,
   MAX_FINDES_MES,
-  FINDES_UNICO_PROHIBIDO,
+  OBJETIVO_FINDES_MES,
   esFindePartidoEnDia,
   finDeSemanaLaboradoEnDia,
   findesLaboradosEnMes,
@@ -24,7 +25,7 @@ export type CodigoRegla =
   | 'SALIDA_NOCHE'
   | 'FINDES_CONSECUTIVOS'
   | 'FINDES_MES_EXCESO'
-  | 'FINDE_UNICO_MES'
+  | 'FINDES_MES_INSUFICIENTE'
   | 'FINDE_PARTIDO'
 
 export const MENSAJE_REGLA: Record<CodigoRegla, string> = {
@@ -36,7 +37,8 @@ export const MENSAJE_REGLA: Record<CodigoRegla, string> = {
   SALIDA_NOCHE: 'Saliente de noche insuficiente (N + 3 D antes de M)',
   FINDES_CONSECUTIVOS: 'Más de 2 fines de semana seguidos trabajados',
   FINDES_MES_EXCESO: 'Más de 3 fines de semana trabajados en el mes',
-  FINDE_UNICO_MES: 'Solo 1 fin de semana trabajado en el mes (prohibido)',
+  FINDES_MES_INSUFICIENTE:
+    'Menos de 2 fines de semana trabajados en el mes (0 y 1 prohibidos)',
   FINDE_PARTIDO: 'Finde partido (sábado y domingo deben ir juntos)',
 }
 
@@ -184,24 +186,18 @@ export function infraccionesCelda(
     infracciones.push('FINDE_PARTIDO')
   }
 
-  if (
-    contexto &&
-    finDeSemanaLaboradoEnDia(fila, contexto.anio, contexto.mes, dia + 1)
-  ) {
-    if (
-      findesLaboradosEnMes(fila, contexto.anio, contexto.mes) > MAX_FINDES_MES
-    ) {
+  if (contexto && esFinDeSemana(contexto.anio, contexto.mes, dia + 1)) {
+    const findesMes = findesLaboradosEnMes(fila, contexto.anio, contexto.mes)
+    if (findesMes > MAX_FINDES_MES) {
       infracciones.push('FINDES_MES_EXCESO')
     }
-    if (
-      findesLaboradosEnMes(fila, contexto.anio, contexto.mes) ===
-      FINDES_UNICO_PROHIBIDO
-    ) {
-      infracciones.push('FINDE_UNICO_MES')
+    if (findesMes < OBJETIVO_FINDES_MES) {
+      infracciones.push('FINDES_MES_INSUFICIENTE')
     }
     if (
+      finDeSemanaLaboradoEnDia(fila, contexto.anio, contexto.mes, dia + 1) &&
       maxFindesConsecutivosLaborados(fila, contexto.anio, contexto.mes) >
-      MAX_FINDES_CONSECUTIVOS
+        MAX_FINDES_CONSECUTIVOS
     ) {
       infracciones.push('FINDES_CONSECUTIVOS')
     }

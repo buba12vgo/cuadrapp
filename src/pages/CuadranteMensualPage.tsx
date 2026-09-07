@@ -232,7 +232,7 @@ function claseSumatorioF(valor: number, valoresGrupo: number[]) {
 }
 
 function claseFindesMes(cantidad: number) {
-  if (cantidad === 1 || cantidad > MAX_FINDES_MES) {
+  if (cantidad < OBJETIVO_FINDES_MES || cantidad > MAX_FINDES_MES) {
     return 'bg-red-200 font-bold text-red-900'
   }
   if (cantidad > OBJETIVO_FINDES_MES) {
@@ -694,7 +694,7 @@ export function CuadranteMensualPage() {
             Pie Σ por agente:{' '}
             <span className="font-semibold">Nd</span> jornadas del mes ·{' '}
             <span className="font-semibold">nf</span> fines de semana laborados
-            (obj. 2, máx. 3; prohibido 1) ·{' '}
+            (obj. 2, máx. 3; prohibido 0 y 1) ·{' '}
             <span className="font-semibold">NF</span> festivos + conciliaciones
             (variables de cobro). Autogenerar hace{' '}
             {PASADAS_REFINO_CUADRANTE_MENSUAL} pasadas de refinado.
@@ -1145,7 +1145,7 @@ export function CuadranteMensualPage() {
                     key={agente.id}
                     className={`${CELDA_PIE} bg-slate-200`}
                     style={{ width: ANCHO_AGENTE, minWidth: ANCHO_AGENTE }}
-                    title={`Trabajados ${trabajados} / ${objetivoFila} · Findes ${findesMes}/${OBJETIVO_FINDES_MES} (máx. ${MAX_FINDES_MES}, prohibido 1) · ${findesDias} días finde · Máx. seguidos ${findesConsec} · F=${sumatorioF} (${festivos} fest. + ${conciliaciones} conc.)`}
+                    title={`Trabajados ${trabajados} / ${objetivoFila} · Findes ${findesMes}/${OBJETIVO_FINDES_MES} (máx. ${MAX_FINDES_MES}, prohibido 0 y 1) · ${findesDias} días finde · Máx. seguidos ${findesConsec} · F=${sumatorioF} (${festivos} fest. + ${conciliaciones} conc.)`}
                   >
                     <div className="flex h-full flex-col">
                       <span

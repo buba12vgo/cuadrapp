@@ -10,11 +10,11 @@ export const OBJETIVO_FINDES_MES = 2
 /** Tope mensual: excepcionalmente 3 findes; nunca más. */
 export const MAX_FINDES_MES = 3
 
-/** Prohibido trabajar exactamente 1 fin de semana en el mes (0, 2 o 3 sí). */
-export const FINDES_UNICO_PROHIBIDO = 1
+/** Prohibido trabajar 0 o 1 fin de semana en el mes (objetivo 2, máx. 3). */
+export const MIN_FINDES_MES = OBJETIVO_FINDES_MES
 
 export function findesMesCuadra(cantidad: number) {
-  return cantidad !== FINDES_UNICO_PROHIBIDO && cantidad <= MAX_FINDES_MES
+  return cantidad >= MIN_FINDES_MES && cantidad <= MAX_FINDES_MES
 }
 
 export function semanaCalendarioId(anio: number, mes: number, dia: number) {
@@ -332,8 +332,8 @@ export function equilibrarFindesLaboradosMes(
 }
 
 /**
- * Evita el único finde laborado del mes: prioriza añadir un 2.º; si no es posible,
- * mueve el finde a días entre semana (0 findes).
+ * Sube findes laborados hasta el objetivo mensual (2): añade findes libres
+ * intercambiando jornadas de entre semana. Permite pasos intermedios (p. ej. 0→1→2).
  */
 export function equilibrarFindesUnicoMes(
   fila: Turno[],
@@ -344,13 +344,9 @@ export function equilibrarFindesUnicoMes(
 ): Turno[] {
   const copia = [...fila]
   const nDias = copia.length
-  if (findesLaboradosEnMes(copia, anio, mes) !== FINDES_UNICO_PROHIBIDO) {
-    return copia
-  }
-
   const objetivoTrabajo = copia.filter((t) => esDiaTrabajado(t)).length
 
-  const valida = (prueba: Turno[]) => {
+  const valida = (prueba: Turno[], permitirIntermedio = false) => {
     if (prueba.filter((t) => esDiaTrabajado(t)).length !== objetivoTrabajo) {
       return false
     }
@@ -360,111 +356,68 @@ export function equilibrarFindesUnicoMes(
     ) {
       return false
     }
-    if (!findesMesCuadra(findesLaboradosEnMes(prueba, anio, mes))) return false
-    if (esValida) return esValida(prueba, copia)
+    const findes = findesLaboradosEnMes(prueba, anio, mes)
+    if (!permitirIntermedio && !findesMesCuadra(findes)) return false
+    if (permitirIntermedio && findes > MAX_FINDES_MES) return false
+    if (esValida && !permitirIntermedio) return esValida(prueba, copia)
     return true
   }
 
-  const semanas = semanasDelMes(anio, mes, nDias)
+  for (let iter = 0; iter < 6; iter++) {
+    const totalAntes = findesLaboradosEnMes(copia, anio, mes)
+    if (findesMesCuadra(totalAntes)) break
 
-  // Preferir pasar de 1 a 2 findes (objetivo mensual).
-  for (const semana of semanas) {
-    if (finDeSemanaLaboradoEnSemana(copia, anio, mes, semana)) continue
-
-    const diasFindeLibres: number[] = []
-    for (let dia = 1; dia <= nDias; dia++) {
-      if (semanaCalendarioId(anio, mes, dia) !== semana) continue
-      if (!esFinDeSemana(anio, mes, dia)) continue
-      if (copia[dia - 1] !== 'D') continue
-      diasFindeLibres.push(dia)
-    }
-    if (diasFindeLibres.length === 0) continue
-
-    const diasSemanaTrabajo: number[] = []
-    for (let dia = 1; dia <= nDias; dia++) {
-      if (esFinDeSemana(anio, mes, dia)) continue
-      if (!esDiaTrabajado(copia[dia - 1])) continue
-      diasSemanaTrabajo.push(dia)
-    }
-    if (diasSemanaTrabajo.length < diasFindeLibres.length) continue
-
+    const semanas = semanasDelMes(anio, mes, nDias)
     let intercambiado = false
-    const k = diasFindeLibres.length
-    const elegir = (inicio: number, pendientes: number[]): void => {
-      if (intercambiado) return
-      if (pendientes.length === k) {
-        const prueba = [...copia]
-        for (const dia of diasFindeLibres) prueba[dia - 1] = turnoTrabajo
-        for (const dia of pendientes) prueba[dia - 1] = 'D'
-        if (!valida(prueba)) return
-        if (
-          findesLaboradosEnMes(prueba, anio, mes) === FINDES_UNICO_PROHIBIDO
-        ) {
+
+    for (const semana of semanas) {
+      if (finDeSemanaLaboradoEnSemana(copia, anio, mes, semana)) continue
+
+      const diasFindeLibres: number[] = []
+      for (let dia = 1; dia <= nDias; dia++) {
+        if (semanaCalendarioId(anio, mes, dia) !== semana) continue
+        if (!esFinDeSemana(anio, mes, dia)) continue
+        if (copia[dia - 1] !== 'D') continue
+        diasFindeLibres.push(dia)
+      }
+      if (diasFindeLibres.length === 0) continue
+
+      const diasSemanaTrabajo: number[] = []
+      for (let dia = 1; dia <= nDias; dia++) {
+        if (esFinDeSemana(anio, mes, dia)) continue
+        if (!esDiaTrabajado(copia[dia - 1])) continue
+        diasSemanaTrabajo.push(dia)
+      }
+      if (diasSemanaTrabajo.length < diasFindeLibres.length) continue
+
+      const k = diasFindeLibres.length
+      const elegir = (inicio: number, pendientes: number[]): void => {
+        if (intercambiado) return
+        if (pendientes.length === k) {
+          const prueba = [...copia]
+          for (const dia of diasFindeLibres) prueba[dia - 1] = turnoTrabajo
+          for (const dia of pendientes) prueba[dia - 1] = 'D'
+          const findesDespues = findesLaboradosEnMes(prueba, anio, mes)
+          if (findesDespues <= totalAntes) return
+          const intermedio = !findesMesCuadra(findesDespues)
+          if (!valida(prueba, intermedio)) return
+          for (let i = 0; i < nDias; i++) copia[i] = prueba[i]
+          intercambiado = true
           return
         }
-        for (let i = 0; i < nDias; i++) copia[i] = prueba[i]
-        intercambiado = true
-        return
+        for (let i = inicio; i < diasSemanaTrabajo.length; i++) {
+          pendientes.push(diasSemanaTrabajo[i])
+          elegir(i + 1, pendientes)
+          pendientes.pop()
+          if (intercambiado) return
+        }
       }
-      for (let i = inicio; i < diasSemanaTrabajo.length; i++) {
-        pendientes.push(diasSemanaTrabajo[i])
-        elegir(i + 1, pendientes)
-        pendientes.pop()
-        if (intercambiado) return
-      }
+      elegir(0, [])
+      if (intercambiado) break
     }
-    elegir(0, [])
-    if (intercambiado) return copia
-  }
 
-  // Si no se puede añadir un 2.º, quitar el único finde (1 → 0).
-  let semanaObjetivo: string | null = null
-  for (const semana of semanas) {
-    if (finDeSemanaLaboradoEnSemana(copia, anio, mes, semana)) {
-      semanaObjetivo = semana
-      break
-    }
+    if (!intercambiado) break
   }
-  if (!semanaObjetivo) return copia
-
-  const diasFindeTrabajo: number[] = []
-  for (let dia = 1; dia <= nDias; dia++) {
-    if (semanaCalendarioId(anio, mes, dia) !== semanaObjetivo) continue
-    if (!esFinDeSemana(anio, mes, dia)) continue
-    if (esDiaTrabajado(copia[dia - 1])) diasFindeTrabajo.push(dia)
-  }
-  if (diasFindeTrabajo.length === 0) return copia
-
-  const huecosSemana: number[] = []
-  for (let dia = 1; dia <= nDias; dia++) {
-    if (esFinDeSemana(anio, mes, dia)) continue
-    if (copia[dia - 1] !== 'D') continue
-    huecosSemana.push(dia)
-  }
-  if (huecosSemana.length < diasFindeTrabajo.length) return copia
-
-  let intercambiado = false
-  const kQuitar = diasFindeTrabajo.length
-  const elegirQuitar = (inicio: number, pendientes: number[]): void => {
-    if (intercambiado) return
-    if (pendientes.length === kQuitar) {
-      const prueba = [...copia]
-      for (const dia of diasFindeTrabajo) prueba[dia - 1] = 'D'
-      for (const dia of pendientes) prueba[dia - 1] = turnoTrabajo
-      if (!valida(prueba)) return
-      if (findesLaboradosEnMes(prueba, anio, mes) !== 0) return
-      for (let i = 0; i < nDias; i++) copia[i] = prueba[i]
-      intercambiado = true
-      return
-    }
-    for (let i = inicio; i < huecosSemana.length; i++) {
-      pendientes.push(huecosSemana[i])
-      elegirQuitar(i + 1, pendientes)
-      pendientes.pop()
-      if (intercambiado) return
-    }
-  }
-  elegirQuitar(0, [])
 
   return copia
 }

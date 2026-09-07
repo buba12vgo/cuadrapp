@@ -932,8 +932,7 @@ export function generarFilaMensual(
     const score =
       partidos * 100 +
       extra +
-      Math.max(0, findesMes - OBJETIVO_FINDES_MES) * 40 +
-      (findesMes === 0 ? 5 : 0)
+      Math.max(0, findesMes - OBJETIVO_FINDES_MES) * 40
     if (score < mejorScore) {
       fila = candidata
       mejorScore = score

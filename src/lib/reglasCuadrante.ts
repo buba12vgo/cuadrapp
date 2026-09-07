@@ -3,6 +3,7 @@ import {
   MAX_DIAS_CONTINUOS,
   MIN_DESCANSO_TRAS_NOCHE,
   esDiaTrabajado,
+  esDescanso,
 } from '@/lib/convenio'
 import {
   MAX_FINDES_CONSECUTIVOS,
@@ -14,6 +15,7 @@ import {
 export type CodigoRegla =
   | 'FATIGA'
   | 'DESCANSO_SUELTO'
+  | 'TRABAJO_SUELTO'
   | 'T_M'
   | 'N_T'
   | 'SALIDA_NOCHE'
@@ -23,6 +25,7 @@ export type CodigoRegla =
 export const MENSAJE_REGLA: Record<CodigoRegla, string> = {
   FATIGA: 'Más de 5 días seguidos de trabajo',
   DESCANSO_SUELTO: 'Descanso suelto (mínimo 2 D contiguos)',
+  TRABAJO_SUELTO: 'Jornada suelta (mínimo 2 días de trabajo seguidos)',
   T_M: 'T→M prohibido (menos de 12 h)',
   N_T: 'N→T prohibido (menos de 12 h)',
   SALIDA_NOCHE: 'Saliente de noche insuficiente (N + 3 D antes de M)',
@@ -35,6 +38,36 @@ export type ContextoReglasCuadrante = {
   mes: number
   /** Últimos días del mes anterior (orden cronológico) para este agente. */
   colaMesAnterior?: Turno[]
+}
+
+function diaAnteriorEsTrabajo(
+  fila: Turno[],
+  dia: number,
+  colaMesAnterior?: Turno[],
+) {
+  if (dia > 0) return esDiaTrabajado(fila[dia - 1])
+  if (!colaMesAnterior?.length) return false
+  return esDiaTrabajado(colaMesAnterior[colaMesAnterior.length - 1])
+}
+
+function diaSiguienteEsTrabajo(fila: Turno[], dia: number) {
+  if (dia < fila.length - 1) return esDiaTrabajado(fila[dia + 1])
+  return false
+}
+
+function diaAnteriorEsDescanso(
+  fila: Turno[],
+  dia: number,
+  colaMesAnterior?: Turno[],
+) {
+  if (dia > 0) return esDescanso(fila[dia - 1])
+  if (!colaMesAnterior?.length) return false
+  return esDescanso(colaMesAnterior[colaMesAnterior.length - 1])
+}
+
+function diaSiguienteEsDescanso(fila: Turno[], dia: number) {
+  if (dia < fila.length - 1) return esDescanso(fila[dia + 1])
+  return false
 }
 
 function descansoTrasUltimaNoche(
@@ -66,6 +99,10 @@ function descansoTrasUltimaNoche(
   return null
 }
 
+/**
+ * Racha de jornadas M/T/N hacia atrás. Solo enlaza con el mes anterior si la
+ * racha llega al día 1 del mes (sin descanso intermedio en el borde).
+ */
 function rachaTrabajoHaciaAtras(
   fila: Turno[],
   dia: number,
@@ -73,8 +110,12 @@ function rachaTrabajoHaciaAtras(
 ) {
   let racha = 0
   for (let i = dia; i >= 0 && esDiaTrabajado(fila[i]); i--) racha += 1
-  if (colaMesAnterior) {
-    for (let i = colaMesAnterior.length - 1; i >= 0 && esDiaTrabajado(colaMesAnterior[i]); i--) {
+  if (colaMesAnterior?.length && racha === dia + 1) {
+    for (
+      let i = colaMesAnterior.length - 1;
+      i >= 0 && esDiaTrabajado(colaMesAnterior[i]);
+      i--
+    ) {
       racha += 1
     }
   }
@@ -105,11 +146,16 @@ export function infraccionesCelda(
   if (esDiaTrabajado(turno)) {
     const racha = rachaTrabajoHaciaAtras(fila, dia, cola)
     if (racha > MAX_DIAS_CONTINUOS) infracciones.push('FATIGA')
+    const previoTrabajo = diaAnteriorEsTrabajo(fila, dia, cola)
+    const siguienteTrabajo = diaSiguienteEsTrabajo(fila, dia)
+    if (!previoTrabajo && !siguienteTrabajo) {
+      infracciones.push('TRABAJO_SUELTO')
+    }
   }
 
   if (turno === 'D') {
-    const previoD = dia > 0 && fila[dia - 1] === 'D'
-    const siguienteD = dia < fila.length - 1 && fila[dia + 1] === 'D'
+    const previoD = diaAnteriorEsDescanso(fila, dia, cola)
+    const siguienteD = diaSiguienteEsDescanso(fila, dia)
     if (!previoD && !siguienteD) infracciones.push('DESCANSO_SUELTO')
   }
 

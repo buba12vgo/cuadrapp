@@ -58,19 +58,19 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
       'No deben trabajar más de 5 días seguidos. Excepcionalmente puede llegar a 6; a partir del sexto día operativo seguido se marca infracción.',
     estado: 'implementada',
     detalle:
-      'El generador mensual reparte bloques de trabajo con tope de 5 jornadas. El cuadrante avisa si la racha supera 5 días, incluyendo días del mes anterior.',
+      'El generador mensual reparte bloques de trabajo con tope de 5 jornadas. El cuadrante avisa si la racha supera 5 días; al cruzar de mes solo cuenta días del mes anterior si la racha llega al día 1 sin descanso intermedio.',
     referencia: 'MAX_DIAS_CONTINUOS = 5',
   },
   {
     id: 'descanso-minimo-seguido',
     categoria: 'DIAS',
-    titulo: 'Descanso mínimo de 2 días',
+    titulo: 'Bloques mínimos de trabajo y descanso',
     descripcion:
-      'El descanso (D) debe ser de al menos 2 días contiguos. Nunca un día suelto entre jornadas.',
+      'El descanso (D) debe ser de al menos 2 días contiguos y la jornada (M/T/N) de al menos 2 días seguidos. Nunca un día suelto de trabajo ni de descanso.',
     estado: 'implementada',
     detalle:
-      'Al generar el cuadrante se evitan bloques de un solo D. En edición manual se alerta «Descanso suelto».',
-    referencia: 'MIN_DESCANSO_SEGUIDO = 2',
+      'Al generar el cuadrante se evitan bloques de un solo D o un solo día de trabajo. En edición manual se alerta «Descanso suelto» o «Jornada suelta». La fatiga (>5 días seguidos) solo enlaza con el mes anterior si la racha llega al día 1 sin descanso intermedio.',
+    referencia: 'MIN_DESCANSO_SEGUIDO · MIN_BLOQUE_TRABAJO · reglasCuadrante',
   },
   {
     id: 'descanso-tras-noche',

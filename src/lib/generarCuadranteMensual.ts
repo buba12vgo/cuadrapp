@@ -9,12 +9,14 @@ import {
 } from '@/lib/variablesCobro'
 import {
   MAX_DIAS_CONTINUOS,
+  MIN_BLOQUE_TRABAJO,
   MIN_DESCANSO_SEGUIDO,
   MIN_DESCANSO_TRAS_NOCHE,
   diasDelMes,
   diasOperativosConvenio,
   esDiaTrabajado,
   esFinDeSemana,
+  tieneTrabajoSuelto,
   totalTrabajados,
 } from '@/lib/convenio'
 import {
@@ -72,6 +74,19 @@ function bloquesTrabajo(nLaborables: number, maxBloque: number) {
   const bloques: number[] = []
   let restante = nLaborables
   while (restante > 0) {
+    if (restante === 1) {
+      const donor = bloques.findIndex((tam) => tam > MIN_BLOQUE_TRABAJO)
+      if (donor >= 0) {
+        bloques[donor] -= 1
+        bloques.push(MIN_BLOQUE_TRABAJO)
+      } else if (bloques.length > 0) {
+        bloques[bloques.length - 1] += 1
+      } else {
+        bloques.push(1)
+      }
+      restante = 0
+      continue
+    }
     if (restante > maxBloque && restante - maxBloque === 1) {
       bloques.push(maxBloque - 1)
       restante -= maxBloque - 1
@@ -252,6 +267,7 @@ function maxDiasContinuosFila(fila: Turno[]) {
 function filaSinGraves(fila: Turno[]) {
   if (maxDiasContinuosFila(fila) > MAX_DIAS_CONTINUOS) return false
   if (tieneDescansoSuelto(fila)) return false
+  if (tieneTrabajoSuelto(fila)) return false
   if (fila.includes('N') && minDescansoInterno(fila) < MIN_DESCANSO_TRAS_NOCHE) {
     return false
   }

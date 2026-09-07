@@ -12,6 +12,9 @@ export const MAX_DIAS_CONTINUOS = 5
 /** Un D suelto está prohibido: mínimo 2 descansos contiguos. */
 export const MIN_DESCANSO_SEGUIDO = 2
 
+/** Mínimo de jornadas M/T/N seguidas (nunca un solo día de trabajo). */
+export const MIN_BLOQUE_TRABAJO = 2
+
 /** Tras un bloque de noches, mínimo 3 D antes de una M. */
 export const MIN_DESCANSO_TRAS_NOCHE = 3
 
@@ -27,6 +30,21 @@ export function diasOperativosConvenio(_anio: number, mes: number) {
 
 export function esDiaTrabajado(turno: Turno | undefined) {
   return turno != null && turno !== 'D' && turno !== 'V'
+}
+
+export function esDescanso(turno: Turno | undefined) {
+  return turno === 'D' || turno === 'V'
+}
+
+/** Jornada aislada M/T/N entre descansos (sin mirar borde de mes). */
+export function tieneTrabajoSuelto(fila: Turno[]) {
+  for (let i = 0; i < fila.length; i++) {
+    if (!esDiaTrabajado(fila[i])) continue
+    const prev = i > 0 && esDiaTrabajado(fila[i - 1])
+    const next = i < fila.length - 1 && esDiaTrabajado(fila[i + 1])
+    if (!prev && !next) return true
+  }
+  return false
 }
 
 export function totalTrabajados(fila: Turno[]) {

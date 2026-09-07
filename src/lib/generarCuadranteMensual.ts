@@ -332,6 +332,29 @@ function filaAceptable(
   return true
 }
 
+/** Validación relajada al cubrir mínimos operativos (findes se reequilibran después). */
+function filaAceptableParaMinimos(
+  prueba: Turno[],
+  original: Turno[],
+  anio: number,
+  mes: number,
+) {
+  if (prueba.length !== original.length) return false
+  if (totalTrabajados(prueba) !== totalTrabajados(original)) return false
+  for (let i = 0; i < original.length; i++) {
+    if (original[i] === 'V' && prueba[i] !== 'V') return false
+    if (original[i] === 'L' && prueba[i] !== 'L') return false
+  }
+  if (!filaSinGraves(prueba)) return false
+  if (
+    countFindesPartidos(prueba, anio, mes) >
+    countFindesPartidos(original, anio, mes)
+  ) {
+    return false
+  }
+  return true
+}
+
 /** Valida una fila tras un swap o traslado (mismas jornadas, reglas de fatiga). */
 export function validarFilaCuadrante(
   prueba: Turno[],
@@ -580,6 +603,43 @@ function intentarTraslado(
   return null
 }
 
+function intentarTrasladoParaMinimos(
+  fila: Turno[],
+  alto: number,
+  bajo: number,
+  turno: Exclude<Turno, 'V' | 'D' | 'L'>,
+  anio: number,
+  mes: number,
+): Turno[] | null {
+  if (alto === bajo) return null
+  if (!esDiaTrabajado(fila[alto]) || fila[bajo] !== 'D') return null
+
+  const simple = [...fila]
+  simple[alto] = 'D'
+  simple[bajo] = turno
+  if (filaAceptableParaMinimos(simple, fila, anio, mes)) return simple
+
+  const pares: Array<[number, number, number, number]> = [
+    [alto, alto + 1, bajo, bajo + 1],
+    [alto - 1, alto, bajo, bajo + 1],
+    [alto, alto + 1, bajo - 1, bajo],
+    [alto - 1, alto, bajo - 1, bajo],
+  ]
+  for (const [a1, a2, b1, b2] of pares) {
+    if (a1 < 0 || b1 < 0 || a2 >= fila.length || b2 >= fila.length) continue
+    if (new Set([a1, a2, b1, b2]).size !== 4) continue
+    if (!esDiaTrabajado(fila[a1]) || !esDiaTrabajado(fila[a2])) continue
+    if (fila[b1] !== 'D' || fila[b2] !== 'D') continue
+    const prueba = [...fila]
+    prueba[a1] = 'D'
+    prueba[a2] = 'D'
+    prueba[b1] = turno
+    prueba[b2] = turno
+    if (filaAceptableParaMinimos(prueba, fila, anio, mes)) return prueba
+  }
+  return null
+}
+
 function puntuacionCandidato(fila: Turno[], alto: number, bajo: number) {
   const descansoOrigen = longitudBloqueD(fila, bajo)
   const uneDescanso = adyacenteADescanso(fila, alto) ? 1 : 0
@@ -616,7 +676,13 @@ function equilibrarCoberturaInterna(
   anio: number,
   mes: number,
   turnoFijo?: TurnoOperativoMes,
+  pisosPorDia?: number[],
 ) {
+  const puedeTomarDeDia = (dia: number, coberturaActual: number[]) => {
+    if (!pisosPorDia) return true
+    return coberturaActual[dia] > pisosPorDia[dia]
+  }
+
   const intentarMover = (
     diasBajos: number[],
     diasAltos: number[],
@@ -631,6 +697,7 @@ function equilibrarCoberturaInterna(
     }> = []
     for (const bajo of diasBajos) {
       for (const alto of diasAltos) {
+        if (!puedeTomarDeDia(alto, coberturaActual)) continue
         if (coberturaActual[alto] <= coberturaActual[bajo]) continue
         if (
           coberturaActual[alto] - coberturaActual[bajo] < 2 &&
@@ -743,13 +810,36 @@ export function equilibrarCoberturaPorTurno(
   planAnual: PlanAnual,
   anio: number,
   mes: number,
+  opciones?: OpcionesGeneracionCuadranteMensual,
+  eventos: EventoOperativo[] = [],
 ): CuadranteMensual {
   const nDias = diasDelMes(anio, mes)
   const grupos = agentesPorTurnoMes(cuadrante, agenteIds, planAnual, mes, nDias)
+  const conMinimos = tieneContextoMinimos(opciones)
 
   for (const [turno, ids] of grupos) {
     if (ids.length < 2) continue
-    equilibrarCoberturaInterna(cuadrante, ids, nDias, anio, mes, turno)
+    let pisos: number[] | undefined
+    if (conMinimos) {
+      pisos = Array.from({ length: nDias }, (_, dia) => {
+        const minimos = minimosParaFecha(
+          isoFechaCuadrante(anio, mes, dia + 1),
+          eventos,
+          opciones!.minimosSemana!,
+          opciones!.puestos!,
+        )
+        return totalMinimosTurno(minimos, turno, opciones!.puestos!)
+      })
+    }
+    equilibrarCoberturaInterna(
+      cuadrante,
+      ids,
+      nDias,
+      anio,
+      mes,
+      turno,
+      pisos,
+    )
   }
 
   return cuadrante
@@ -764,6 +854,40 @@ function conteoTurnoDia(
   let total = 0
   for (const id of ids) {
     if (cuadrante[id]?.[dia] === turno) total += 1
+  }
+  return total
+}
+
+function maxIteracionesMinimos(nAgentes: number) {
+  return Math.min(500, 200 + nAgentes * 8)
+}
+
+function contarDeficitsMinimos(
+  cuadrante: CuadranteMensual,
+  agenteIds: string[],
+  planAnual: PlanAnual,
+  anio: number,
+  mes: number,
+  minimosSemana: MinimosSemana,
+  puestos: PuestoConfig[],
+  eventos: EventoOperativo[],
+) {
+  const nDias = diasDelMes(anio, mes)
+  const grupos = agentesPorTurnoMes(cuadrante, agenteIds, planAnual, mes, nDias)
+  let total = 0
+  for (const turno of ['M', 'T', 'N'] as TurnoOperativo[]) {
+    const ids = grupos.get(turno) ?? []
+    for (let dia = 0; dia < nDias; dia++) {
+      const minimos = minimosParaFecha(
+        isoFechaCuadrante(anio, mes, dia + 1),
+        eventos,
+        minimosSemana,
+        puestos,
+      )
+      const minimo = totalMinimosTurno(minimos, turno, puestos)
+      const deficit = minimo - conteoTurnoDia(cuadrante, ids, dia, turno)
+      if (deficit > 0) total += deficit
+    }
   }
   return total
 }
@@ -785,76 +909,90 @@ function equilibrarMinimosOperativos(
   const grupos = agentesPorTurnoMes(cuadrante, agenteIds, planAnual, mes, nDias)
   const turnos: TurnoOperativo[] = ['M', 'T', 'N']
 
-  for (let iter = 0; iter < maxIteracionesCobertura(agenteIds.length, true); iter++) {
+  for (let iter = 0; iter < maxIteracionesMinimos(agenteIds.length); iter++) {
     let mejorado = false
 
     for (const turno of turnos) {
       const ids = grupos.get(turno) ?? []
-      if (ids.length < 2) continue
+      if (ids.length === 0) continue
 
-      const deficits: Array<{ dia: number; deficit: number }> = []
-      for (let dia = 0; dia < nDias; dia++) {
+      const pisos = Array.from({ length: nDias }, (_, dia) => {
         const minimos = minimosParaFecha(
           isoFechaCuadrante(anio, mes, dia + 1),
           eventos,
           minimosSemana,
           puestos,
         )
-        const minimo = totalMinimosTurno(minimos, turno, puestos)
+        return totalMinimosTurno(minimos, turno, puestos)
+      })
+
+      const deficits: Array<{ dia: number; deficit: number }> = []
+      for (let dia = 0; dia < nDias; dia++) {
         const conteo = conteoTurnoDia(cuadrante, ids, dia, turno)
-        const deficit = minimo - conteo
+        const deficit = pisos[dia] - conteo
         if (deficit > 0) deficits.push({ dia, deficit })
       }
       if (deficits.length === 0) continue
-      deficits.sort((a, b) => b.deficit - a.deficit)
+      deficits.sort((a, b) => {
+        const cA = conteoTurnoDia(cuadrante, ids, a.dia, turno)
+        const cB = conteoTurnoDia(cuadrante, ids, b.dia, turno)
+        if (cA === 0 && cB > 0) return -1
+        if (cB === 0 && cA > 0) return 1
+        return b.deficit - a.deficit
+      })
 
       for (const { dia: diaBajo } of deficits) {
         let progresoEnDia = true
         while (progresoEnDia) {
           progresoEnDia = false
-          const minimosDia = minimosParaFecha(
-            isoFechaCuadrante(anio, mes, diaBajo + 1),
-            eventos,
-            minimosSemana,
-            puestos,
-          )
-          const minimoDia = totalMinimosTurno(minimosDia, turno, puestos)
-          if (conteoTurnoDia(cuadrante, ids, diaBajo, turno) >= minimoDia) {
+          if (conteoTurnoDia(cuadrante, ids, diaBajo, turno) >= pisos[diaBajo]) {
             break
           }
 
           const cobertura = coberturaTurnoPorDia(cuadrante, ids, turno, nDias)
-          const diasAltos = diasPorCobertura(
-            cobertura,
-            (valor) => valor > cobertura[diaBajo],
-          ).filter((indice) => indice !== diaBajo)
+          const diasAltos: number[] = []
+          for (let dia = 0; dia < nDias; dia++) {
+            if (dia === diaBajo) continue
+            if (cobertura[dia] > pisos[dia]) diasAltos.push(dia)
+          }
           diasAltos.sort((a, b) => cobertura[b] - cobertura[a])
 
+          const candidatos: Array<{ id: string; alto: number; score: number }> = []
           for (const alto of diasAltos) {
             for (const id of ids) {
               const fila = cuadrante[id]
               if (!fila || fila[alto] !== turno || fila[diaBajo] !== 'D') continue
-              const siguiente = intentarTraslado(
-                fila,
+              candidatos.push({
+                id,
                 alto,
-                diaBajo,
-                turno,
-                anio,
-                mes,
-                true,
-              )
-              if (!siguiente) continue
-              cuadrante[id] = siguiente
-              mejorado = true
-              progresoEnDia = true
-              break
+                score:
+                  (cobertura[diaBajo] === 0 ? 10000 : 0) +
+                  (cobertura[alto] - pisos[alto]) * 50 +
+                  puntuacionCandidato(fila, alto, diaBajo),
+              })
             }
-            if (progresoEnDia) break
+          }
+          candidatos.sort((a, b) => b.score - a.score)
+
+          for (const cand of candidatos) {
+            const fila = cuadrante[cand.id]
+            if (!fila) continue
+            const siguiente = intentarTrasladoParaMinimos(
+              fila,
+              cand.alto,
+              diaBajo,
+              turno,
+              anio,
+              mes,
+            )
+            if (!siguiente) continue
+            cuadrante[cand.id] = siguiente
+            mejorado = true
+            progresoEnDia = true
+            break
           }
         }
-        if (mejorado) break
       }
-      if (mejorado) break
     }
 
     if (!mejorado) break
@@ -918,10 +1056,38 @@ function aplicarRefinadoCuadrante(
   eventos: EventoOperativo[],
   opciones?: OpcionesGeneracionCuadranteMensual,
 ) {
-  equilibrarCoberturaPorTurno(cuadrante, agenteIds, planAnual, anio, mes)
+  equilibrarCoberturaPorTurno(
+    cuadrante,
+    agenteIds,
+    planAnual,
+    anio,
+    mes,
+    opciones,
+    eventos,
+  )
   equilibrarCoberturaDiaria(cuadrante, agenteIds, anio, mes)
-  equilibrarCoberturaPorTurno(cuadrante, agenteIds, planAnual, anio, mes)
+  equilibrarCoberturaPorTurno(
+    cuadrante,
+    agenteIds,
+    planAnual,
+    anio,
+    mes,
+    opciones,
+    eventos,
+  )
   equilibrarVariablesCobro(cuadrante, agenteIds, planAnual, anio, mes, eventos)
+  if (tieneContextoMinimos(opciones)) {
+    equilibrarMinimosOperativos(
+      cuadrante,
+      agenteIds,
+      planAnual,
+      anio,
+      mes,
+      opciones!.minimosSemana!,
+      opciones!.puestos!,
+      eventos,
+    )
+  }
   refinarReglasFindesFilas(cuadrante, agenteIds, planAnual, anio, mes)
   if (tieneContextoMinimos(opciones)) {
     equilibrarMinimosOperativos(
@@ -935,7 +1101,6 @@ function aplicarRefinadoCuadrante(
       eventos,
     )
   }
-  equilibrarCoberturaPorTurno(cuadrante, agenteIds, planAnual, anio, mes)
 }
 
 function aplicarRefinadoFinalCuadrante(
@@ -947,9 +1112,13 @@ function aplicarRefinadoFinalCuadrante(
   eventos: EventoOperativo[],
   opciones?: OpcionesGeneracionCuadranteMensual,
 ) {
-  equilibrarVariablesCobro(cuadrante, agenteIds, planAnual, anio, mes, eventos)
-  refinarReglasFindesFilas(cuadrante, agenteIds, planAnual, anio, mes)
-  if (tieneContextoMinimos(opciones)) {
+  if (!tieneContextoMinimos(opciones)) {
+    equilibrarCoberturaPorTurno(cuadrante, agenteIds, planAnual, anio, mes)
+    return
+  }
+
+  for (let pase = 0; pase < 3; pase++) {
+    equilibrarVariablesCobro(cuadrante, agenteIds, planAnual, anio, mes, eventos)
     equilibrarMinimosOperativos(
       cuadrante,
       agenteIds,
@@ -960,8 +1129,29 @@ function aplicarRefinadoFinalCuadrante(
       opciones!.puestos!,
       eventos,
     )
+    refinarReglasFindesFilas(cuadrante, agenteIds, planAnual, anio, mes)
+    equilibrarMinimosOperativos(
+      cuadrante,
+      agenteIds,
+      planAnual,
+      anio,
+      mes,
+      opciones!.minimosSemana!,
+      opciones!.puestos!,
+      eventos,
+    )
+    const pendientes = contarDeficitsMinimos(
+      cuadrante,
+      agenteIds,
+      planAnual,
+      anio,
+      mes,
+      opciones!.minimosSemana!,
+      opciones!.puestos!,
+      eventos,
+    )
+    if (pendientes === 0) break
   }
-  equilibrarCoberturaPorTurno(cuadrante, agenteIds, planAnual, anio, mes)
 }
 
 function tieneContextoMinimos(opciones?: OpcionesGeneracionCuadranteMensual) {
@@ -977,11 +1167,27 @@ async function aplicarRefinadoCuadranteAsync(
   eventos: EventoOperativo[],
   opciones?: OpcionesGeneracionCuadranteMensual,
 ) {
-  equilibrarCoberturaPorTurno(cuadrante, agenteIds, planAnual, anio, mes)
+  equilibrarCoberturaPorTurno(
+    cuadrante,
+    agenteIds,
+    planAnual,
+    anio,
+    mes,
+    opciones,
+    eventos,
+  )
   await yieldToMain()
   equilibrarCoberturaDiaria(cuadrante, agenteIds, anio, mes)
   await yieldToMain()
-  equilibrarCoberturaPorTurno(cuadrante, agenteIds, planAnual, anio, mes)
+  equilibrarCoberturaPorTurno(
+    cuadrante,
+    agenteIds,
+    planAnual,
+    anio,
+    mes,
+    opciones,
+    eventos,
+  )
   await yieldToMain()
   await equilibrarVariablesCobroAsync(
     cuadrante,
@@ -992,6 +1198,19 @@ async function aplicarRefinadoCuadranteAsync(
     eventos,
   )
   await yieldToMain()
+  if (tieneContextoMinimos(opciones)) {
+    equilibrarMinimosOperativos(
+      cuadrante,
+      agenteIds,
+      planAnual,
+      anio,
+      mes,
+      opciones!.minimosSemana!,
+      opciones!.puestos!,
+      eventos,
+    )
+    await yieldToMain()
+  }
   refinarReglasFindesFilas(cuadrante, agenteIds, planAnual, anio, mes)
   await yieldToMain()
   if (tieneContextoMinimos(opciones)) {
@@ -1007,8 +1226,6 @@ async function aplicarRefinadoCuadranteAsync(
     )
     await yieldToMain()
   }
-  equilibrarCoberturaPorTurno(cuadrante, agenteIds, planAnual, anio, mes)
-  await yieldToMain()
 }
 
 async function aplicarRefinadoFinalCuadranteAsync(
@@ -1020,31 +1237,16 @@ async function aplicarRefinadoFinalCuadranteAsync(
   eventos: EventoOperativo[],
   opciones?: OpcionesGeneracionCuadranteMensual,
 ) {
-  await equilibrarVariablesCobroAsync(
+  aplicarRefinadoFinalCuadrante(
     cuadrante,
     agenteIds,
     planAnual,
     anio,
     mes,
     eventos,
+    opciones,
   )
   await yieldToMain()
-  refinarReglasFindesFilas(cuadrante, agenteIds, planAnual, anio, mes)
-  await yieldToMain()
-  if (tieneContextoMinimos(opciones)) {
-    equilibrarMinimosOperativos(
-      cuadrante,
-      agenteIds,
-      planAnual,
-      anio,
-      mes,
-      opciones!.minimosSemana!,
-      opciones!.puestos!,
-      eventos,
-    )
-    await yieldToMain()
-  }
-  equilibrarCoberturaPorTurno(cuadrante, agenteIds, planAnual, anio, mes)
 }
 
 /**

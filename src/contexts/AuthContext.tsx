@@ -13,9 +13,18 @@ import {
   type User,
 } from 'firebase/auth'
 import { ensureFirebase, getAuthClient } from '@/lib/firebase'
-import { isAllowedAdmin, mensajeNoAutorizado } from '@/lib/authAllowlist'
+import { ADMIN_EMAIL, isAllowedAdmin, mensajeNoAutorizado } from '@/lib/authAllowlist'
+import { isDesignPreview } from '@/lib/designPreview'
 
 const AUTH_INIT_TIMEOUT_MS = 8_000
+
+const previewUser = {
+  uid: 'design-preview',
+  email: ADMIN_EMAIL,
+  emailVerified: true,
+  displayName: 'Vista previa',
+  photoURL: null,
+} as User
 
 type AuthContextValue = {
   user: User | null
@@ -35,6 +44,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (isDesignPreview) {
+      setUser(previewUser)
+      setFirebaseReady(false)
+      setLoading(false)
+      return
+    }
+
     let cancelled = false
     let unsubscribe: (() => void) | undefined
     let settled = false

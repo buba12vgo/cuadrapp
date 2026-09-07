@@ -12,6 +12,8 @@ import {
   marcarErrorCargaPlan,
 } from '@/lib/planAnualStore'
 import { hydratePuestosYMinimos } from '@/lib/puestosStore'
+import { bootstrapDesignPreview } from '@/lib/designPreviewBootstrap'
+import { isDesignPreview } from '@/lib/designPreview'
 
 type EstadoCarga = 'idle' | 'loading' | 'ready' | 'error'
 
@@ -30,6 +32,15 @@ export function useConfigOperativaBootstrap() {
     let cancelado = false
 
     async function cargar() {
+      if (isDesignPreview) {
+        bootstrapDesignPreview()
+        if (cancelado) return
+        setFirebaseOk(false)
+        setError(null)
+        setEstado('ready')
+        return
+      }
+
       setEstado('loading')
       setError(null)
 

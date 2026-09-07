@@ -399,7 +399,7 @@ export function PuestosPage() {
 
       <DashboardBody>
         <DashboardMain>
-          <DashboardMainScroll>
+          <DashboardMainScroll className="p-1.5">
             <table className={TABLE}>
           <thead className="sticky top-0 z-10 bg-slate-50">
             <tr>

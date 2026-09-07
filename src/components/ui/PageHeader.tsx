@@ -27,7 +27,11 @@ export function PageHeader({ title, subtitle, status, actions, toolbar }: Props)
           {actions}
         </div>
       </div>
-      {toolbar ? <div className={PAGE_TOOLBAR}>{toolbar}</div> : null}
+      {toolbar ? (
+        <div className={PAGE_TOOLBAR}>
+          <div className="flex min-w-max flex-wrap items-center gap-1">{toolbar}</div>
+        </div>
+      ) : null}
     </header>
   )
 }

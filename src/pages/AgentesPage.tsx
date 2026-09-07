@@ -24,6 +24,7 @@ import {
 } from '@/lib/uiStyles'
 import { agenteNuevo, deleteAgente, getAgentes, saveAgente, saveAgentes } from '@/lib/db'
 import { ensureFirebase, isFirebaseReady } from '@/lib/firebase'
+import { isDesignPreview } from '@/lib/designPreview'
 import {
   fetchFirebaseStatus,
   formatFirebaseStatus,
@@ -581,6 +582,11 @@ export function AgentesPage() {
       setLoading(true)
       setError(null)
 
+      if (isDesignPreview) {
+        setLoading(false)
+        return
+      }
+
       const ready = await ensureFirebase()
       if (cancelado) return
       setFirebaseOk(ready)
@@ -790,7 +796,7 @@ export function AgentesPage() {
       ) : (
         <DashboardBody>
           <DashboardMain>
-            <DashboardMainScroll>
+            <DashboardMainScroll className="p-1.5">
               <table className={TABLE}>
             <thead className="sticky top-0 z-10 bg-slate-50">
               <tr>

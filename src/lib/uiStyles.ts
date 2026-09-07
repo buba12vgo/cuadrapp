@@ -10,7 +10,7 @@ export const PAGE_TITLE = 'text-sm font-bold text-slate-900'
 export const PAGE_SUBTITLE = 'text-[10px] text-slate-500'
 
 export const PAGE_TOOLBAR =
-  'mt-2 flex flex-wrap items-center gap-1 border-t border-slate-100 pt-2'
+  'mt-2 flex min-w-0 flex-wrap items-center gap-1 overflow-x-auto overscroll-x-contain border-t border-slate-100 pt-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
 
 export const PAGE_PANEL =
   'min-h-0 flex-1 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm'

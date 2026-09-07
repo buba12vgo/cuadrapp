@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
+import { isDesignPreview } from '@/lib/designPreview'
 import { useConfigOperativaBootstrap } from '@/lib/useConfigOperativaBootstrap'
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
@@ -68,6 +69,11 @@ export function AdminLayout() {
             </button>
           </div>
         </div>
+        {isDesignPreview ? (
+          <p className="border-t border-violet-200 bg-violet-50 px-2.5 py-0.5 text-[10px] font-medium text-violet-900">
+            Modo vista previa (sin Firebase) — solo para diseño y QA local
+          </p>
+        ) : null}
         {estado === 'loading' ? (
           <p className="border-t border-slate-100 px-2.5 py-0.5 text-[10px] text-slate-500">
             Cargando plantilla, plan anual, puestos y eventos desde Firestore…

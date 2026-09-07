@@ -25,6 +25,7 @@ import { exportarVariablesCobroExcel } from '@/lib/exportarVariablesCobroExcel'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
 import { useEventosData } from '@/lib/eventosStore'
 import { ensureFirebase } from '@/lib/firebase'
+import { isDesignPreview } from '@/lib/designPreview'
 import {
   contarVariablesCobroAgente,
   conteoVariablesCobroVacio,
@@ -97,6 +98,11 @@ export function ListadosPage() {
       setLoading(true)
       setError(null)
       setCuadrante({})
+
+      if (isDesignPreview) {
+        setLoading(false)
+        return
+      }
 
       const ready = await ensureFirebase()
       if (cancelado) return
@@ -249,7 +255,7 @@ export function ListadosPage() {
 
       <DashboardBody>
         <DashboardMain>
-          <DashboardMainScroll>
+          <DashboardMainScroll className="p-1.5">
             <table className={`${TABLE} w-max min-w-full`}>
           <thead className="sticky top-0 z-10 bg-slate-50">
             <tr>

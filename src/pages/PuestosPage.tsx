@@ -401,7 +401,7 @@ export function PuestosPage() {
         <DashboardMain>
           <DashboardMainScroll>
             <table className={TABLE}>
-          <thead>
+          <thead className="sticky top-0 z-10 bg-slate-50">
             <tr>
               <th className={TH}>Nombre</th>
               <th className={TH}>Código</th>

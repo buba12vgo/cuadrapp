@@ -19,8 +19,11 @@ export function AdminLayout() {
       <header className="sticky top-0 z-50 shrink-0 border-b border-slate-200 bg-white">
         <div className="flex items-center justify-between gap-2 px-2.5 py-2">
           <p className="text-sm font-bold tracking-tight text-slate-900">Cuadrapp</p>
-          <nav className="flex flex-1 flex-wrap justify-center gap-0.5">
-            <NavLink to="/admin/agentes" className={navClass}>
+          <nav
+            className="flex min-w-0 flex-1 justify-center gap-0.5 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            aria-label="Secciones"
+          >
+            <NavLink to="/admin/agentes" className={navClass} end>
               Agentes
             </NavLink>
             <NavLink to="/admin/puestos" className={navClass}>

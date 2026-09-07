@@ -13,7 +13,6 @@ import {
   BTN_SECONDARY,
   CAMPO,
   PAGE_SECTION,
-  PAGE_SUBTITLE,
   TABLE,
   TD,
   TH,
@@ -318,13 +317,6 @@ export function ListadosPage() {
           totales={totalesColumna}
         />
       </DashboardBody>
-
-      <p className={`shrink-0 ${PAGE_SUBTITLE} px-0.5`}>
-        Conciliaciones y festivo son compatibles (ej. sábado festivo con M →
-        conciliación sábado mañana + festivo; con T → conciliación sábado tarde
-        + festivo). Noche sábado con domingo festivo suma festivo por el tramo
-        festivo por el tramo del turno 22–06 en domingo si ese día no se cobró ya.
-      </p>
     </section>
   )
 }

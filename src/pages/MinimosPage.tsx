@@ -504,7 +504,7 @@ export function MinimosPage() {
                     ...grupo.puestos.map((puesto) => renderFilaPuesto(puesto)),
                   ])}
                 </tbody>
-                <tfoot className="sticky bottom-0 z-20 text-[9px]">
+                <tfoot className="text-[9px]">
                   <tr className="bg-slate-800 text-white">
                     <td
                       className={`${CELDA} ${COL_PUESTO} border-r border-slate-600 bg-slate-800 py-0.5 font-semibold`}

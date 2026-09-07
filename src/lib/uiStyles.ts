@@ -30,6 +30,9 @@ export const BTN_GHOST =
 export const BTN_DANGER =
   'inline-flex h-7 items-center rounded-md border border-red-200 bg-white px-2 text-[10px] font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50'
 
+export const BTN_SUCCESS =
+  'inline-flex h-7 items-center gap-1 rounded-md bg-emerald-700 px-2 text-[10px] font-semibold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50'
+
 export const CAMPO =
   'h-7 rounded-md border border-slate-200 bg-white px-1.5 text-[10px] text-slate-900 outline-none focus:border-slate-400'
 

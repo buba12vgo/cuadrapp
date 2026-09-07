@@ -5,6 +5,7 @@ import {
   DashboardBody,
   DashboardMain,
   DashboardMainScroll,
+  DashboardSidebar,
 } from '@/components/ui/DashboardLayout'
 import {
   ALERT_ERROR,
@@ -13,6 +14,7 @@ import {
   BADGE_OK,
   BTN_PRIMARY,
   BTN_SECONDARY,
+  BTN_SUCCESS,
   CAMPO,
   PAGE_SECTION,
 } from '@/lib/uiStyles'
@@ -841,7 +843,7 @@ export function CuadranteMensualPage() {
             </button>
             <button
               type="button"
-              className="inline-flex h-7 items-center rounded-md bg-emerald-700 px-2 text-[10px] font-semibold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+              className={BTN_SUCCESS}
               disabled={
                 !cuadranteListo || guardandoCuadrante || generandoCuadrante || !firebaseOk
               }
@@ -1164,7 +1166,7 @@ export function CuadranteMensualPage() {
         </table>
           </DashboardMainScroll>
         </DashboardMain>
-        <div className="flex min-h-0 w-full shrink-0 flex-col gap-1.5 overflow-y-auto xl:w-52 2xl:w-56">
+        <DashboardSidebar>
           <CuadranteResumenPanel
             agentesVisibles={agentesVisibles.length}
             diaDesde={diaDesde}
@@ -1176,7 +1178,7 @@ export function CuadranteMensualPage() {
             filtroTurno={filtroTurno}
             onFiltroTurno={setFiltroTurno}
           />
-        </div>
+        </DashboardSidebar>
       </DashboardBody>
 
       {popoverCelda ? (

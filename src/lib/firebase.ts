@@ -88,6 +88,10 @@ export async function ensureFirebase(): Promise<boolean> {
   initPromise = (async () => {
     try {
       const res = await fetchWithTimeout('/api/firebase-config', FIREBASE_INIT_TIMEOUT_MS)
+      const contentType = res.headers.get('content-type') ?? ''
+      if (!contentType.includes('application/json')) {
+        return false
+      }
       const body = (await res.json()) as {
         ok?: boolean
         config?: FirebaseWebConfig

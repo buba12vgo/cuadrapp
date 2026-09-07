@@ -6,11 +6,13 @@ import {
   KpiGrid2,
   KpiSection,
 } from '@/components/ui/DashboardKpi'
+
 import {
   ETIQUETA_VARIABLE_COBRO,
   TIPOS_VARIABLE_COBRO,
   type ConteoVariablesCobro,
 } from '@/lib/variablesCobro'
+import { PAGE_SUBTITLE } from '@/lib/uiStyles'
 
 type Props = {
   agentesCount: number
@@ -39,6 +41,13 @@ export function ListadosResumenPanel({ agentesCount, totales }: Props) {
             />
           ))}
         </div>
+      </KpiSection>
+      <KpiSection title="Notas">
+        <p className={PAGE_SUBTITLE}>
+          Conciliaciones y festivo son compatibles (ej. sábado festivo con M →
+          conciliación sábado mañana + festivo). Noche sábado con domingo festivo
+          suma festivo por el tramo 22–06 en domingo si ese día no se cobró ya.
+        </p>
       </KpiSection>
     </DashboardSidebar>
   )

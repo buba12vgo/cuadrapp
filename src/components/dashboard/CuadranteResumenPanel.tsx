@@ -1,5 +1,4 @@
 import { CalendarRange, Users } from 'lucide-react'
-import { DashboardSidebar } from '@/components/ui/DashboardLayout'
 import { KpiCard, KpiGrid2, KpiHighlight } from '@/components/ui/DashboardKpi'
 
 type Props = {
@@ -20,7 +19,7 @@ export function CuadranteResumenPanel({
   const diasRango = Math.max(0, diaHasta - diaDesde + 1)
 
   return (
-    <DashboardSidebar>
+    <>
       <KpiGrid2>
         <KpiCard icon={Users} label="Agentes" value={agentesVisibles} />
         <KpiCard icon={CalendarRange} label="Días" value={diasRango} />
@@ -38,6 +37,6 @@ export function CuadranteResumenPanel({
           subtitle={`de ${nDias}`}
         />
       </KpiGrid2>
-    </DashboardSidebar>
+    </>
   )
 }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { PlanAnualResumenPanel } from '@/components/dashboard/PlanAnualResumenPanel'
+import { CollapsibleNotice } from '@/components/ui/CollapsibleNotice'
 import {
   DashboardBody,
   DashboardMain,
@@ -492,14 +493,42 @@ export function PlanAnualPage() {
       ) : null}
 
       {hayPlanAnio && marcas ? (
-        <div
-          className={`shrink-0 max-h-24 overflow-y-auto border px-2 py-1 text-xs ${
+        <CollapsibleNotice
+          tone={
             marcas.anioCuadra &&
             marcas.mesesSinCuadrar.length === 0 &&
             marcas.agentesSinCuadrar.length === 0
-              ? 'border-green-300 bg-green-50 text-green-900'
-              : 'border-amber-300 bg-amber-50 text-amber-950'
-          }`}
+              ? 'success'
+              : 'warn'
+          }
+          defaultOpen={
+            !(
+              marcas.anioCuadra &&
+              marcas.mesesSinCuadrar.length === 0 &&
+              marcas.agentesSinCuadrar.length === 0
+            )
+          }
+          summary={
+            marcas.anioCuadra &&
+            marcas.mesesSinCuadrar.length === 0 &&
+            marcas.agentesSinCuadrar.length === 0
+              ? 'Plan cuadrado (% global, meses y patrones obligatorios).'
+              : [
+                  marcas.preferenciasIncompatibles
+                    ? 'Plantilla no alcanza el % global del selector.'
+                    : !marcas.anioCuadra
+                      ? 'No se ha podido cuadrar el % anual con la plantilla.'
+                      : 'Revisar marcas del plan.',
+                  marcas.mesesSinCuadrar.length > 0
+                    ? `${marcas.mesesSinCuadrar.length} mes(es) sin cuadrar.`
+                    : null,
+                  marcas.agentesSinCuadrar.length > 0
+                    ? `${marcas.agentesSinCuadrar.length} ficha(s) con infracciones.`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(' ')
+          }
         >
           {marcas.preferenciasIncompatibles ? (
             <p>
@@ -547,7 +576,7 @@ export function PlanAnualPage() {
               . Marcadas a la izquierda; columna Pat indica el patrón asignado.
             </p>
           ) : null}
-          <p className="text-[11px] text-slate-600">
+          <p className="text-slate-600">
             El generador prioriza los efectivos mensuales (M/T/N exactos según
             el % y los activos del mes) por encima del % global y de la
             preferencia de la ficha (con limitaciones). Sin limitación de
@@ -557,12 +586,7 @@ export function PlanAnualPage() {
             <span className="font-semibold">Pat</span> en verde cuando cumple
             patrón obligatorio o asignado.
           </p>
-          {marcas.anioCuadra &&
-          marcas.mesesSinCuadrar.length === 0 &&
-          marcas.agentesSinCuadrar.length === 0 ? (
-            <p>Plan cuadrado (% global, meses y patrones obligatorios).</p>
-          ) : null}
-        </div>
+        </CollapsibleNotice>
       ) : null}
 
       <DashboardBody>

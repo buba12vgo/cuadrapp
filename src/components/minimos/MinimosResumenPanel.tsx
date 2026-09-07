@@ -18,9 +18,9 @@ type Props = {
 }
 
 const TURNO_META = [
-  { clave: 'M' as const, label: 'Mañana', icon: Sun, color: 'bg-amber-400' },
-  { clave: 'T' as const, label: 'Tarde', icon: Sunset, color: 'bg-orange-400' },
-  { clave: 'N' as const, label: 'Noche', icon: Moon, color: 'bg-indigo-400' },
+  { clave: 'M' as const, label: 'M', icon: Sun, color: 'bg-amber-400' },
+  { clave: 'T' as const, label: 'T', icon: Sunset, color: 'bg-orange-400' },
+  { clave: 'N' as const, label: 'N', icon: Moon, color: 'bg-indigo-400' },
 ]
 
 export function MinimosResumenPanel({
@@ -36,47 +36,45 @@ export function MinimosResumenPanel({
   const coberturaOk = plantillaOperativa >= stats.picoTurno
 
   return (
-    <aside className="flex w-full shrink-0 flex-col gap-3 lg:w-72 xl:w-80">
-      <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-          <div className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-            <CalendarRange className="h-3.5 w-3.5" />
-            Total semanal
+    <aside className="flex w-full shrink-0 flex-col gap-1.5 xl:w-52 2xl:w-56">
+      <div className="grid grid-cols-2 gap-1.5">
+        <div className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
+          <div className="mb-0.5 flex items-center gap-1 text-[8px] font-semibold uppercase tracking-wide text-slate-500">
+            <CalendarRange className="h-2.5 w-2.5" />
+            Semana
           </div>
-          <p className="text-2xl font-bold tabular-nums text-slate-900">
+          <p className="text-lg font-bold tabular-nums leading-tight text-slate-900">
             {stats.totalSemanal}
           </p>
-          <p className="text-[11px] text-slate-500">plazas mínimas acumuladas</p>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-          <div className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-            <Users className="h-3.5 w-3.5" />
+        <div className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
+          <div className="mb-0.5 flex items-center gap-1 text-[8px] font-semibold uppercase tracking-wide text-slate-500">
+            <Users className="h-2.5 w-2.5" />
             Plantilla
           </div>
-          <p className="text-2xl font-bold tabular-nums text-slate-900">
+          <p className="text-lg font-bold tabular-nums leading-tight text-slate-900">
             {plantillaOperativa}
           </p>
-          <p className="text-[11px] text-slate-500">agentes operativos</p>
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-          Cobertura de pico
+      <div className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
+        <p className="mb-1 text-[8px] font-semibold uppercase tracking-wide text-slate-500">
+          Pico turno
         </p>
-        <div className="mb-1 flex items-baseline justify-between gap-2">
-          <span className="text-sm font-semibold text-slate-800">
-            {stats.picoTurno} plazas / turno
+        <div className="mb-0.5 flex items-baseline justify-between gap-1">
+          <span className="text-[11px] font-semibold text-slate-800">
+            {stats.picoTurno}
           </span>
           <span
-            className={`text-xs font-bold tabular-nums ${
+            className={`text-[10px] font-bold tabular-nums ${
               coberturaOk ? 'text-emerald-600' : 'text-amber-600'
             }`}
           >
             {coberturaPct}%
           </span>
         </div>
-        <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+        <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
           <div
             className={`h-full rounded-full transition-all ${
               coberturaOk ? 'bg-emerald-500' : 'bg-amber-500'
@@ -84,44 +82,37 @@ export function MinimosResumenPanel({
             style={{ width: `${coberturaPct}%` }}
           />
         </div>
-        <p className="mt-1.5 text-[11px] text-slate-500">
-          {coberturaOk
-            ? 'La plantilla cubre el pico diario por turno.'
-            : 'El pico de un turno supera la plantilla operativa.'}
-        </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3">
-          <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase text-emerald-800">
-            <ArrowUp className="h-3.5 w-3.5" />
-            Mayor cobertura
+      <div className="grid grid-cols-2 gap-1.5">
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-1.5">
+          <div className="mb-0.5 flex items-center gap-0.5 text-[8px] font-semibold uppercase text-emerald-800">
+            <ArrowUp className="h-2.5 w-2.5" />
+            Máx
           </div>
-          <p className="text-lg font-bold text-emerald-950">
+          <p className="text-sm font-bold leading-tight text-emerald-950">
             {stats.diaMayor.clave}
           </p>
-          <p className="text-[11px] text-emerald-800/80">
-            {stats.diaMayor.label} · {stats.diaMayor.total} plazas
-          </p>
+          <p className="text-[9px] text-emerald-800/80">{stats.diaMayor.total}</p>
         </div>
-        <div className="rounded-xl border border-sky-200 bg-sky-50/60 p-3">
-          <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase text-sky-800">
-            <ArrowDown className="h-3.5 w-3.5" />
-            Menor cobertura
+        <div className="rounded-lg border border-sky-200 bg-sky-50/60 p-1.5">
+          <div className="mb-0.5 flex items-center gap-0.5 text-[8px] font-semibold uppercase text-sky-800">
+            <ArrowDown className="h-2.5 w-2.5" />
+            Mín
           </div>
-          <p className="text-lg font-bold text-sky-950">{stats.diaMenor.clave}</p>
-          <p className="text-[11px] text-sky-800/80">
-            {stats.diaMenor.label} · {stats.diaMenor.total} plazas
+          <p className="text-sm font-bold leading-tight text-sky-950">
+            {stats.diaMenor.clave}
           </p>
+          <p className="text-[9px] text-sky-800/80">{stats.diaMenor.total}</p>
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-        <div className="mb-3 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-          <BarChart3 className="h-3.5 w-3.5" />
-          Carga por turno (semana)
+      <div className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
+        <div className="mb-1.5 flex items-center gap-1 text-[8px] font-semibold uppercase tracking-wide text-slate-500">
+          <BarChart3 className="h-2.5 w-2.5" />
+          Por turno
         </div>
-        <div className="space-y-3">
+        <div className="space-y-1.5">
           {TURNO_META.map(({ clave, label, icon: Icon, color }) => {
             const valor = stats.porTurnoSemana[clave]
             const pct =
@@ -130,16 +121,16 @@ export function MinimosResumenPanel({
                 : 0
             return (
               <div key={clave}>
-                <div className="mb-1 flex items-center justify-between text-xs">
-                  <span className="flex items-center gap-1.5 font-medium text-slate-700">
-                    <Icon className="h-3.5 w-3.5 text-slate-500" />
+                <div className="mb-0.5 flex items-center justify-between text-[10px]">
+                  <span className="flex items-center gap-1 font-medium text-slate-700">
+                    <Icon className="h-2.5 w-2.5 text-slate-500" />
                     {label}
                   </span>
                   <span className="font-bold tabular-nums text-slate-900">
                     {valor}
                   </span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                <div className="h-1 overflow-hidden rounded-full bg-slate-100">
                   <div
                     className={`h-full rounded-full ${color}`}
                     style={{ width: `${pct}%` }}
@@ -151,20 +142,20 @@ export function MinimosResumenPanel({
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-          Totales por día
+      <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+        <p className="mb-1 text-[8px] font-semibold uppercase tracking-wide text-slate-500">
+          Por día
         </p>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="grid grid-cols-4 gap-1">
           {stats.porDia.map((dia) => (
             <div
               key={dia.dia}
-              className="min-w-[3.25rem] rounded-lg border border-slate-200 bg-white px-2 py-1 text-center"
+              className="rounded border border-slate-200 bg-white px-1 py-0.5 text-center"
             >
-              <div className="text-[10px] font-semibold text-slate-500">
+              <div className="text-[8px] font-semibold text-slate-500">
                 {dia.clave}
               </div>
-              <div className="text-sm font-bold tabular-nums text-slate-900">
+              <div className="text-[11px] font-bold tabular-nums leading-tight text-slate-900">
                 {dia.total}
               </div>
             </div>

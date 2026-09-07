@@ -34,10 +34,9 @@ import {
 const TURNOS: TurnoOperativo[] = ['M', 'T', 'N']
 const DEBOUNCE_MS = 700
 
-const CELDA =
-  'border-b border-slate-100 px-1.5 py-2 align-middle last:border-r-0'
+const CELDA = 'border-b border-slate-100 px-0 py-0 align-middle'
 const COL_PUESTO =
-  'sticky left-0 z-10 min-w-[10.5rem] max-w-[12rem] bg-white px-2'
+  'sticky left-0 z-10 w-[5.25rem] min-w-[5.25rem] max-w-[5.25rem] bg-white px-0.5'
 
 function etiquetasDias(dias: DiaSemana[]) {
   return dias
@@ -224,11 +223,11 @@ export function MinimosPage() {
           className={`${CELDA} ${COL_PUESTO} border-r border-slate-200 group-hover/row:bg-slate-50`}
           title={`${puesto.abreviatura} · ${puesto.nombre}`}
         >
-          <div className="font-medium leading-snug text-slate-800">
-            {puesto.nombre}
-          </div>
-          <div className="font-mono text-[10px] font-semibold text-slate-400">
-            {puesto.abreviatura}
+          <div className="truncate text-[9px] leading-none text-slate-800">
+            <span className="font-mono text-[8px] font-bold text-slate-400">
+              {puesto.abreviatura}
+            </span>
+            <span className="ml-0.5 font-medium">{puesto.nombre}</span>
           </div>
         </td>
         {DIAS_SEMANA_CONFIG.map((item) => {
@@ -258,58 +257,55 @@ export function MinimosPage() {
   }
 
   return (
-    <section className="flex h-full min-h-0 flex-col gap-3">
-      <header className="shrink-0 space-y-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="text-base font-bold text-slate-900">
-              Mínimos semanales
-            </h1>
-            <p className="text-xs text-slate-500">
-              Dotación mínima por puesto y día. Guardado automático en
-              Firestore.
+    <section className="flex h-full min-h-0 flex-col gap-2">
+      <header className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0">
+            <h1 className="text-sm font-bold text-slate-900">Mínimos semanales</h1>
+            <p className="text-[10px] text-slate-500">
+              Dotación por puesto y día · guardado automático
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1">
             {guardando ? (
-              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] text-slate-600">
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">
                 Guardando…
               </span>
             ) : null}
             {guardadoOk ? (
-              <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-800">
+              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
                 Guardado
               </span>
             ) : null}
             {pendiente && !guardando ? (
-              <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-medium text-amber-800">
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">
                 Pendiente
               </span>
             ) : null}
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+        <div className="mt-2 flex flex-wrap items-center gap-1 border-t border-slate-100 pt-2">
           <button
             type="button"
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-slate-900 px-3 text-xs font-semibold text-white shadow-sm hover:bg-slate-800 disabled:opacity-50"
+            className="inline-flex h-7 items-center gap-1 rounded-md bg-slate-900 px-2 text-[10px] font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
             disabled={puestos.length === 0}
             onClick={() => setPanelCopiaAbierto((abierto) => !abierto)}
             aria-expanded={panelCopiaAbierto}
           >
-            <Copy className="h-3.5 w-3.5" />
-            Copiar {diaInfo.clave} → otros días
+            <Copy className="h-3 w-3" />
+            Copiar {diaInfo.clave}
           </button>
 
           <div className="relative" ref={menuPlantillasRef}>
             <button
               type="button"
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              className="inline-flex h-7 items-center gap-1 rounded-md border border-slate-200 bg-white px-2 text-[10px] font-semibold text-slate-700 hover:bg-slate-50"
               onClick={() => setMenuPlantillasAbierto((v) => !v)}
               aria-expanded={menuPlantillasAbierto}
             >
-              <LayoutTemplate className="h-3.5 w-3.5" />
-              Plantillas rápidas
+              <LayoutTemplate className="h-3 w-3" />
+              Plantillas
             </button>
             {menuPlantillasAbierto ? (
               <div className="absolute left-0 z-30 mt-1 min-w-[14rem] rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
@@ -340,21 +336,21 @@ export function MinimosPage() {
 
           <button
             type="button"
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            className="inline-flex h-7 items-center gap-1 rounded-md border border-slate-200 bg-white px-2 text-[10px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
             disabled={puestos.length === 0}
             onClick={restablecerDefecto}
           >
-            <RotateCcw className="h-3.5 w-3.5" />
+            <RotateCcw className="h-3 w-3" />
             Restablecer
           </button>
 
           <button
             type="button"
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            className="inline-flex h-7 items-center gap-1 rounded-md border border-slate-200 bg-white px-2 text-[10px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
             disabled={puestos.length === 0}
             onClick={() => exportarMinimosExcel(puestos, minimos)}
           >
-            <Download className="h-3.5 w-3.5" />
+            <Download className="h-3 w-3" />
             Exportar
           </button>
         </div>
@@ -426,19 +422,30 @@ export function MinimosPage() {
         </p>
       ) : null}
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row">
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex min-h-0 flex-1 flex-col gap-2 xl:flex-row">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
           {puestos.length === 0 ? (
-            <p className="px-4 py-12 text-center text-sm text-slate-500">
+            <p className="px-4 py-8 text-center text-xs text-slate-500">
               Primero configura puestos en el panel Puestos.
             </p>
           ) : (
             <div className="min-h-0 flex-1 overflow-auto">
-              <table className="w-max min-w-full border-collapse text-xs">
+              <table className="w-full min-w-0 border-collapse text-[9px]">
+                <colgroup>
+                  <col className="w-[5.25rem]" />
+                  {DIAS_SEMANA_CONFIG.flatMap((item) =>
+                    TURNOS.map((turno) => (
+                      <col
+                        key={`${item.dia}-${turno}`}
+                        className="w-[1.35rem]"
+                      />
+                    )),
+                  )}
+                </colgroup>
                 <thead className="sticky top-0 z-20 bg-slate-50/95 backdrop-blur-sm">
                   <tr>
                     <th
-                      className={`${CELDA} ${COL_PUESTO} sticky left-0 z-30 border-b border-r border-slate-200 bg-slate-50 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500`}
+                      className={`${CELDA} ${COL_PUESTO} sticky left-0 z-30 border-b border-r border-slate-200 bg-slate-50 py-0.5 text-left text-[8px] font-semibold uppercase tracking-wide text-slate-500`}
                       rowSpan={2}
                     >
                       Puesto
@@ -449,7 +456,7 @@ export function MinimosPage() {
                         <th
                           key={item.dia}
                           colSpan={3}
-                          className={`border-b border-slate-200 px-1 py-2 text-center text-xs font-bold ${
+                          className={`border-b border-slate-200 px-0 py-0.5 text-center text-[10px] font-bold ${
                             item.dia !== 1 ? 'border-l border-slate-200' : ''
                           } ${esFinde(item.dia) ? 'bg-slate-100' : ''} ${
                             activo
@@ -459,7 +466,7 @@ export function MinimosPage() {
                         >
                           <button
                             type="button"
-                            className="w-full rounded-md px-1 py-0.5 hover:bg-white/60"
+                            className="w-full rounded px-0.5 py-0 hover:bg-white/60"
                             title={`${item.label} — origen al copiar`}
                             onClick={() => cambiarDiaActivo(item.dia)}
                           >
@@ -469,12 +476,12 @@ export function MinimosPage() {
                       )
                     })}
                   </tr>
-                  <tr className="text-[10px] font-semibold uppercase text-slate-400">
+                  <tr className="text-[8px] font-semibold uppercase text-slate-400">
                     {DIAS_SEMANA_CONFIG.map((item) =>
                       TURNOS.map((turno, indiceTurno) => (
                         <th
                           key={`${item.dia}-${turno}`}
-                          className={`border-b border-slate-200 px-1 py-1 ${
+                          className={`border-b border-slate-200 px-0 py-0.5 ${
                             indiceTurno === 0 ? 'border-l border-slate-200' : ''
                           } ${esFinde(item.dia) ? 'bg-slate-100/80' : 'bg-slate-50'} ${
                             diaActivo === item.dia ? 'bg-amber-50 text-amber-800' : ''
@@ -491,10 +498,10 @@ export function MinimosPage() {
                     <tr key={`cat-${grupo.categoria}`} className="bg-slate-50/90">
                       <td
                         colSpan={1 + DIAS_SEMANA_CONFIG.length * 3}
-                        className="sticky left-0 border-y border-slate-200 px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500"
+                        className="sticky left-0 border-y border-slate-200 px-1 py-0.5 text-[8px] font-bold uppercase tracking-wider text-slate-500"
                       >
-                        <span className="inline-flex items-center gap-1.5">
-                          <Sparkles className="h-3 w-3" />
+                        <span className="inline-flex items-center gap-1">
+                          <Sparkles className="h-2.5 w-2.5" />
                           {grupo.categoria}
                         </span>
                       </td>
@@ -502,14 +509,14 @@ export function MinimosPage() {
                     ...grupo.puestos.map((puesto) => renderFilaPuesto(puesto)),
                   ])}
                 </tbody>
-                <tfoot className="sticky bottom-0 z-20 text-xs">
+                <tfoot className="sticky bottom-0 z-20 text-[9px]">
                   <tr className="bg-slate-800 text-white">
                     <td
-                      className={`${CELDA} ${COL_PUESTO} border-r border-slate-600 bg-slate-800 font-semibold`}
+                      className={`${CELDA} ${COL_PUESTO} border-r border-slate-600 bg-slate-800 py-0.5 font-semibold`}
                     >
-                      <span className="inline-flex items-center gap-1.5">
-                        <Sigma className="h-3.5 w-3.5" />
-                        Σ turnos
+                      <span className="inline-flex items-center gap-0.5">
+                        <Sigma className="h-2.5 w-2.5" />
+                        Σ
                       </span>
                     </td>
                     {DIAS_SEMANA_CONFIG.map((item) => {
@@ -518,7 +525,7 @@ export function MinimosPage() {
                       return TURNOS.map((turno, indiceTurno) => (
                         <td
                           key={`sum-${item.dia}-${turno}`}
-                          className={`${CELDA} text-center font-bold tabular-nums ${
+                          className={`${CELDA} py-0.5 text-center font-bold tabular-nums ${
                             indiceTurno === 0 ? 'border-l border-slate-600' : ''
                           } ${columnaActiva ? 'bg-slate-700' : 'bg-slate-800'}`}
                         >
@@ -529,9 +536,9 @@ export function MinimosPage() {
                   </tr>
                   <tr className="bg-slate-900 text-white">
                     <td
-                      className={`${CELDA} ${COL_PUESTO} border-r border-slate-700 bg-slate-900 font-bold`}
+                      className={`${CELDA} ${COL_PUESTO} border-r border-slate-700 bg-slate-900 py-0.5 font-bold`}
                     >
-                      Total día
+                      Total
                     </td>
                     {DIAS_SEMANA_CONFIG.map((item) => {
                       const sums = sumatoriosDia(item.dia, puestos, minimos)
@@ -540,7 +547,7 @@ export function MinimosPage() {
                         <td
                           key={`total-${item.dia}`}
                           colSpan={3}
-                          className={`${CELDA} border-l border-slate-700 text-center text-sm font-bold tabular-nums ${
+                          className={`${CELDA} border-l border-slate-700 py-0.5 text-center text-[10px] font-bold tabular-nums ${
                             columnaActiva ? 'bg-slate-800' : 'bg-slate-900'
                           }`}
                         >

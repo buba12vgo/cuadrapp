@@ -261,6 +261,18 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
       'generarCuadranteMensual · equilibrarCoberturaDiaria · equilibrarCoberturaPorTurno',
   },
   {
+    id: 'findes-mes-max',
+    categoria: 'CUADRANTE',
+    titulo: 'Tope de fines de semana al mes',
+    descripcion:
+      'Cada policía puede trabajar 2 fines de semana al mes; excepcionalmente 3, nunca más. Sábado y domingo cuentan como un finde si se trabaja alguno de los dos.',
+    estado: 'implementada',
+    detalle:
+      'Al autogenerar se priorizan filas con 2 findes laborados y se rechazan cuadrantes con más de 3. El pie del cuadrante muestra «nW» (findes del mes): verde ≤2, ámbar 3, rojo >3.',
+    referencia:
+      'OBJETIVO_FINDES_MES = 2 · MAX_FINDES_MES = 3 · findesLaboradosEnMes',
+  },
+  {
     id: 'findes-consecutivos-max',
     categoria: 'CUADRANTE',
     titulo: 'Fines de semana consecutivos',

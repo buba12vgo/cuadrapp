@@ -63,7 +63,7 @@ import {
   sumatorioFMensual,
   totalConciliaciones,
 } from '@/lib/variablesCobro'
-import { maxFindesConsecutivosLaborados } from '@/lib/finesSemana'
+import { maxFindesConsecutivosLaborados, findesLaboradosEnMes, MAX_FINDES_MES, OBJETIVO_FINDES_MES } from '@/lib/finesSemana'
 import type { RolPolicia, Turno } from '@/types'
 
 const MESES = [
@@ -105,7 +105,7 @@ const ANCHO_AGENTE = 36
 const CELDA =
   'h-7 border border-slate-400 px-0.5 py-0 text-xs leading-none'
 const CELDA_PIE =
-  'h-8 border border-slate-400 border-t-2 border-t-slate-500 px-0 py-0 text-[9px] leading-tight'
+  'h-9 border border-slate-400 border-t-2 border-t-slate-500 px-0 py-0 text-[9px] leading-tight'
 const CAMPO =
   'h-6 border border-slate-400 bg-white px-1 text-xs text-slate-900 outline-none focus:border-slate-700'
 
@@ -228,6 +228,16 @@ function claseSumatorioF(valor: number, valoresGrupo: number[]) {
   const maximo = Math.max(...valoresGrupo)
   const equilibrado = maximo - minimo <= 1 || valor <= minimo + 1
   return claseIndicador(equilibrado)
+}
+
+function claseFindesMes(cantidad: number) {
+  if (cantidad > MAX_FINDES_MES) {
+    return 'bg-red-200 font-bold text-red-900'
+  }
+  if (cantidad > OBJETIVO_FINDES_MES) {
+    return 'bg-amber-100 font-bold text-amber-900'
+  }
+  return 'bg-green-100 font-bold text-green-800'
 }
 
 export function CuadranteMensualPage() {
@@ -1103,7 +1113,8 @@ export function CuadranteMensualPage() {
                 const fila = cuadrante[agente.id] ?? []
                 const turnoPlan = turnoPlanMes(agente, planAnual, mes)
                 const trabajados = totalTrabajados(fila)
-                const findes = totalFindesTrabajados(fila, anio, mes)
+                const findesDias = totalFindesTrabajados(fila, anio, mes)
+                const findesMes = findesLaboradosEnMes(fila, anio, mes)
                 const findesConsec = maxFindesConsecutivosLaborados(fila, anio, mes)
                 const variables = contarVariablesCobroAgente(
                   fila,
@@ -1123,7 +1134,7 @@ export function CuadranteMensualPage() {
                     key={agente.id}
                     className={`${CELDA_PIE} bg-slate-200`}
                     style={{ width: ANCHO_AGENTE, minWidth: ANCHO_AGENTE }}
-                    title={`Trabajados ${trabajados} / ${objetivoFila} · F=${sumatorioF} (${festivos} fest. + ${conciliaciones} conc.) · Findes laborados ${findes} · Máx. findes seguidos ${findesConsec}`}
+                    title={`Trabajados ${trabajados} / ${objetivoFila} · Findes ${findesMes}/${OBJETIVO_FINDES_MES} (máx. ${MAX_FINDES_MES}) · ${findesDias} días finde · Máx. seguidos ${findesConsec} · F=${sumatorioF} (${festivos} fest. + ${conciliaciones} conc.)`}
                   >
                     <div className="flex h-full flex-col">
                       <span
@@ -1132,6 +1143,13 @@ export function CuadranteMensualPage() {
                         )}`}
                       >
                         {trabajados}d
+                      </span>
+                      <span
+                        className={`flex flex-1 items-center justify-center text-[9px] leading-none ${claseFindesMes(
+                          findesMes,
+                        )}`}
+                      >
+                        {findesMes}f
                       </span>
                       <span
                         className={`flex flex-1 items-center justify-center ${claseSumatorioF(

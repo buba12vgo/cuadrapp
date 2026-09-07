@@ -21,10 +21,14 @@ import {
 } from '@/lib/convenio'
 import {
   MAX_FINDES_CONSECUTIVOS,
+  MAX_FINDES_MES,
   equilibrarFindesConsecutivos,
+  equilibrarFindesLaboradosMes,
   esFindePartido,
   countFindesPartidos,
+  findesLaboradosEnMes,
   maxFindesConsecutivosLaborados,
+  OBJETIVO_FINDES_MES,
   paresFindeCompletos,
 } from '@/lib/finesSemana'
 
@@ -288,6 +292,7 @@ function filaAceptable(
     if (original[i] === 'L' && prueba[i] !== 'L') return false
   }
   if (!filaSinGraves(prueba)) return false
+  if (findesLaboradosEnMes(prueba, anio, mes) > MAX_FINDES_MES) return false
   if (
     countFindesPartidos(prueba, anio, mes) >
     countFindesPartidos(original, anio, mes)
@@ -755,8 +760,13 @@ export function generarFilaMensual(
       offsetDescansoInicial + extra,
     )
     if (!filaSinGraves(candidata)) continue
+    const findesMes = findesLaboradosEnMes(candidata, anio, mes)
+    if (findesMes > MAX_FINDES_MES) continue
     const partidos = countFindesPartidos(candidata, anio, mes)
-    const score = partidos * 100 + extra
+    const score =
+      partidos * 100 +
+      extra +
+      Math.max(0, findesMes - OBJETIVO_FINDES_MES) * 40
     if (score < mejorScore) {
       fila = candidata
       mejorScore = score
@@ -786,6 +796,16 @@ export function generarFilaMensual(
     )
     if (filaAceptable(conFindes, fila, anio, mes, false)) {
       fila = conFindes
+    }
+    const conTopeFindes = equilibrarFindesLaboradosMes(
+      fila,
+      anio,
+      mes,
+      turnoBase,
+      (prueba, original) => filaAceptable(prueba, original, anio, mes, false),
+    )
+    if (filaAceptable(conTopeFindes, fila, anio, mes, false)) {
+      fila = conTopeFindes
     }
     fila = unificarFindesPartidos(fila, turnoBase, anio, mes)
   }

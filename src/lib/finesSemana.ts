@@ -4,6 +4,12 @@ import { esDiaTrabajado, esFinDeSemana } from '@/lib/convenio'
 /** Máximo de fines de semana laborables seguidos (semanas consecutivas). */
 export const MAX_FINDES_CONSECUTIVOS = 2
 
+/** Objetivo de fines de semana laborados en el mes (sábado+domingo como unidad). */
+export const OBJETIVO_FINDES_MES = 2
+
+/** Tope mensual: excepcionalmente 3 findes; nunca más. */
+export const MAX_FINDES_MES = 3
+
 export function semanaCalendarioId(anio: number, mes: number, dia: number) {
   const fecha = new Date(anio, mes - 1, dia)
   const js = fecha.getDay()
@@ -59,6 +65,20 @@ export function maxFindesConsecutivosLaborados(
     }
   }
   return maximo
+}
+
+/** Cuenta fines de semana laborados en el mes (semana con sábado o domingo trabajado). */
+export function findesLaboradosEnMes(
+  fila: Turno[],
+  anio: number,
+  mes: number,
+) {
+  const semanas = semanasDelMes(anio, mes, fila.length)
+  let total = 0
+  for (const semana of semanas) {
+    if (finDeSemanaLaboradoEnSemana(fila, anio, mes, semana)) total += 1
+  }
+  return total
 }
 
 export function finDeSemanaLaboradoEnDia(
@@ -202,6 +222,90 @@ export function equilibrarFindesConsecutivos(
         for (const dia of pendientes) prueba[dia - 1] = turnoTrabajo
         if (!valida(prueba)) return
         if (maxFindesConsecutivosLaborados(prueba, anio, mes) >= racha) return
+        for (let i = 0; i < nDias; i++) copia[i] = prueba[i]
+        intercambiado = true
+        return
+      }
+      for (let i = inicio; i < huecosSemana.length; i++) {
+        pendientes.push(huecosSemana[i])
+        elegir(i + 1, pendientes)
+        pendientes.pop()
+        if (intercambiado) return
+      }
+    }
+    elegir(0, [])
+    if (!intercambiado) break
+  }
+
+  return copia
+}
+
+/** Mueve findes laborados a días entre semana si superan el tope mensual. */
+export function equilibrarFindesLaboradosMes(
+  fila: Turno[],
+  anio: number,
+  mes: number,
+  turnoTrabajo: Exclude<Turno, 'V' | 'D' | 'L'>,
+  esValida?: (prueba: Turno[], original: Turno[]) => boolean,
+): Turno[] {
+  const copia = [...fila]
+  const nDias = copia.length
+  const objetivoTrabajo = copia.filter((t) => esDiaTrabajado(t)).length
+
+  const valida = (prueba: Turno[]) => {
+    if (prueba.filter((t) => esDiaTrabajado(t)).length !== objetivoTrabajo) {
+      return false
+    }
+    if (
+      countFindesPartidos(prueba, anio, mes) >
+      countFindesPartidos(copia, anio, mes)
+    ) {
+      return false
+    }
+    if (esValida) return esValida(prueba, copia)
+    return true
+  }
+
+  for (let iter = 0; iter < 40; iter++) {
+    const totalAntes = findesLaboradosEnMes(copia, anio, mes)
+    if (totalAntes <= MAX_FINDES_MES) break
+
+    const semanas = semanasDelMes(anio, mes, nDias)
+    let semanaObjetivo: string | null = null
+    for (const semana of semanas) {
+      if (finDeSemanaLaboradoEnSemana(copia, anio, mes, semana)) {
+        semanaObjetivo = semana
+        break
+      }
+    }
+    if (!semanaObjetivo) break
+
+    const diasFindeTrabajo: number[] = []
+    for (let dia = 1; dia <= nDias; dia++) {
+      if (semanaCalendarioId(anio, mes, dia) !== semanaObjetivo) continue
+      if (!esFinDeSemana(anio, mes, dia)) continue
+      if (esDiaTrabajado(copia[dia - 1])) diasFindeTrabajo.push(dia)
+    }
+    if (diasFindeTrabajo.length === 0) break
+
+    const huecosSemana: number[] = []
+    for (let dia = 1; dia <= nDias; dia++) {
+      if (esFinDeSemana(anio, mes, dia)) continue
+      if (copia[dia - 1] !== 'D') continue
+      huecosSemana.push(dia)
+    }
+    if (huecosSemana.length < diasFindeTrabajo.length) break
+
+    let intercambiado = false
+    const k = diasFindeTrabajo.length
+    const elegir = (inicio: number, pendientes: number[]): void => {
+      if (intercambiado) return
+      if (pendientes.length === k) {
+        const prueba = [...copia]
+        for (const dia of diasFindeTrabajo) prueba[dia - 1] = 'D'
+        for (const dia of pendientes) prueba[dia - 1] = turnoTrabajo
+        if (!valida(prueba)) return
+        if (findesLaboradosEnMes(prueba, anio, mes) >= totalAntes) return
         for (let i = 0; i < nDias; i++) copia[i] = prueba[i]
         intercambiado = true
         return

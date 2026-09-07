@@ -8,6 +8,7 @@ import {
 import {
   MAX_FINDES_CONSECUTIVOS,
   MAX_FINDES_MES,
+  FINDES_UNICO_PROHIBIDO,
   esFindePartidoEnDia,
   finDeSemanaLaboradoEnDia,
   findesLaboradosEnMes,
@@ -23,6 +24,7 @@ export type CodigoRegla =
   | 'SALIDA_NOCHE'
   | 'FINDES_CONSECUTIVOS'
   | 'FINDES_MES_EXCESO'
+  | 'FINDE_UNICO_MES'
   | 'FINDE_PARTIDO'
 
 export const MENSAJE_REGLA: Record<CodigoRegla, string> = {
@@ -34,6 +36,7 @@ export const MENSAJE_REGLA: Record<CodigoRegla, string> = {
   SALIDA_NOCHE: 'Saliente de noche insuficiente (N + 3 D antes de M)',
   FINDES_CONSECUTIVOS: 'Más de 2 fines de semana seguidos trabajados',
   FINDES_MES_EXCESO: 'Más de 3 fines de semana trabajados en el mes',
+  FINDE_UNICO_MES: 'Solo 1 fin de semana trabajado en el mes (prohibido)',
   FINDE_PARTIDO: 'Finde partido (sábado y domingo deben ir juntos)',
 }
 
@@ -189,6 +192,12 @@ export function infraccionesCelda(
       findesLaboradosEnMes(fila, contexto.anio, contexto.mes) > MAX_FINDES_MES
     ) {
       infracciones.push('FINDES_MES_EXCESO')
+    }
+    if (
+      findesLaboradosEnMes(fila, contexto.anio, contexto.mes) ===
+      FINDES_UNICO_PROHIBIDO
+    ) {
+      infracciones.push('FINDE_UNICO_MES')
     }
     if (
       maxFindesConsecutivosLaborados(fila, contexto.anio, contexto.mes) >

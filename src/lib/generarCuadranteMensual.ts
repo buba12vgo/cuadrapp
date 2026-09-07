@@ -28,12 +28,13 @@ import {
 } from '@/lib/convenio'
 import {
   MAX_FINDES_CONSECUTIVOS,
-  MAX_FINDES_MES,
   equilibrarFindesConsecutivos,
   equilibrarFindesLaboradosMes,
+  equilibrarFindesUnicoMes,
   esFindePartido,
   countFindesPartidos,
   findesLaboradosEnMes,
+  findesMesCuadra,
   maxFindesConsecutivosLaborados,
   OBJETIVO_FINDES_MES,
   paresFindeCompletos,
@@ -315,7 +316,7 @@ function filaAceptable(
     if (original[i] === 'L' && prueba[i] !== 'L') return false
   }
   if (!filaSinGraves(prueba)) return false
-  if (findesLaboradosEnMes(prueba, anio, mes) > MAX_FINDES_MES) return false
+  if (!findesMesCuadra(findesLaboradosEnMes(prueba, anio, mes))) return false
   if (
     countFindesPartidos(prueba, anio, mes) >
     countFindesPartidos(original, anio, mes)
@@ -862,6 +863,16 @@ function refinarReglasFindesFilas(
     if (filaAceptable(conFindes, actualizada, anio, mes, true)) {
       actualizada = conFindes
     }
+    const conUnico = equilibrarFindesUnicoMes(
+      actualizada,
+      anio,
+      mes,
+      turno,
+      (prueba, original) => filaAceptable(prueba, original, anio, mes, true),
+    )
+    if (filaAceptable(conUnico, actualizada, anio, mes, true)) {
+      actualizada = conUnico
+    }
     const conTope = equilibrarFindesLaboradosMes(
       actualizada,
       anio,
@@ -916,12 +927,13 @@ export function generarFilaMensual(
     )
     if (!filaSinGraves(candidata)) continue
     const findesMes = findesLaboradosEnMes(candidata, anio, mes)
-    if (findesMes > MAX_FINDES_MES) continue
+    if (!findesMesCuadra(findesMes)) continue
     const partidos = countFindesPartidos(candidata, anio, mes)
     const score =
       partidos * 100 +
       extra +
-      Math.max(0, findesMes - OBJETIVO_FINDES_MES) * 40
+      Math.max(0, findesMes - OBJETIVO_FINDES_MES) * 40 +
+      (findesMes === 0 ? 5 : 0)
     if (score < mejorScore) {
       fila = candidata
       mejorScore = score
@@ -951,6 +963,16 @@ export function generarFilaMensual(
     )
     if (filaAceptable(conFindes, fila, anio, mes, false)) {
       fila = conFindes
+    }
+    const conUnico = equilibrarFindesUnicoMes(
+      fila,
+      anio,
+      mes,
+      turnoBase,
+      (prueba, original) => filaAceptable(prueba, original, anio, mes, false),
+    )
+    if (filaAceptable(conUnico, fila, anio, mes, false)) {
+      fila = conUnico
     }
     const conTopeFindes = equilibrarFindesLaboradosMes(
       fila,

@@ -18,12 +18,34 @@ export function AdminLayout() {
   return (
     <div className="flex h-svh flex-col bg-slate-50 text-slate-900">
       <header className="sticky top-0 z-50 shrink-0 border-b border-slate-200 bg-white">
-        <div className="flex items-center justify-between gap-2 px-2.5 py-2">
-          <p className="text-sm font-bold tracking-tight text-slate-900">Cuadrapp</p>
-          <nav
-            className="flex min-w-0 flex-1 justify-center gap-0.5 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            aria-label="Secciones"
-          >
+        <div className="flex items-center justify-between gap-2 px-2.5 py-1.5">
+          <p className="shrink-0 text-sm font-bold tracking-tight text-slate-900">
+            Cuadrapp
+          </p>
+          <div className="flex shrink-0 items-center gap-2">
+            {user?.photoURL ? (
+              <img
+                src={user.photoURL}
+                alt=""
+                className="h-6 w-6 rounded-full"
+              />
+            ) : null}
+            <span className="hidden max-w-[120px] truncate text-[10px] text-slate-600 sm:inline">
+              {user?.displayName ?? user?.email}
+            </span>
+            <button
+              type="button"
+              onClick={() => void signOut()}
+              className="rounded-md px-1.5 py-0.5 text-[10px] font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+            >
+              Salir
+            </button>
+          </div>
+        </div>
+        <nav
+          className="flex gap-0.5 overflow-x-auto overscroll-x-contain border-t border-slate-100 px-2.5 py-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          aria-label="Secciones"
+        >
             <NavLink to="/admin/agentes" className={navClass} end>
               Agentes
             </NavLink>
@@ -48,27 +70,7 @@ export function AdminLayout() {
             <NavLink to="/admin/reglas" className={navClass}>
               Reglas
             </NavLink>
-          </nav>
-          <div className="flex shrink-0 items-center gap-2">
-            {user?.photoURL ? (
-              <img
-                src={user.photoURL}
-                alt=""
-                className="h-6 w-6 rounded-full"
-              />
-            ) : null}
-            <span className="hidden max-w-[120px] truncate text-[10px] text-slate-600 sm:inline">
-              {user?.displayName ?? user?.email}
-            </span>
-            <button
-              type="button"
-              onClick={() => void signOut()}
-              className="rounded-md px-1.5 py-0.5 text-[10px] font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-            >
-              Salir
-            </button>
-          </div>
-        </div>
+        </nav>
         {isDesignPreview ? (
           <p className="border-t border-violet-200 bg-violet-50 px-2.5 py-0.5 text-[10px] font-medium text-violet-900">
             Modo vista previa (sin Firebase) — solo para diseño y QA local

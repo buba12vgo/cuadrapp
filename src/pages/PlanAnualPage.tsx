@@ -8,6 +8,7 @@ import {
 import { PageHeader } from '@/components/ui/PageHeader'
 import {
   ALERT_ERROR,
+  ALERT_INFO,
   BADGE_NEUTRAL,
   BADGE_OK,
   BTN_DANGER,
@@ -464,24 +465,24 @@ export function PlanAnualPage() {
       />
 
       {errorGuardado ? (
-        <p className={ALERT_ERROR}>{errorGuardado}</p>
+        <p className={`${ALERT_ERROR} shrink-0`}>{errorGuardado}</p>
       ) : null}
 
       {errorCarga ? (
-        <div className="mx-1 mb-1 border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-800">
+        <div className={`${ALERT_ERROR} shrink-0`}>
           No se pudo cargar el plan anual desde Firestore: {errorCarga}. No se
           puede editar ni guardar hasta recargar la página.
         </div>
       ) : null}
 
       {!cargado ? (
-        <div className="mx-1 mb-1 border border-slate-300 bg-slate-50 px-2 py-1 text-xs text-slate-700">
+        <div className={`${ALERT_INFO} shrink-0`}>
           Cargando plan anual desde Firestore…
         </div>
       ) : null}
 
       {cargado && !hayPlanAnio ? (
-        <div className="mx-1 mb-1 border border-slate-300 bg-slate-50 px-2 py-1 text-xs text-slate-700">
+        <div className={`${ALERT_INFO} shrink-0`}>
           <p>
             {anio} no tiene plan. Rellena las celdas a mano o pulsa{' '}
             <span className="font-semibold">Autogenerar Año</span>. Los
@@ -492,7 +493,7 @@ export function PlanAnualPage() {
 
       {hayPlanAnio && marcas ? (
         <div
-          className={`mx-1 mb-1 border px-2 py-1 text-xs ${
+          className={`shrink-0 max-h-24 overflow-y-auto border px-2 py-1 text-xs ${
             marcas.anioCuadra &&
             marcas.mesesSinCuadrar.length === 0 &&
             marcas.agentesSinCuadrar.length === 0
@@ -567,7 +568,7 @@ export function PlanAnualPage() {
       <DashboardBody>
         <DashboardMain>
           <DashboardMainScroll>
-        <table className="w-full table-fixed border-separate border-spacing-0 text-xs leading-none">
+        <table className="w-max min-w-full table-fixed border-separate border-spacing-0 text-xs leading-none">
           <thead>
             <tr>
               <th
@@ -765,7 +766,7 @@ export function PlanAnualPage() {
               )
             })}
           </tbody>
-          <tfoot className="sticky bottom-0 z-30 font-bold">
+          <tfoot className="z-30 font-bold">
             {(['M', 'T', 'N'] as const).map((turnoPie) => {
               const activosAnio = totalesMes.reduce(
                 (suma, columna) => suma + columna.M + columna.T + columna.N,

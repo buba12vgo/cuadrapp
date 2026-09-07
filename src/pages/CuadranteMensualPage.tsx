@@ -1088,7 +1088,7 @@ export function CuadranteMensualPage() {
               )
             })}
           </tbody>
-          <tfoot className="sticky bottom-0 z-20">
+          <tfoot className="z-20">
             <tr>
               <td
                 className={`${CELDA_PIE} sticky left-0 z-40 bg-slate-200 text-left font-bold`}
@@ -1164,7 +1164,7 @@ export function CuadranteMensualPage() {
         </table>
           </DashboardMainScroll>
         </DashboardMain>
-        <div className="flex w-full shrink-0 flex-col gap-1.5 xl:w-52 2xl:w-56">
+        <div className="flex min-h-0 w-full shrink-0 flex-col gap-1.5 overflow-y-auto xl:w-52 2xl:w-56">
           <CuadranteResumenPanel
             agentesVisibles={agentesVisibles.length}
             diaDesde={diaDesde}

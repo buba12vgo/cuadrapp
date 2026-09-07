@@ -251,7 +251,7 @@ export function ListadosPage() {
       <DashboardBody>
         <DashboardMain>
           <DashboardMainScroll>
-            <table className={TABLE}>
+            <table className={`${TABLE} w-max min-w-full`}>
           <thead className="sticky top-0 z-10 bg-slate-50">
             <tr>
               <th className={`${TH} sticky left-0 z-20 bg-slate-50`}>Placa</th>
@@ -297,7 +297,7 @@ export function ListadosPage() {
               )
             })}
           </tbody>
-          <tfoot className="sticky bottom-0 z-10 bg-slate-200 font-bold">
+          <tfoot className="z-10 bg-slate-200 font-bold">
             <tr>
               <td className={`${CELDA} sticky left-0 z-20 bg-slate-200 text-left`} colSpan={2}>
                 TOTAL

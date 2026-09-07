@@ -31,14 +31,12 @@ export function diaEsFestivoCobro(
 export const TIPOS_VARIABLE_COBRO = [
   'conciliacion_viernes_noche',
   'conciliacion_sabado_manana',
-  'conciliacion_domingo_manana',
   'festivo',
 ] as const
 
 export const TIPOS_CONCILIACION = [
   'conciliacion_viernes_noche',
   'conciliacion_sabado_manana',
-  'conciliacion_domingo_manana',
 ] as const satisfies readonly TipoVariableCobro[]
 
 export type TipoVariableCobro = (typeof TIPOS_VARIABLE_COBRO)[number]
@@ -46,7 +44,6 @@ export type TipoVariableCobro = (typeof TIPOS_VARIABLE_COBRO)[number]
 export const ETIQUETA_VARIABLE_COBRO: Record<TipoVariableCobro, string> = {
   conciliacion_viernes_noche: 'Conciliación viernes noche',
   conciliacion_sabado_manana: 'Conciliación sábado mañana',
-  conciliacion_domingo_manana: 'Conciliación domingo mañana',
   festivo: 'Festivo',
 }
 
@@ -56,7 +53,6 @@ export function conteoVariablesCobroVacio(): ConteoVariablesCobro {
   return {
     conciliacion_viernes_noche: 0,
     conciliacion_sabado_manana: 0,
-    conciliacion_domingo_manana: 0,
     festivo: 0,
   }
 }
@@ -100,7 +96,6 @@ export function contarVariablesCobroAgente(
 
     if (wd === 5 && turno === 'N') counts.conciliacion_viernes_noche++
     if (wd === 6 && turno === 'M') counts.conciliacion_sabado_manana++
-    if (wd === 0 && turno === 'M') counts.conciliacion_domingo_manana++
 
     if (diaEsFestivoCobro(anio, mes, dia, eventos)) {
       sumarFestivoDia(diasFestivoCobrados, anio, mes, dia, counts)

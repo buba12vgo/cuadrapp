@@ -3,6 +3,7 @@ import {
   ETIQUETA_VARIABLE_COBRO,
   TIPOS_VARIABLE_COBRO,
   type ConteoVariablesCobro,
+  conteoVariablesCobroVacio,
 } from '@/lib/variablesCobro'
 import type { FichaPolicia } from '@/types'
 
@@ -83,10 +84,5 @@ export function exportarVariablesCobroExcel(opciones: ExportarVariablesCobroOpci
 }
 
 function conteoVacio(): ConteoVariablesCobro {
-  return {
-    conciliacion_viernes_noche: 0,
-    conciliacion_sabado_manana: 0,
-    conciliacion_domingo_manana: 0,
-    festivo: 0,
-  }
+  return conteoVariablesCobroVacio()
 }

@@ -311,15 +311,6 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     referencia: 'variablesCobro · ListadosPage',
   },
   {
-    id: 'variable-conciliacion-domingo-manana',
-    categoria: 'VARIABLES_COBRO',
-    titulo: 'Conciliación domingo mañana',
-    descripcion:
-      'Cada jornada de mañana (M) en domingo genera una unidad de conciliación domingo mañana.',
-    estado: 'implementada',
-    referencia: 'variablesCobro · ListadosPage',
-  },
-  {
     id: 'variable-festivo',
     categoria: 'VARIABLES_COBRO',
     titulo: 'Festivo',

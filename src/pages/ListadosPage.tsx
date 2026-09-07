@@ -9,6 +9,7 @@ import { useEventosData } from '@/lib/eventosStore'
 import { ensureFirebase } from '@/lib/firebase'
 import {
   contarVariablesCobroAgente,
+  conteoVariablesCobroVacio,
   ETIQUETA_VARIABLE_COBRO,
   TIPOS_VARIABLE_COBRO,
   totalVariablesCobro,
@@ -138,12 +139,7 @@ export function ListadosPage() {
   }, [agentesVisibles, cuadrante, anio, mes, eventosData])
 
   const totalesColumna = useMemo(() => {
-    const totales = {
-      conciliacion_viernes_noche: 0,
-      conciliacion_sabado_manana: 0,
-      conciliacion_domingo_manana: 0,
-      festivo: 0,
-    }
+    const totales = conteoVariablesCobroVacio()
     for (const agente of agentesVisibles) {
       const conteo = conteos[agente.id]
       if (!conteo) continue

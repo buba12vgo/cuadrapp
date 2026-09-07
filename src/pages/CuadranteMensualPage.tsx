@@ -16,6 +16,7 @@ import {
   BTN_SECONDARY,
   BTN_SUCCESS,
   CAMPO,
+  CLASE_TURNO_CELDA,
   PAGE_SECTION,
 } from '@/lib/uiStyles'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -127,12 +128,12 @@ const CELDA_PIE =
   'h-9 border border-slate-400 border-t-2 border-t-slate-500 px-0 py-0 text-[9px] leading-tight'
 
 const CLASE_TURNO: Record<Turno, string> = {
-  M: 'bg-yellow-200 text-yellow-950',
-  T: 'bg-orange-300 text-orange-950',
-  N: 'bg-blue-300 text-blue-950',
-  L: 'bg-emerald-200 text-emerald-950',
+  M: CLASE_TURNO_CELDA.M,
+  T: CLASE_TURNO_CELDA.T,
+  N: CLASE_TURNO_CELDA.N,
+  L: 'bg-emerald-50 text-emerald-900',
   D: 'bg-white text-slate-500',
-  V: 'bg-gray-300 text-slate-800',
+  V: CLASE_TURNO_CELDA.V,
 }
 
 const TURNOS_OP = ['M', 'T', 'N'] as const

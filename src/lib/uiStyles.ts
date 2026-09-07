@@ -70,3 +70,23 @@ export const BADGE_PENDING =
 
 export const BADGE_NEUTRAL =
   'rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600'
+
+/** Celdas M/T/N/V — tonos pastel alineados al dashboard. */
+export const CLASE_TURNO_CELDA: Record<'M' | 'T' | 'N' | 'V', string> = {
+  M: 'bg-amber-50 text-amber-900',
+  T: 'bg-orange-50 text-orange-900',
+  N: 'bg-sky-50 text-sky-900',
+  V: 'bg-slate-100 text-slate-700',
+}
+
+export const MARCA_PLAN_CABECERA =
+  'bg-amber-50 text-amber-900 ring-1 ring-inset ring-amber-300'
+
+export const MARCA_PLAN_FILA =
+  'bg-amber-50/90 font-medium text-amber-900 ring-1 ring-inset ring-amber-300'
+
+export const SEMAFORO_OK = 'bg-emerald-50 font-semibold text-emerald-800'
+
+export const SEMAFORO_KO = 'bg-rose-50 font-semibold text-rose-800'
+
+export const SEMAFORO_NEUTRO = 'bg-slate-100 text-slate-500'

@@ -1,4 +1,5 @@
 import { AlertTriangle, CheckCircle2, Users } from 'lucide-react'
+import { PlanAnualAvisosPanel } from '@/components/dashboard/PlanAnualAvisosPanel'
 import { DashboardSidebar } from '@/components/ui/DashboardLayout'
 import {
   KpiBarRow,
@@ -9,9 +10,11 @@ import {
   KpiSection,
 } from '@/components/ui/DashboardKpi'
 import type { MarcasPlanAnual, ObjetivosGlobales } from '@/lib/generarPlanAnual'
+import type { FichaPolicia } from '@/types'
 
 type Props = {
   agentesCount: number
+  agentes: FichaPolicia[]
   objetivos: ObjetivosGlobales
   marcas: MarcasPlanAnual | null
   hayPlan: boolean
@@ -19,6 +22,7 @@ type Props = {
 
 export function PlanAnualResumenPanel({
   agentesCount,
+  agentes,
   objetivos,
   marcas,
   hayPlan,
@@ -33,6 +37,9 @@ export function PlanAnualResumenPanel({
 
   return (
     <DashboardSidebar>
+      {hayPlan && marcas ? (
+        <PlanAnualAvisosPanel marcas={marcas} agentes={agentes} />
+      ) : null}
       <KpiGrid2>
         <KpiCard icon={Users} label="Vista" value={agentesCount} />
         <KpiCard
@@ -74,8 +81,8 @@ export function PlanAnualResumenPanel({
                     max={100}
                     color={
                       Math.abs(pctReal[turno] - objetivos[turno]) <= 3
-                        ? 'bg-emerald-400'
-                        : 'bg-amber-400'
+                        ? 'bg-emerald-300'
+                        : 'bg-amber-200'
                     }
                   />
                 ))}

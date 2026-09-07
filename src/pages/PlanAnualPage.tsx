@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { PlanAnualResumenPanel } from '@/components/dashboard/PlanAnualResumenPanel'
-import { CollapsibleNotice } from '@/components/ui/CollapsibleNotice'
 import {
   DashboardBody,
   DashboardMain,
@@ -16,7 +15,13 @@ import {
   BTN_PRIMARY,
   BTN_SECONDARY,
   CAMPO,
+  CLASE_TURNO_CELDA,
+  MARCA_PLAN_CABECERA,
+  MARCA_PLAN_FILA,
   PAGE_SECTION,
+  SEMAFORO_KO,
+  SEMAFORO_NEUTRO,
+  SEMAFORO_OK,
 } from '@/lib/uiStyles'
 import { useAgentesData } from '@/lib/agentesStore'
 import { savePlanAnual } from '@/lib/db'
@@ -85,12 +90,7 @@ const GRUPOS_PLAN: Array<{ valor: GrupoPlanAnual; label: string }> = [
   { valor: 'JEFE_SERVICIO', label: 'Jefes de Servicio' },
 ]
 
-const CLASE_TURNO: Record<TurnoAnual, string> = {
-  M: 'bg-yellow-200 text-yellow-950',
-  T: 'bg-orange-300 text-orange-950',
-  N: 'bg-blue-300 text-blue-950',
-  V: 'bg-gray-300 text-slate-800',
-}
+const CLASE_TURNO: Record<TurnoAnual, string> = CLASE_TURNO_CELDA
 
 function totalesFila(turnos: CeldaPlanAnual[]) {
   const totales = { M: 0, T: 0, N: 0, V: 0 }
@@ -122,10 +122,8 @@ function porcentaje(cantidad: number, base: number) {
 }
 
 function claseSemaforoPct(real: number | null, objetivo: number) {
-  if (real == null) return 'bg-gray-200 text-slate-500'
-  return dentroToleranciaPctPlan(real, objetivo)
-    ? 'bg-green-100 font-bold text-green-800'
-    : 'bg-red-200 font-bold text-red-900'
+  if (real == null) return SEMAFORO_NEUTRO
+  return dentroToleranciaPctPlan(real, objetivo) ? SEMAFORO_OK : SEMAFORO_KO
 }
 
 function claseSemaforoMes(
@@ -134,16 +132,14 @@ function claseSemaforoMes(
   turno: 'M' | 'T' | 'N',
   objetivos: ObjetivosGlobales,
 ) {
-  if (activos <= 0) return 'bg-gray-200 text-slate-500'
+  if (activos <= 0) return SEMAFORO_NEUTRO
   return cuadraConteoTurno(cantidad, activos, turno, objetivos)
-    ? 'bg-green-100 font-bold text-green-800'
-    : 'bg-red-200 font-bold text-red-900'
+    ? SEMAFORO_OK
+    : SEMAFORO_KO
 }
 
 function clasePreferencia(cuadra: boolean) {
-  return cuadra
-    ? 'bg-green-100 font-bold text-green-800'
-    : 'bg-red-200 font-bold text-red-900'
+  return cuadra ? SEMAFORO_OK : SEMAFORO_KO
 }
 
 function leerPorcentaje(valor: string) {
@@ -492,103 +488,6 @@ export function PlanAnualPage() {
         </div>
       ) : null}
 
-      {hayPlanAnio && marcas ? (
-        <CollapsibleNotice
-          tone={
-            marcas.anioCuadra &&
-            marcas.mesesSinCuadrar.length === 0 &&
-            marcas.agentesSinCuadrar.length === 0
-              ? 'success'
-              : 'warn'
-          }
-          defaultOpen={
-            !(
-              marcas.anioCuadra &&
-              marcas.mesesSinCuadrar.length === 0 &&
-              marcas.agentesSinCuadrar.length === 0
-            )
-          }
-          summary={
-            marcas.anioCuadra &&
-            marcas.mesesSinCuadrar.length === 0 &&
-            marcas.agentesSinCuadrar.length === 0
-              ? 'Plan cuadrado (% global, meses y patrones obligatorios).'
-              : [
-                  marcas.preferenciasIncompatibles
-                    ? 'Plantilla no alcanza el % global del selector.'
-                    : !marcas.anioCuadra
-                      ? 'No se ha podido cuadrar el % anual con la plantilla.'
-                      : 'Revisar marcas del plan.',
-                  marcas.mesesSinCuadrar.length > 0
-                    ? `${marcas.mesesSinCuadrar.length} mes(es) sin cuadrar.`
-                    : null,
-                  marcas.agentesSinCuadrar.length > 0
-                    ? `${marcas.agentesSinCuadrar.length} ficha(s) con infracciones.`
-                    : null,
-                ]
-                  .filter(Boolean)
-                  .join(' ')
-          }
-        >
-          {marcas.preferenciasIncompatibles ? (
-            <p>
-              La plantilla (con limitaciones y patrones obligatorios) no alcanza
-              el % global del selector
-              {marcas.pctAnio
-                ? ` (real ≈ ${marcas.pctAnio.M.toFixed(1)}/${marcas.pctAnio.T.toFixed(1)}/${marcas.pctAnio.N.toFixed(1)}%). Ajusta objetivos M/T/N en Agentes.`
-                : '. Ajusta objetivos M/T/N en Agentes.'}
-            </p>
-          ) : null}
-          {!marcas.anioCuadra && !marcas.preferenciasIncompatibles ? (
-            <p>
-              No se ha podido cuadrar el % anual con la plantilla y limitaciones
-              {marcas.pctAnio
-                ? ` (queda ${marcas.pctAnio.M.toFixed(1)}/${marcas.pctAnio.T.toFixed(1)}/${marcas.pctAnio.N.toFixed(1)}%).`
-                : '.'}
-            </p>
-          ) : null}
-          {marcas.mesesSinCuadrar.length > 0 ? (
-            <p>
-              Meses sin cuadrar:{' '}
-              <span className="font-semibold">
-                {marcas.mesesSinCuadrar.map((m) => MESES[m]).join(', ')}
-              </span>
-              . Marcados en cabecera.
-            </p>
-          ) : null}
-          {marcas.agentesSinCuadrar.length > 0 ? (
-            <p>
-              Fichas con infracciones graves o sin patrón obligatorio (4-4-3 /
-              4-3-4 / 5-3-3 si no tienen limitación de turnos):{' '}
-              <span className="font-semibold">
-                {marcas.agentesSinCuadrar
-                  .map((id) => {
-                    const agente = agentesData.find((a) => a.id === id)
-                    const flex = agente
-                      ? esSinPreferencia(agente.preferenciaAnual)
-                      : false
-                    return agente
-                      ? `${agente.numeroPlaca} ${agente.nombre}${flex ? ' (Flex)' : ''}`
-                      : id
-                  })
-                  .join(', ')}
-              </span>
-              . Marcadas a la izquierda; columna Pat indica el patrón asignado.
-            </p>
-          ) : null}
-          <p className="text-slate-600">
-            El generador prioriza los efectivos mensuales (M/T/N exactos según
-            el % y los activos del mes) por encima del % global y de la
-            preferencia de la ficha (con limitaciones). Sin limitación de
-            turnos siempre se asigna 4-4-3, 4-3-4 o 5-3-3.{' '}
-            <span className="font-semibold text-violet-700">Flex</span> = sin
-            preferencia. Totales y columna{' '}
-            <span className="font-semibold">Pat</span> en verde cuando cumple
-            patrón obligatorio o asignado.
-          </p>
-        </CollapsibleNotice>
-      ) : null}
-
       <DashboardBody>
         <DashboardMain>
           <DashboardMainScroll>
@@ -606,7 +505,7 @@ export function PlanAnualPage() {
                   key={mes}
                   className={`${CELDA} sticky top-0 z-20 font-bold ${
                     mesesMarcados.has(indiceMes)
-                      ? 'bg-amber-200 text-amber-950 ring-2 ring-inset ring-amber-500'
+                      ? MARCA_PLAN_CABECERA
                       : 'bg-white'
                   }`}
                   style={{ minWidth: ANCHO_MES }}
@@ -658,7 +557,7 @@ export function PlanAnualPage() {
                   <td
                     className={`${CELDA} sticky left-0 z-10 ${
                       fichaMarcada
-                        ? 'bg-amber-100 font-semibold text-amber-950 ring-2 ring-inset ring-amber-500'
+                        ? MARCA_PLAN_FILA
                         : 'bg-white'
                     }`}
                     style={{ width: ANCHO_AGENTE, minWidth: ANCHO_AGENTE }}
@@ -712,7 +611,7 @@ export function PlanAnualPage() {
                           turno ? CLASE_TURNO[turno] : 'bg-white text-slate-400'
                         } ${
                           mesesMarcados.has(mes)
-                            ? 'outline outline-1 outline-amber-400'
+                            ? 'outline outline-1 outline-amber-300'
                             : ''
                         } ${aviso ? 'ring-1 ring-inset ring-dashed ring-red-500' : ''}`}
                         style={{ minWidth: ANCHO_MES }}
@@ -749,18 +648,18 @@ export function PlanAnualPage() {
                     </td>
                   ))}
                   <td
-                    className={`${CELDA} sticky z-10 border-l border-slate-400 text-center leading-tight ${
+                    className={`${CELDA} sticky z-10 border-l border-slate-300 text-center leading-tight ${
                       patronAsignado
-                        ? 'bg-green-100 font-bold text-green-800'
+                        ? 'bg-emerald-50 font-semibold text-emerald-800'
                         : sinPref
-                          ? 'bg-violet-50 font-semibold text-violet-800'
+                          ? 'bg-violet-50 font-medium text-violet-800'
                           : patObligatorio
-                            ? 'bg-green-100 font-bold text-green-800'
+                            ? 'bg-emerald-50 font-semibold text-emerald-800'
                             : sinLimitaciones
-                              ? 'bg-red-200 font-bold text-red-900'
+                              ? 'bg-rose-50 font-semibold text-rose-800'
                               : cuadra
-                                ? 'bg-slate-100 font-semibold text-slate-700'
-                                : 'bg-slate-100 text-slate-600'
+                                ? 'bg-slate-50 font-medium text-slate-700'
+                                : 'bg-slate-50 text-slate-600'
                     }`}
                     style={stickyPatron()}
                     title={tituloPreferencia(agente, totales)}
@@ -807,8 +706,8 @@ export function PlanAnualPage() {
                   <td
                     className={`${CELDA_PIE} sticky left-0 z-40 text-left ${
                       hayPlanAnio && marcas && !marcas.anioCuadra
-                        ? 'bg-amber-200 text-amber-950'
-                        : 'bg-gray-200'
+                        ? MARCA_PLAN_CABECERA
+                        : 'bg-slate-100'
                     }`}
                     style={{ width: ANCHO_AGENTE, minWidth: ANCHO_AGENTE }}
                   >
@@ -829,7 +728,7 @@ export function PlanAnualPage() {
                           objetivosGlobales,
                         )} ${
                           mesesMarcados.has(mes)
-                            ? 'ring-2 ring-inset ring-amber-500'
+                            ? 'ring-1 ring-inset ring-amber-300'
                             : ''
                         }`}
                         style={{ minWidth: ANCHO_MES }}
@@ -862,10 +761,10 @@ export function PlanAnualPage() {
                               objetivosGlobales[turnoPie],
                             )} ${
                               hayPlanAnio && marcas && !marcas.anioCuadra
-                                ? 'ring-2 ring-inset ring-amber-500'
+                                ? 'ring-1 ring-inset ring-amber-300'
                                 : ''
                             }`
-                          : 'bg-gray-200'
+                          : 'bg-slate-100'
                       }`}
                       style={stickyTotal(indice)}
                     >
@@ -875,7 +774,7 @@ export function PlanAnualPage() {
                     </td>
                   ))}
                   <td
-                    className={`${CELDA_PIE} sticky z-40 bg-gray-200`}
+                    className={`${CELDA_PIE} sticky z-40 bg-slate-100`}
                     style={stickyPatron()}
                   />
                 </tr>
@@ -887,6 +786,7 @@ export function PlanAnualPage() {
         </DashboardMain>
         <PlanAnualResumenPanel
           agentesCount={agentesVisibles.length}
+          agentes={agentesVisibles}
           objetivos={objetivosGlobales}
           marcas={marcas}
           hayPlan={hayPlanAnio}

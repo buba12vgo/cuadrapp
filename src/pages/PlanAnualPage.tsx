@@ -1,4 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { PageHeader } from '@/components/ui/PageHeader'
+import {
+  ALERT_ERROR,
+  BADGE_NEUTRAL,
+  BADGE_OK,
+  BTN_DANGER,
+  BTN_PRIMARY,
+  BTN_SECONDARY,
+  CAMPO,
+  PAGE_SECTION,
+} from '@/lib/uiStyles'
 import { useAgentesData } from '@/lib/agentesStore'
 import { savePlanAnual } from '@/lib/db'
 import { ensureFirebase } from '@/lib/firebase'
@@ -59,9 +70,7 @@ const CELDA =
 const CELDA_PIE =
   'h-8 border border-slate-400 px-0.5 py-0 text-[11px] leading-none'
 const CAMPO_PCT =
-  'h-6 w-11 border border-slate-400 bg-white px-1 text-center text-xs text-slate-900 outline-none focus:border-slate-700'
-const CAMPO =
-  'h-6 border border-slate-400 bg-white px-1 text-xs text-slate-900 outline-none focus:border-slate-700'
+  'h-7 w-11 rounded-md border border-slate-200 bg-white px-1 text-center text-[10px] text-slate-900 outline-none focus:border-slate-400'
 
 const GRUPOS_PLAN: Array<{ valor: GrupoPlanAnual; label: string }> = [
   { valor: 'OPERATIVO', label: 'Policías + jefes de equipo' },
@@ -332,123 +341,124 @@ export function PlanAnualPage() {
   }
 
   return (
-    <section className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 px-1 py-1">
-        <div className="flex items-center gap-2">
-          <h1 className="text-xs font-bold text-slate-900">Plan anual</h1>
-          <label className="flex items-center gap-1 text-xs text-slate-600">
-            <span className="font-semibold">Año</span>
-            <select
-              className="h-6 border border-slate-400 bg-white px-1 text-xs"
-              value={anio}
-              onChange={(event) =>
-                setAnio(Number(event.target.value) || anio)
-              }
-            >
-              {Array.from({ length: 11 }, (_, i) => 2020 + i).map((valor) => (
-                <option key={valor} value={valor}>
-                  {valor}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-1">
-            <span className="text-xs font-semibold text-slate-600">Vista</span>
-            <select
-              className={CAMPO}
-              value={grupoVista}
-              onChange={(event) =>
-                setGrupoVista(event.target.value as GrupoPlanAnual)
-              }
-            >
-              {GRUPOS_PLAN.map((grupo) => (
-                <option key={grupo.valor} value={grupo.valor}>
-                  {grupo.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <span className="text-xs font-semibold text-slate-600">
-            Objetivo global
-          </span>
-          {(['M', 'T', 'N'] as const).map((turno) => (
-            <label key={turno} className="flex items-center gap-0.5">
-              <span className="text-xs font-semibold text-slate-600">
-                % {turno}
-              </span>
-              <input
-                type="number"
-                min={0}
-                max={100}
-                className={CAMPO_PCT}
-                value={objetivosGlobales[turno]}
-                disabled={!planListo}
-                onChange={(event) => {
-                  const siguientes = {
-                    ...objetivosGlobales,
-                    [turno]: leerPorcentaje(event.target.value),
-                  }
-                  setObjetivos(siguientes)
-                  persistirLuego(planAnual, siguientes)
-                }}
-              />
+    <section className={PAGE_SECTION}>
+      <PageHeader
+        title="Plan anual"
+        subtitle={`Año ${anio} · ${agentesVisibles.length} agentes en vista`}
+        status={
+          <>
+            {guardando ? (
+              <span className={BADGE_NEUTRAL}>Guardando…</span>
+            ) : null}
+            {guardadoOk && !guardando ? (
+              <span className={BADGE_OK}>Guardado</span>
+            ) : null}
+          </>
+        }
+        toolbar={
+          <>
+            <label className="flex items-center gap-1">
+              <span className="text-[10px] font-semibold text-slate-600">Año</span>
+              <select
+                className={CAMPO}
+                value={anio}
+                onChange={(event) =>
+                  setAnio(Number(event.target.value) || anio)
+                }
+              >
+                {Array.from({ length: 11 }, (_, i) => 2020 + i).map((valor) => (
+                  <option key={valor} value={valor}>{valor}</option>
+                ))}
+              </select>
             </label>
-          ))}
-          <button
-            type="button"
-            className="h-6 border border-slate-400 bg-white px-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-            title={`Exporta la tabla visible a Excel (${anio}, vista actual)`}
-            disabled={!hayPlanAnio}
-            onClick={() =>
-              exportarPlanAnualExcel({
-                anio,
-                grupoLabel:
-                  GRUPOS_PLAN.find((g) => g.valor === grupoVista)?.label ??
-                  grupoVista,
-                objetivos: objetivosGlobales,
-                agentes: agentesVisibles,
-                plan: planAnual,
-                totalesMes,
-                mesesMarcados,
-                anioCuadra: marcas?.anioCuadra ?? true,
-              })
-            }
-          >
-            Exportar Excel
-          </button>
-          <button
-            type="button"
-            className="h-6 bg-slate-900 px-2 text-xs font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-            title={`Regenera solo ${anio} (hasta 3 pasadas de refinado). Los demás años no se modifican.`}
-            disabled={!planListo}
-            onClick={autogenerar}
-          >
-            Autogenerar Año
-          </button>
-          <button
-            type="button"
-            className="h-6 border border-red-300 bg-white px-2 text-xs font-semibold text-red-800 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-            title={`Vacía el plan de ${anio} tras dos confirmaciones. Los demás años no se tocan.`}
-            disabled={!planListo || !hayPlanAnio}
-            onClick={limpiarAnio}
-          >
-            Limpiar año
-          </button>
-          {guardando ? (
-            <span className="text-[11px] text-slate-500">Guardando…</span>
-          ) : null}
-          {guardadoOk && !guardando ? (
-            <span className="text-[11px] text-green-700">Guardado</span>
-          ) : null}
-        </div>
-      </div>
+            <label className="flex items-center gap-1">
+              <span className="text-[10px] font-semibold text-slate-600">Vista</span>
+              <select
+                className={CAMPO}
+                value={grupoVista}
+                onChange={(event) =>
+                  setGrupoVista(event.target.value as GrupoPlanAnual)
+                }
+              >
+                {GRUPOS_PLAN.map((grupo) => (
+                  <option key={grupo.valor} value={grupo.valor}>
+                    {grupo.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <span className="text-[10px] font-semibold text-slate-600">
+              Objetivo %
+            </span>
+            {(['M', 'T', 'N'] as const).map((turno) => (
+              <label key={turno} className="flex items-center gap-0.5">
+                <span className="text-[10px] font-semibold text-slate-600">
+                  {turno}
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  className={CAMPO_PCT}
+                  value={objetivosGlobales[turno]}
+                  disabled={!planListo}
+                  onChange={(event) => {
+                    const siguientes = {
+                      ...objetivosGlobales,
+                      [turno]: leerPorcentaje(event.target.value),
+                    }
+                    setObjetivos(siguientes)
+                    persistirLuego(planAnual, siguientes)
+                  }}
+                />
+              </label>
+            ))}
+            <button
+              type="button"
+              className={BTN_SECONDARY}
+              title={`Exporta la tabla visible a Excel (${anio}, vista actual)`}
+              disabled={!hayPlanAnio}
+              onClick={() =>
+                exportarPlanAnualExcel({
+                  anio,
+                  grupoLabel:
+                    GRUPOS_PLAN.find((g) => g.valor === grupoVista)?.label ??
+                    grupoVista,
+                  objetivos: objetivosGlobales,
+                  agentes: agentesVisibles,
+                  plan: planAnual,
+                  totalesMes,
+                  mesesMarcados,
+                  anioCuadra: marcas?.anioCuadra ?? true,
+                })
+              }
+            >
+              Exportar
+            </button>
+            <button
+              type="button"
+              className={BTN_PRIMARY}
+              title={`Regenera solo ${anio}`}
+              disabled={!planListo}
+              onClick={autogenerar}
+            >
+              Autogenerar
+            </button>
+            <button
+              type="button"
+              className={BTN_DANGER}
+              title={`Vacía el plan de ${anio}`}
+              disabled={!planListo || !hayPlanAnio}
+              onClick={limpiarAnio}
+            >
+              Limpiar año
+            </button>
+          </>
+        }
+      />
 
       {errorGuardado ? (
-        <div className="mx-1 mb-1 border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-800">
-          {errorGuardado}
-        </div>
+        <p className={ALERT_ERROR}>{errorGuardado}</p>
       ) : null}
 
       {errorCarga ? (

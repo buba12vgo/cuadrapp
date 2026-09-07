@@ -7,6 +7,15 @@ import {
   Sigma,
   Sparkles,
 } from 'lucide-react'
+import { PageHeader } from '@/components/ui/PageHeader'
+import {
+  BADGE_NEUTRAL,
+  BADGE_OK,
+  BADGE_PENDING,
+  BTN_PRIMARY,
+  BTN_SECONDARY,
+  PAGE_SECTION,
+} from '@/lib/uiStyles'
 import { MinimoCelda } from '@/components/minimos/MinimoCelda'
 import { MinimosResumenPanel } from '@/components/minimos/MinimosResumenPanel'
 import { useAgentesData } from '@/lib/agentesStore'
@@ -257,108 +266,92 @@ export function MinimosPage() {
   }
 
   return (
-    <section className="flex h-full min-h-0 flex-col gap-2">
-      <header className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="min-w-0">
-            <h1 className="text-sm font-bold text-slate-900">Mínimos semanales</h1>
-            <p className="text-[10px] text-slate-500">
-              Dotación por puesto y día · guardado automático
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-1">
-            {guardando ? (
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">
-                Guardando…
-              </span>
-            ) : null}
-            {guardadoOk ? (
-              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
-                Guardado
-              </span>
-            ) : null}
+    <section className={PAGE_SECTION}>
+      <PageHeader
+        title="Mínimos semanales"
+        subtitle="Dotación por puesto y día · guardado automático"
+        status={
+          <>
+            {guardando ? <span className={BADGE_NEUTRAL}>Guardando…</span> : null}
+            {guardadoOk ? <span className={BADGE_OK}>Guardado</span> : null}
             {pendiente && !guardando ? (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">
-                Pendiente
-              </span>
+              <span className={BADGE_PENDING}>Pendiente</span>
             ) : null}
-          </div>
-        </div>
-
-        <div className="mt-2 flex flex-wrap items-center gap-1 border-t border-slate-100 pt-2">
-          <button
-            type="button"
-            className="inline-flex h-7 items-center gap-1 rounded-md bg-slate-900 px-2 text-[10px] font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
-            disabled={puestos.length === 0}
-            onClick={() => setPanelCopiaAbierto((abierto) => !abierto)}
-            aria-expanded={panelCopiaAbierto}
-          >
-            <Copy className="h-3 w-3" />
-            Copiar {diaInfo.clave}
-          </button>
-
-          <div className="relative" ref={menuPlantillasRef}>
+          </>
+        }
+        toolbar={
+          <>
             <button
               type="button"
-              className="inline-flex h-7 items-center gap-1 rounded-md border border-slate-200 bg-white px-2 text-[10px] font-semibold text-slate-700 hover:bg-slate-50"
-              onClick={() => setMenuPlantillasAbierto((v) => !v)}
-              aria-expanded={menuPlantillasAbierto}
+              className={BTN_PRIMARY}
+              disabled={puestos.length === 0}
+              onClick={() => setPanelCopiaAbierto((abierto) => !abierto)}
+              aria-expanded={panelCopiaAbierto}
             >
-              <LayoutTemplate className="h-3 w-3" />
-              Plantillas
+              <Copy className="h-3 w-3" />
+              Copiar {diaInfo.clave}
             </button>
-            {menuPlantillasAbierto ? (
-              <div className="absolute left-0 z-30 mt-1 min-w-[14rem] rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
-                <button
-                  type="button"
-                  className="block w-full px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-50"
-                  onClick={aplicarPlantillaLaborables}
-                >
-                  {diaInfo.clave} → laborables (M–V)
-                </button>
-                <button
-                  type="button"
-                  className="block w-full px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-50"
-                  onClick={aplicarPlantillaSemanaCompleta}
-                >
-                  {diaInfo.clave} → toda la semana
-                </button>
-                <button
-                  type="button"
-                  className="block w-full border-t border-slate-100 px-3 py-2 text-left text-xs text-red-700 hover:bg-red-50"
-                  onClick={restablecerDefecto}
-                >
-                  Restablecer valores por defecto
-                </button>
-              </div>
-            ) : null}
-          </div>
-
-          <button
-            type="button"
-            className="inline-flex h-7 items-center gap-1 rounded-md border border-slate-200 bg-white px-2 text-[10px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-            disabled={puestos.length === 0}
-            onClick={restablecerDefecto}
-          >
-            <RotateCcw className="h-3 w-3" />
-            Restablecer
-          </button>
-
-          <button
-            type="button"
-            className="inline-flex h-7 items-center gap-1 rounded-md border border-slate-200 bg-white px-2 text-[10px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-            disabled={puestos.length === 0}
-            onClick={() => exportarMinimosExcel(puestos, minimos)}
-          >
-            <Download className="h-3 w-3" />
-            Exportar
-          </button>
-        </div>
-      </header>
+            <div className="relative" ref={menuPlantillasRef}>
+              <button
+                type="button"
+                className={BTN_SECONDARY}
+                onClick={() => setMenuPlantillasAbierto((v) => !v)}
+                aria-expanded={menuPlantillasAbierto}
+              >
+                <LayoutTemplate className="h-3 w-3" />
+                Plantillas
+              </button>
+              {menuPlantillasAbierto ? (
+                <div className="absolute left-0 z-30 mt-1 min-w-[12rem] rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                  <button
+                    type="button"
+                    className="block w-full px-2.5 py-1.5 text-left text-[10px] text-slate-700 hover:bg-slate-50"
+                    onClick={aplicarPlantillaLaborables}
+                  >
+                    {diaInfo.clave} → laborables (M–V)
+                  </button>
+                  <button
+                    type="button"
+                    className="block w-full px-2.5 py-1.5 text-left text-[10px] text-slate-700 hover:bg-slate-50"
+                    onClick={aplicarPlantillaSemanaCompleta}
+                  >
+                    {diaInfo.clave} → toda la semana
+                  </button>
+                  <button
+                    type="button"
+                    className="block w-full border-t border-slate-100 px-2.5 py-1.5 text-left text-[10px] text-red-700 hover:bg-red-50"
+                    onClick={restablecerDefecto}
+                  >
+                    Restablecer valores por defecto
+                  </button>
+                </div>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              className={BTN_SECONDARY}
+              disabled={puestos.length === 0}
+              onClick={restablecerDefecto}
+            >
+              <RotateCcw className="h-3 w-3" />
+              Restablecer
+            </button>
+            <button
+              type="button"
+              className={BTN_SECONDARY}
+              disabled={puestos.length === 0}
+              onClick={() => exportarMinimosExcel(puestos, minimos)}
+            >
+              <Download className="h-3 w-3" />
+              Exportar
+            </button>
+          </>
+        }
+      />
 
       {panelCopiaAbierto ? (
-        <div className="shrink-0 rounded-xl border border-amber-200 bg-amber-50/50 px-3 py-3">
-          <p className="mb-2 text-xs text-slate-700">
+        <div className="shrink-0 rounded-lg border border-amber-200 bg-amber-50/50 px-2.5 py-2">
+          <p className="mb-1.5 text-[10px] text-slate-700">
             Origen: <strong>{diaInfo.label}</strong>. Elige días destino:
           </p>
           <div className="mb-2 flex flex-wrap gap-1.5">
@@ -368,7 +361,7 @@ export function MinimosPage() {
                 <button
                   key={item.dia}
                   type="button"
-                  className={`h-8 min-w-10 rounded-lg px-2.5 text-xs font-semibold transition ${
+                  className={`h-7 min-w-9 rounded-md px-2 text-[10px] font-semibold transition ${
                     seleccionado
                       ? 'bg-slate-900 text-white shadow-sm'
                       : 'border border-slate-200 bg-white text-slate-700 hover:border-slate-300'

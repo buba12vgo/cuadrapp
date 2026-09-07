@@ -1,4 +1,18 @@
 import { useEffect, useState } from 'react'
+import { PageHeader } from '@/components/ui/PageHeader'
+import {
+  ALERT_ERROR,
+  BLOQUE,
+  BTN_GHOST,
+  BTN_PRIMARY,
+  CAMPO,
+  PAGE_PANEL_SCROLL,
+  PAGE_SECTION,
+  TABLE,
+  TD,
+  TH,
+  TITULO_BLOQUE,
+} from '@/lib/uiStyles'
 import {
   normalizarCodigo,
   sugerirAbreviatura,
@@ -18,11 +32,7 @@ import {
   usePuestosData,
 } from '@/lib/puestosStore'
 
-const CAMPO =
-  'h-8 w-full border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none focus:border-slate-700'
-const BLOQUE = 'border border-slate-200 bg-white p-3'
-const TITULO_BLOQUE =
-  'mb-2 text-[11px] font-bold tracking-wide text-slate-500 uppercase'
+const CAMPO_FULL = `${CAMPO} w-full`
 
 type FormularioPuesto = {
   codigo: string
@@ -160,7 +170,7 @@ function EditorPuestoModal({
                   Nombre
                 </span>
                 <input
-                  className={CAMPO}
+                  className={CAMPO_FULL}
                   value={form.nombre}
                   autoFocus
                   onChange={(event) => {
@@ -183,7 +193,7 @@ function EditorPuestoModal({
                   Código
                 </span>
                 <input
-                  className={CAMPO}
+                  className={CAMPO_FULL}
                   value={form.codigo}
                   disabled={editandoCodigo != null}
                   onChange={(event) => {
@@ -204,7 +214,7 @@ function EditorPuestoModal({
                   Abreviatura
                 </span>
                 <input
-                  className={CAMPO}
+                  className={CAMPO_FULL}
                   maxLength={5}
                   value={form.abreviatura}
                   onChange={(event) => {
@@ -225,10 +235,10 @@ function EditorPuestoModal({
           ) : null}
         </div>
 
-        <footer className="flex justify-end gap-2 border-t border-slate-200 bg-white px-4 py-3">
+        <footer className="flex justify-end gap-1 border-t border-slate-200 bg-white px-3 py-2">
           <button
             type="button"
-            className="h-8 px-3 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+            className={BTN_GHOST}
             disabled={guardando}
             onClick={onCancelar}
           >
@@ -236,7 +246,7 @@ function EditorPuestoModal({
           </button>
           <button
             type="submit"
-            className="h-8 bg-slate-900 px-3 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+            className={BTN_PRIMARY}
             disabled={guardando}
           >
             {guardando ? 'Guardando…' : 'Guardar puesto'}
@@ -364,65 +374,48 @@ export function PuestosPage() {
   }
 
   return (
-    <section className="flex h-full min-h-0 flex-col gap-2">
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 px-1">
-        <div>
-          <h1 className="text-sm font-bold text-slate-900">Puestos</h1>
-          <p className="text-[11px] text-slate-500">
-            Configura los puestos operativos · {puestos.length} puestos · un
-            puesto nuevo queda activo en toda la plantilla · Firestore
-          </p>
-        </div>
-        <button
-          type="button"
-          className="h-8 bg-slate-900 px-3 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={!firebaseOk || guardando}
-          onClick={abrirNuevo}
-        >
-          Nuevo puesto
-        </button>
-      </div>
+    <section className={PAGE_SECTION}>
+      <PageHeader
+        title="Puestos"
+        subtitle={`${puestos.length} puestos operativos · Firestore`}
+        actions={
+          <button
+            type="button"
+            className={BTN_PRIMARY}
+            disabled={!firebaseOk || guardando}
+            onClick={abrirNuevo}
+          >
+            Nuevo puesto
+          </button>
+        }
+      />
 
-      {error ? (
-        <p className="border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-800">
-          {error}
-        </p>
-      ) : null}
+      {error ? <p className={ALERT_ERROR}>{error}</p> : null}
 
-      <div className="min-h-0 flex-1 overflow-auto border border-slate-300 bg-white">
-        <table className="w-full border-collapse text-xs">
+      <div className={PAGE_PANEL_SCROLL}>
+        <table className={TABLE}>
           <thead>
-            <tr className="bg-slate-50 text-slate-600">
-              <th className="border border-slate-200 px-3 py-2 text-left font-semibold">
-                Nombre
-              </th>
-              <th className="border border-slate-200 px-3 py-2 text-left font-semibold">
-                Código
-              </th>
-              <th className="border border-slate-200 px-3 py-2 text-left font-semibold">
-                Abrev.
-              </th>
-              <th className="border border-slate-200 px-3 py-2 text-right font-semibold">
-                Acciones
-              </th>
+            <tr>
+              <th className={TH}>Nombre</th>
+              <th className={TH}>Código</th>
+              <th className={TH}>Abrev.</th>
+              <th className={`${TH} text-right`}>Acciones</th>
             </tr>
           </thead>
           <tbody>
             {puestos.map((puesto) => (
-              <tr key={puesto.codigo} className="hover:bg-slate-50">
-                <td className="border border-slate-200 px-3 py-2 font-medium text-slate-800">
-                  {puesto.nombre}
-                </td>
-                <td className="border border-slate-200 px-3 py-2 font-mono text-slate-700">
+              <tr key={puesto.codigo} className="hover:bg-slate-50/70">
+                <td className={`${TD} font-medium`}>{puesto.nombre}</td>
+                <td className={`${TD} font-mono text-slate-600`}>
                   {puesto.codigo}
                 </td>
-                <td className="border border-slate-200 px-3 py-2 font-mono text-slate-700">
+                <td className={`${TD} font-mono text-slate-600`}>
                   {puesto.abreviatura}
                 </td>
-                <td className="border border-slate-200 px-3 py-2 text-right">
+                <td className={`${TD} text-right`}>
                   <button
                     type="button"
-                    className="mr-2 text-xs font-semibold text-slate-700 hover:underline disabled:opacity-40"
+                    className="mr-1.5 text-[10px] font-semibold text-slate-700 hover:underline disabled:opacity-40"
                     disabled={guardando}
                     onClick={() => abrirEditar(puesto)}
                   >
@@ -430,7 +423,7 @@ export function PuestosPage() {
                   </button>
                   <button
                     type="button"
-                    className="text-xs font-semibold text-red-700 hover:underline disabled:opacity-40"
+                    className="text-[10px] font-semibold text-red-700 hover:underline disabled:opacity-40"
                     disabled={guardando}
                     onClick={() => void borrar(puesto)}
                   >
@@ -441,10 +434,7 @@ export function PuestosPage() {
             ))}
             {puestos.length === 0 ? (
               <tr>
-                <td
-                  colSpan={4}
-                  className="border border-slate-200 px-3 py-8 text-center text-slate-500"
-                >
+                <td colSpan={4} className={`${TD} py-6 text-center text-slate-500`}>
                   No hay puestos. Crea el primero para configurar mínimos.
                 </td>
               </tr>

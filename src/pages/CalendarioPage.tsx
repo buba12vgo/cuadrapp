@@ -1,4 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
+import { PageHeader } from '@/components/ui/PageHeader'
+import {
+  ALERT_ERROR,
+  BTN_DANGER,
+  BTN_GHOST,
+  BTN_PRIMARY,
+  CAMPO,
+  CAMPO_NUM,
+  PAGE_PANEL_SCROLL,
+  PAGE_SECTION,
+  TD,
+  TH,
+} from '@/lib/uiStyles'
 import {
   TIPO_DIA_LABEL,
   minimosARecord,
@@ -37,12 +50,6 @@ const MESES = [
 const DIAS_SEMANA = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const
 const TURNOS = ['M', 'T', 'N'] as const
 const ANIO_INICIAL = 2026
-
-const CAMPO =
-  'h-7 border border-slate-300 bg-white px-2 text-xs text-slate-900 outline-none focus:border-slate-700'
-const INPUT_MIN =
-  'h-7 w-12 border border-slate-300 bg-white p-1 text-center text-xs tabular-nums outline-none focus:border-slate-700'
-const CELDA_TABLA = 'border border-slate-300 px-2 py-1 text-xs'
 
 const ETIQUETA_EVENTO: Partial<
   Record<TipoEvento, { emoji: string; clase: string; texto: string }>
@@ -219,14 +226,9 @@ function EditorDiaDrawer({
             <table className="w-full border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-50 text-slate-600">
-                  <th className={`${CELDA_TABLA} text-left font-semibold`}>
-                    Puesto
-                  </th>
+                  <th className={`${TH} text-left`}>Puesto</th>
                   {TURNOS.map((turno) => (
-                    <th
-                      key={turno}
-                      className={`${CELDA_TABLA} text-center font-semibold`}
-                    >
+                    <th key={turno} className={`${TH} text-center`}>
                       {turno}
                     </th>
                   ))}
@@ -235,16 +237,14 @@ function EditorDiaDrawer({
               <tbody>
                 {puestos.map((puesto) => (
                   <tr key={puesto.codigo}>
-                    <td className={`${CELDA_TABLA} font-medium text-slate-800`}>
-                      {puesto.nombre}
-                    </td>
+                    <td className={`${TD} font-medium`}>{puesto.nombre}</td>
                     {TURNOS.map((turno) => (
-                      <td key={turno} className={`${CELDA_TABLA} text-center`}>
+                      <td key={turno} className={`${TD} text-center`}>
                         <input
                           type="number"
                           min={0}
                           max={99}
-                          className={INPUT_MIN}
+                          className={CAMPO_NUM}
                           value={minimos[puesto.nombre]?.[turno] ?? 0}
                           onChange={(event) =>
                             setMinimos((actual) => ({
@@ -272,19 +272,19 @@ function EditorDiaDrawer({
           </div>
         </div>
 
-        <footer className="flex flex-wrap justify-between gap-2 border-t border-slate-200 px-4 py-3">
+        <footer className="flex flex-wrap justify-between gap-1 border-t border-slate-200 px-3 py-2">
           <button
             type="button"
-            className="h-8 px-3 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-40"
+            className={BTN_DANGER}
             disabled={!evento || guardando}
             onClick={() => void onBorrar()}
           >
             Borrar evento
           </button>
-          <div className="flex gap-2">
+          <div className="flex gap-1">
             <button
               type="button"
-              className="h-8 px-3 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+              className={BTN_GHOST}
               disabled={guardando}
               onClick={onCerrar}
             >
@@ -292,11 +292,11 @@ function EditorDiaDrawer({
             </button>
             <button
               type="button"
-              className="h-8 bg-slate-900 px-3 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+              className={BTN_PRIMARY}
               disabled={guardando}
               onClick={() => void guardar()}
             >
-              {guardando ? 'Guardando…' : 'Guardar configuración del día'}
+              {guardando ? 'Guardando…' : 'Guardar'}
             </button>
           </div>
         </footer>
@@ -396,60 +396,51 @@ export function CalendarioPage() {
   }
 
   return (
-    <section className="flex h-full min-h-0 flex-col gap-2">
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 px-1">
-        <div>
-          <h1 className="text-sm font-bold text-slate-900">
-            Calendario operativo
-          </h1>
-          <p className="text-[11px] text-slate-500">
-            Eventos y mínimos por puesto · {eventosData.length} días
-            configurados · Firestore
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-1">
-            <span className="text-xs font-semibold text-slate-600">Mes</span>
-            <select
-              className={CAMPO}
-              value={mes}
-              onChange={(event) => setMes(Number(event.target.value))}
-            >
-              {MESES.map((nombre, indice) => (
-                <option key={nombre} value={indice + 1}>
-                  {nombre}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex items-center gap-1">
-            <span className="text-xs font-semibold text-slate-600">Año</span>
-            <input
-              type="number"
-              min={2020}
-              max={2040}
-              className={`${CAMPO} w-16`}
-              value={anio}
-              onChange={(event) =>
-                setAnio(Number(event.target.value) || anio)
-              }
-            />
-          </label>
-        </div>
-      </div>
+    <section className={PAGE_SECTION}>
+      <PageHeader
+        title="Calendario operativo"
+        subtitle={`${eventosData.length} días configurados · Firestore`}
+        actions={
+          <>
+            <label className="flex items-center gap-1">
+              <span className="text-[10px] font-semibold text-slate-600">Mes</span>
+              <select
+                className={CAMPO}
+                value={mes}
+                onChange={(event) => setMes(Number(event.target.value))}
+              >
+                {MESES.map((nombre, indice) => (
+                  <option key={nombre} value={indice + 1}>
+                    {nombre}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-1">
+              <span className="text-[10px] font-semibold text-slate-600">Año</span>
+              <input
+                type="number"
+                min={2020}
+                max={2040}
+                className={`${CAMPO} w-14`}
+                value={anio}
+                onChange={(event) =>
+                  setAnio(Number(event.target.value) || anio)
+                }
+              />
+            </label>
+          </>
+        }
+      />
 
-      {error ? (
-        <p className="border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-800">
-          {error}
-        </p>
-      ) : null}
+      {error ? <p className={ALERT_ERROR}>{error}</p> : null}
 
-      <div className="min-h-0 flex-1 overflow-auto border border-slate-300 bg-white p-2">
-        <div className="grid grid-cols-7 gap-1">
+      <div className={`${PAGE_PANEL_SCROLL} p-1.5`}>
+        <div className="grid grid-cols-7 gap-0.5">
           {DIAS_SEMANA.map((dia) => (
             <div
               key={dia}
-              className="py-1 text-center text-[11px] font-bold text-slate-500"
+              className="py-0.5 text-center text-[9px] font-bold text-slate-500"
             >
               {dia}
             </div>
@@ -459,7 +450,7 @@ export function CalendarioPage() {
               return (
                 <div
                   key={`hueco-${indice}`}
-                  className="h-24 border border-transparent bg-slate-50/50"
+                  className="h-[4.5rem] rounded-sm border border-transparent bg-slate-50/50"
                 />
               )
             }
@@ -475,26 +466,28 @@ export function CalendarioPage() {
               <button
                 key={fecha}
                 type="button"
-                className={`flex h-24 flex-col border border-slate-300 p-1.5 text-left hover:border-slate-500 hover:ring-2 hover:ring-blue-400 ${
-                  fechaSeleccionada === fecha ? 'ring-2 ring-blue-500' : 'bg-white'
+                className={`flex h-[4.5rem] flex-col rounded-sm border border-slate-200 p-1 text-left hover:border-slate-400 hover:ring-1 hover:ring-blue-300 ${
+                  fechaSeleccionada === fecha
+                    ? 'ring-2 ring-blue-500'
+                    : 'bg-white'
                 }`}
                 onClick={() => setFechaSeleccionada(fecha)}
               >
-                <span className="text-xs font-bold text-slate-800">{dia}</span>
+                <span className="text-[10px] font-bold text-slate-800">{dia}</span>
                 {etiqueta ? (
                   <span
-                    className={`mt-1 inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-semibold ${etiqueta.clase}`}
+                    className={`mt-0.5 inline-flex items-center gap-0.5 rounded px-0.5 py-0 text-[8px] font-semibold ${etiqueta.clase}`}
                   >
                     {etiqueta.emoji} {etiqueta.texto}
                   </span>
                 ) : null}
                 {evento && !etiqueta ? (
-                  <span className="mt-1 rounded bg-slate-100 px-1 py-0.5 text-[10px] font-medium text-slate-700">
+                  <span className="mt-0.5 rounded bg-slate-100 px-0.5 py-0 text-[8px] font-medium text-slate-700">
                     Override
                   </span>
                 ) : null}
                 {evento?.descripcion ? (
-                  <span className="mt-auto line-clamp-2 text-[10px] text-slate-500">
+                  <span className="mt-auto line-clamp-2 text-[8px] text-slate-500">
                     {evento.descripcion}
                   </span>
                 ) : null}

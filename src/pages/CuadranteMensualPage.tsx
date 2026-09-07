@@ -1,5 +1,16 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { BolsaPuestosPanel, filtroTurnoInicial } from '@/components/BolsaPuestosPanel'
+import { PageHeader } from '@/components/ui/PageHeader'
+import {
+  ALERT_ERROR,
+  ALERT_INFO,
+  ALERT_WARN,
+  BADGE_OK,
+  BTN_PRIMARY,
+  BTN_SECONDARY,
+  CAMPO,
+  PAGE_SECTION,
+} from '@/lib/uiStyles'
 import { PopoverPuestosCelda } from '@/components/PopoverPuestosCelda'
 import { RepartoOperativoModal } from '@/components/RepartoOperativoModal'
 import { useAgentesData } from '@/lib/agentesStore'
@@ -49,7 +60,6 @@ import {
 import { esFestivo } from '@/lib/festivos'
 import {
   generarCuadranteMensualAsync,
-  PASADAS_REFINO_CUADRANTE_MENSUAL,
   type CuadranteMensual,
 } from '@/lib/generarCuadranteMensual'
 import {
@@ -107,8 +117,6 @@ const CELDA =
   'h-7 border border-slate-400 px-0.5 py-0 text-xs leading-none'
 const CELDA_PIE =
   'h-9 border border-slate-400 border-t-2 border-t-slate-500 px-0 py-0 text-[9px] leading-tight'
-const CAMPO =
-  'h-6 border border-slate-400 bg-white px-1 text-xs text-slate-900 outline-none focus:border-slate-700'
 
 const CLASE_TURNO: Record<Turno, string> = {
   M: 'bg-yellow-200 text-yellow-950',
@@ -677,225 +685,186 @@ export function CuadranteMensualPage() {
   }
 
   return (
-    <section className="flex h-full min-h-0 flex-col">
-      <div className="sticky top-0 z-50 shrink-0 border-b border-slate-300 bg-white">
-        <div className="flex flex-wrap items-center justify-between gap-2 px-1 py-1">
-        <div>
-          <h1 className="text-xs font-bold text-slate-900">
-            Cuadrante mensual
-          </h1>
-          <p className="text-[11px] text-slate-500">
-            Convenio: {objetivo} días · fatiga ≤ 5 · D de 2+ · cobertura vs
-            mínimos del día
-            {loadingCuadrante ? ' · Cargando…' : ''}
-            {generandoCuadrante ? ' · Generando mes…' : ''}
-          </p>
-          <p className="text-[10px] text-slate-500">
-            Pie Σ por agente:{' '}
-            <span className="font-semibold">Nd</span> jornadas del mes ·{' '}
-            <span className="font-semibold">nf</span> fines de semana laborados
-            (obj. 2, máx. 3; prohibido 0 y 1) ·{' '}
-            <span className="font-semibold">NF</span> festivos + conciliaciones
-            (variables de cobro). Autogenerar hace{' '}
-            {PASADAS_REFINO_CUADRANTE_MENSUAL} pasadas de refinado.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-1">
-            <span className="text-xs font-semibold text-slate-600">Mes</span>
-            <select
-              className={CAMPO}
-              value={mes}
-              onChange={(event) =>
-                aplicarMes(anio, Number(event.target.value))
-              }
-            >
-              {MESES.map((nombre, indice) => (
-                <option key={nombre} value={indice + 1}>
-                  {nombre}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex items-center gap-1">
-            <span className="text-xs font-semibold text-slate-600">Año</span>
-            <input
-              type="number"
-              min={2020}
-              max={2040}
-              className={`${CAMPO} w-16`}
-              value={anio}
-              onChange={(event) =>
-                aplicarMes(Number(event.target.value) || anio, mes)
-              }
-            />
-          </label>
-          <label className="flex items-center gap-1">
-            <span className="text-xs font-semibold text-slate-600">Desde</span>
-            <input
-              type="date"
-              className={CAMPO}
-              min={isoFecha(anio, mes, 1)}
-              max={isoFecha(anio, mes, nDias)}
-              value={isoFecha(anio, mes, Math.min(diaDesde, nDias))}
-              onChange={(event) => {
-                const leida = leerFecha(event.target.value)
-                if (!leida) return
-                setDiaDesde(Math.min(leida.dia, nDias))
-              }}
-            />
-          </label>
-          <label className="flex items-center gap-1">
-            <span className="text-xs font-semibold text-slate-600">Hasta</span>
-            <input
-              type="date"
-              className={CAMPO}
-              min={isoFecha(anio, mes, 1)}
-              max={isoFecha(anio, mes, nDias)}
-              value={isoFecha(anio, mes, Math.min(diaHasta, nDias))}
-              onChange={(event) => {
-                const leida = leerFecha(event.target.value)
-                if (!leida) return
-                setDiaHasta(Math.min(leida.dia, nDias))
-              }}
-            />
-          </label>
-          <label className="flex items-center gap-1">
-            <span className="text-xs font-semibold text-slate-600">Rol</span>
-            <select
-              className={CAMPO}
-              value={rolFiltro}
-              onChange={(event) =>
-                setRolFiltro(event.target.value as 'TODOS' | RolPolicia)
-              }
-            >
-              <option value="TODOS">Todos</option>
-              {ROLES.map((rol) => (
-                <option key={rol} value={rol}>
-                  {ROL_LABEL[rol]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div
-            className="flex items-center gap-0.5"
-            title="Muestra solo agentes con ese turno en el plan anual de este mes. Las celdas de otros turnos se atenúan."
-          >
-            <span className="text-xs font-semibold text-slate-600">Turno</span>
-            {TURNOS_VISTA.map((opcion) => (
-              <button
-                key={opcion.valor}
-                type="button"
-                className={`h-6 min-w-7 px-1.5 text-[11px] font-bold ${
-                  filtroVistaTurno === opcion.valor
-                    ? opcion.valor === 'TODOS'
-                      ? 'bg-slate-900 text-white'
-                      : CLASE_TURNO[opcion.valor]
-                    : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
-                } ${
-                  filtroVistaTurno === opcion.valor && opcion.valor !== 'TODOS'
-                    ? 'ring-2 ring-slate-700'
-                    : ''
-                }`}
-                aria-pressed={filtroVistaTurno === opcion.valor}
-                onClick={() =>
-                  setFiltroVistaTurno((actual) =>
-                    actual === opcion.valor && opcion.valor !== 'TODOS'
-                      ? 'TODOS'
-                      : opcion.valor,
-                  )
+    <section className={PAGE_SECTION}>
+      <PageHeader
+        title="Cuadrante mensual"
+        subtitle={`Convenio: ${objetivo} días · fatiga ≤ 5 · cobertura vs mínimos${loadingCuadrante ? ' · Cargando…' : ''}${generandoCuadrante ? ' · Generando…' : ''}`}
+        status={guardadoOk ? <span className={BADGE_OK}>Guardado</span> : null}
+        toolbar={
+          <>
+            <label className="flex items-center gap-1">
+              <span className="text-[10px] font-semibold text-slate-600">Mes</span>
+              <select
+                className={CAMPO}
+                value={mes}
+                onChange={(event) =>
+                  aplicarMes(anio, Number(event.target.value))
                 }
               >
-                {opcion.label}
-              </button>
-            ))}
-          </div>
-          <button
-            type="button"
-            className="h-6 border border-slate-400 bg-white px-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-            title="Exporta la tabla visible a Excel (mes, filtros y rango de días actual)"
-            disabled={!cuadranteListo || agentesVisibles.length === 0}
-            onClick={() =>
-              exportarCuadranteMensualExcel({
-                anio,
-                mes,
-                diaDesde,
-                diaHasta,
-                rolLabel:
-                  rolFiltro === 'TODOS'
-                    ? 'Todos'
-                    : ROL_LABEL[rolFiltro],
-                turnoVistaLabel:
-                  TURNOS_VISTA.find((t) => t.valor === filtroVistaTurno)?.label ??
-                  filtroVistaTurno,
-                agentes: agentesVisibles,
-                agentesTotales: agentesData,
-                cuadrante,
-                planAnual,
-                asignacionesDiarias,
-                puestos,
-                diasVisibles,
-                eventos: eventosData,
-              })
-            }
-          >
-            Exportar Excel
-          </button>
-          <button
-            type="button"
-            className="h-6 bg-slate-900 px-2 text-xs font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={!puedeAutogenerar}
-            title={
-              mesGuardadoEnFirestore
-                ? `Sustituye el cuadrante guardado (${PASADAS_REFINO_CUADRANTE_MENSUAL} pasadas: cobertura, mínimos diarios, variables y findes)`
-                : `Genera el cuadrante del mes (${PASADAS_REFINO_CUADRANTE_MENSUAL} pasadas de refinado)`
-            }
-            onClick={() => void autogenerar()}
-          >
-            {generandoCuadrante ? 'Generando…' : 'Autogenerar mes'}
-          </button>
-          <button
-            type="button"
-            className="h-6 bg-emerald-700 px-2 text-xs font-semibold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={
-              !cuadranteListo || guardandoCuadrante || generandoCuadrante || !firebaseOk
-            }
-            onClick={() => void guardarCuadranteEnFirestore()}
-          >
-            {guardandoCuadrante ? 'Guardando…' : '💾 Guardar Cuadrante'}
-          </button>
-          {guardadoOk ? (
-            <span className="text-xs font-semibold text-green-700">
-              Guardado con éxito
-            </span>
-          ) : null}
-        </div>
-        </div>
-        {cuadranteCargaFallida && !tieneCuadranteLocal ? (
-          <p className="border-t border-red-200 bg-red-50 px-2 py-1 text-[11px] text-red-800">
-            No se pudo cargar este mes desde Firestore. Puedes autogenerar el
-            cuadrante o recargar la página.
-          </p>
-        ) : cuadranteCargaFallida ? (
-          <p className="border-t border-amber-200 bg-amber-50 px-2 py-1 text-[11px] text-amber-900">
-            No se pudo sincronizar con Firestore; se muestra el cuadrante en
-            pantalla. Guardar o autogenerar de nuevo actualizará los datos.
-          </p>
-        ) : null}
-        {errorCuadrante ? (
-          <p className="border-t border-red-200 bg-red-50 px-2 py-1 text-[11px] text-red-800">
-            {errorCuadrante}
-          </p>
-        ) : null}
-        {agentesVisibles.length === 0 && !loadingCuadrante ? (
-          <p className="border-t border-slate-200 px-2 py-1 text-[11px] text-slate-600">
-            Ningún agente con ese rol o turno este mes.
-          </p>
-        ) : null}
-      </div>
+                {MESES.map((nombre, indice) => (
+                  <option key={nombre} value={indice + 1}>{nombre}</option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-1">
+              <span className="text-[10px] font-semibold text-slate-600">Año</span>
+              <input
+                type="number"
+                min={2020}
+                max={2040}
+                className={`${CAMPO} w-14`}
+                value={anio}
+                onChange={(event) =>
+                  aplicarMes(Number(event.target.value) || anio, mes)
+                }
+              />
+            </label>
+            <label className="flex items-center gap-1">
+              <span className="text-[10px] font-semibold text-slate-600">Desde</span>
+              <input
+                type="date"
+                className={CAMPO}
+                min={isoFecha(anio, mes, 1)}
+                max={isoFecha(anio, mes, nDias)}
+                value={isoFecha(anio, mes, Math.min(diaDesde, nDias))}
+                onChange={(event) => {
+                  const leida = leerFecha(event.target.value)
+                  if (!leida) return
+                  setDiaDesde(Math.min(leida.dia, nDias))
+                }}
+              />
+            </label>
+            <label className="flex items-center gap-1">
+              <span className="text-[10px] font-semibold text-slate-600">Hasta</span>
+              <input
+                type="date"
+                className={CAMPO}
+                min={isoFecha(anio, mes, 1)}
+                max={isoFecha(anio, mes, nDias)}
+                value={isoFecha(anio, mes, Math.min(diaHasta, nDias))}
+                onChange={(event) => {
+                  const leida = leerFecha(event.target.value)
+                  if (!leida) return
+                  setDiaHasta(Math.min(leida.dia, nDias))
+                }}
+              />
+            </label>
+            <label className="flex items-center gap-1">
+              <span className="text-[10px] font-semibold text-slate-600">Rol</span>
+              <select
+                className={CAMPO}
+                value={rolFiltro}
+                onChange={(event) =>
+                  setRolFiltro(event.target.value as 'TODOS' | RolPolicia)
+                }
+              >
+                <option value="TODOS">Todos</option>
+                {ROLES.map((rol) => (
+                  <option key={rol} value={rol}>{ROL_LABEL[rol]}</option>
+                ))}
+              </select>
+            </label>
+            <div
+              className="flex items-center gap-0.5"
+              title="Filtra agentes por turno del plan anual"
+            >
+              <span className="text-[10px] font-semibold text-slate-600">Turno</span>
+              {TURNOS_VISTA.map((opcion) => (
+                <button
+                  key={opcion.valor}
+                  type="button"
+                  className={`h-7 min-w-7 rounded-md px-1 text-[10px] font-bold ${
+                    filtroVistaTurno === opcion.valor
+                      ? opcion.valor === 'TODOS'
+                        ? 'bg-slate-900 text-white'
+                        : CLASE_TURNO[opcion.valor]
+                      : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  } ${
+                    filtroVistaTurno === opcion.valor && opcion.valor !== 'TODOS'
+                      ? 'ring-1 ring-slate-700'
+                      : ''
+                  }`}
+                  aria-pressed={filtroVistaTurno === opcion.valor}
+                  onClick={() =>
+                    setFiltroVistaTurno((actual) =>
+                      actual === opcion.valor && opcion.valor !== 'TODOS'
+                        ? 'TODOS'
+                        : opcion.valor,
+                    )
+                  }
+                >
+                  {opcion.label}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              className={BTN_SECONDARY}
+              disabled={!cuadranteListo || agentesVisibles.length === 0}
+              onClick={() =>
+                exportarCuadranteMensualExcel({
+                  anio,
+                  mes,
+                  diaDesde,
+                  diaHasta,
+                  rolLabel:
+                    rolFiltro === 'TODOS' ? 'Todos' : ROL_LABEL[rolFiltro],
+                  turnoVistaLabel:
+                    TURNOS_VISTA.find((t) => t.valor === filtroVistaTurno)?.label ??
+                    filtroVistaTurno,
+                  agentes: agentesVisibles,
+                  agentesTotales: agentesData,
+                  cuadrante,
+                  planAnual,
+                  asignacionesDiarias,
+                  puestos,
+                  diasVisibles,
+                  eventos: eventosData,
+                })
+              }
+            >
+              Exportar
+            </button>
+            <button
+              type="button"
+              className={BTN_PRIMARY}
+              disabled={!puedeAutogenerar}
+              onClick={() => void autogenerar()}
+            >
+              {generandoCuadrante ? 'Generando…' : 'Autogenerar'}
+            </button>
+            <button
+              type="button"
+              className="inline-flex h-7 items-center rounded-md bg-emerald-700 px-2 text-[10px] font-semibold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={
+                !cuadranteListo || guardandoCuadrante || generandoCuadrante || !firebaseOk
+              }
+              onClick={() => void guardarCuadranteEnFirestore()}
+            >
+              {guardandoCuadrante ? 'Guardando…' : 'Guardar'}
+            </button>
+          </>
+        }
+      />
+
+      {cuadranteCargaFallida && !tieneCuadranteLocal ? (
+        <p className={ALERT_ERROR}>
+          No se pudo cargar este mes desde Firestore. Puedes autogenerar el
+          cuadrante o recargar la página.
+        </p>
+      ) : cuadranteCargaFallida ? (
+        <p className={ALERT_WARN}>
+          No se pudo sincronizar con Firestore; se muestra el cuadrante en
+          pantalla.
+        </p>
+      ) : null}
+      {errorCuadrante ? <p className={ALERT_ERROR}>{errorCuadrante}</p> : null}
+      {agentesVisibles.length === 0 && !loadingCuadrante ? (
+        <p className={ALERT_INFO}>Ningún agente con ese rol o turno este mes.</p>
+      ) : null}
 
       <div className="flex min-h-0 flex-1">
-        <div className="min-h-0 flex-1 overflow-auto border border-slate-500 bg-white">
+        <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-slate-200 bg-white shadow-sm">
           <table className="w-max border-separate border-spacing-0 text-xs leading-none">
           <thead>
             <tr>

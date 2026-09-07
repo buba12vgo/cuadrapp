@@ -1,4 +1,22 @@
 import { useEffect, useRef, useState } from 'react'
+import { PageHeader } from '@/components/ui/PageHeader'
+import {
+  ALERT_ERROR,
+  ALERT_INFO,
+  BLOQUE,
+  BTN_DANGER,
+  BTN_GHOST,
+  BTN_PRIMARY,
+  BTN_SECONDARY,
+  CAMPO,
+  CAMPO_NUM,
+  PAGE_PANEL_SCROLL,
+  PAGE_SECTION,
+  TABLE,
+  TD,
+  TH,
+  TITULO_BLOQUE,
+} from '@/lib/uiStyles'
 import { agenteNuevo, deleteAgente, getAgentes, saveAgente, saveAgentes } from '@/lib/db'
 import { ensureFirebase, isFirebaseReady } from '@/lib/firebase'
 import {
@@ -84,13 +102,7 @@ const MESES_VACACIONES: FichaPolicia['mesAnclaVacaciones'][] = [
   'AGOSTO',
 ]
 
-const CAMPO =
-  'h-8 w-full border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none focus:border-slate-700'
-const CAMPO_NUM =
-  'h-8 w-14 border border-slate-300 bg-white px-1 text-center text-sm tabular-nums text-slate-900 outline-none focus:border-slate-700'
-const BLOQUE = 'border border-slate-200 bg-white p-3'
-const TITULO_BLOQUE =
-  'mb-2 text-[11px] font-bold tracking-wide text-slate-500 uppercase'
+const CAMPO_FULL = `${CAMPO} w-full`
 
 function leerMeses(valor: string) {
   const n = Number(valor)
@@ -263,7 +275,7 @@ function FichaAgenteModal({
                   Placa
                 </span>
                 <input
-                  className={CAMPO}
+                  className={CAMPO_FULL}
                   value={form.numeroPlaca}
                   onChange={(event) =>
                     setForm((actual) => ({
@@ -278,7 +290,7 @@ function FichaAgenteModal({
                   Rol
                 </span>
                 <select
-                  className={CAMPO}
+                  className={CAMPO_FULL}
                   value={form.rolBase}
                   onChange={(event) =>
                     setForm((actual) => ({
@@ -299,7 +311,7 @@ function FichaAgenteModal({
                   Nombre
                 </span>
                 <input
-                  className={CAMPO}
+                  className={CAMPO_FULL}
                   value={form.nombre}
                   onChange={(event) =>
                     setForm((actual) => ({
@@ -314,7 +326,7 @@ function FichaAgenteModal({
                   Apellidos
                 </span>
                 <input
-                  className={CAMPO}
+                  className={CAMPO_FULL}
                   value={form.apellidos}
                   onChange={(event) =>
                     setForm((actual) => ({
@@ -329,7 +341,7 @@ function FichaAgenteModal({
                   Mes de vacaciones {ANIO_REFERENCIA_VACACIONES_DEFECTO}
                 </span>
                 <select
-                  className={CAMPO}
+                  className={CAMPO_FULL}
                   value={form.mesAnclaVacaciones}
                   onChange={(event) =>
                     setForm((actual) => ({
@@ -519,12 +531,12 @@ function FichaAgenteModal({
           </section>
         </div>
 
-        <footer className="flex items-center justify-between gap-2 border-t border-slate-200 bg-white px-4 py-3">
+        <footer className="flex items-center justify-between gap-2 border-t border-slate-200 bg-white px-3 py-2">
           <div>
             {!esNuevo && onEliminar ? (
               <button
                 type="button"
-                className="h-8 px-3 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:cursor-wait disabled:opacity-50"
+                className={BTN_DANGER}
                 disabled={guardando}
                 onClick={() => void onEliminar()}
               >
@@ -532,19 +544,11 @@ function FichaAgenteModal({
               </button>
             ) : null}
           </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className="h-8 px-3 text-xs font-semibold text-slate-600 hover:bg-slate-100"
-              onClick={onCancelar}
-            >
+          <div className="flex gap-1">
+            <button type="button" className={BTN_GHOST} onClick={onCancelar}>
               Cancelar
             </button>
-            <button
-              type="submit"
-              disabled={guardando}
-              className="h-8 bg-slate-900 px-3 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-wait disabled:opacity-60"
-            >
+            <button type="submit" disabled={guardando} className={BTN_PRIMARY}>
               {guardando ? 'Guardando…' : 'Guardar'}
             </button>
           </div>
@@ -718,92 +722,86 @@ export function AgentesPage() {
   }
 
   return (
-    <section className="flex h-full min-h-0 flex-col gap-3 overflow-auto p-3">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">
-            Gestión de agentes
-          </h1>
-          <p className="text-sm text-slate-500">
-            {loading
-              ? 'Cargando plantilla desde Firestore…'
-              : `${agentesData.length} fichas. Importa un Excel con número, nombre, apellidos y rol.`}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            ref={inputExcel}
-            type="file"
-            accept=".xlsx,.xls,.csv"
-            className="hidden"
-            onChange={(event) => {
-              const archivo = event.target.files?.[0]
-              if (archivo) void importarDesdeExcel(archivo)
-            }}
-          />
-          <button
-            type="button"
-            className="h-8 px-2 text-xs font-semibold text-slate-600 hover:bg-slate-100"
-            onClick={() => descargarPlantillaAgentes()}
-          >
-            Plantilla Excel
-          </button>
-          <button
-            type="button"
-            disabled={loading || importando || !firebaseOk}
-            className="h-8 border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-            onClick={() => inputExcel.current?.click()}
-          >
-            {importando ? 'Importando…' : 'Importar Excel'}
-          </button>
-          <button
-            type="button"
-            disabled={loading || importando || !firebaseOk}
-            className="h-8 border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-            onClick={() => {
-              setEsNuevo(true)
-              setAgenteModal(agenteNuevo())
-            }}
-          >
-            Nuevo agente
-          </button>
-        </div>
-      </header>
+    <section className={PAGE_SECTION}>
+      <PageHeader
+        title="Gestión de agentes"
+        subtitle={
+          loading
+            ? 'Cargando plantilla desde Firestore…'
+            : `${agentesData.length} fichas · importa Excel o crea manualmente`
+        }
+        toolbar={
+          <>
+            <input
+              ref={inputExcel}
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              className="hidden"
+              onChange={(event) => {
+                const archivo = event.target.files?.[0]
+                if (archivo) void importarDesdeExcel(archivo)
+              }}
+            />
+            <button
+              type="button"
+              className={BTN_GHOST}
+              onClick={() => descargarPlantillaAgentes()}
+            >
+              Plantilla Excel
+            </button>
+            <button
+              type="button"
+              disabled={loading || importando || !firebaseOk}
+              className={BTN_SECONDARY}
+              onClick={() => inputExcel.current?.click()}
+            >
+              {importando ? 'Importando…' : 'Importar Excel'}
+            </button>
+            <button
+              type="button"
+              disabled={loading || importando || !firebaseOk}
+              className={BTN_PRIMARY}
+              onClick={() => {
+                setEsNuevo(true)
+                setAgenteModal(agenteNuevo())
+              }}
+            >
+              Nuevo agente
+            </button>
+          </>
+        }
+      />
 
-      {error ? (
-        <p className="border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-          {error}
-        </p>
-      ) : null}
+      {error ? <p className={ALERT_ERROR}>{error}</p> : null}
 
       {loading ? (
-        <div className="flex items-center gap-2 border border-slate-200 bg-white px-4 py-8 text-sm text-slate-600">
+        <div className={`${ALERT_INFO} flex items-center gap-2`}>
           <span
-            className="inline-block size-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700"
+            className="inline-block size-3 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700"
             aria-hidden
           />
           Cargando agentes…
         </div>
       ) : (
-        <div className="overflow-x-auto border border-slate-200 bg-white">
-          <table className="min-w-full text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-xs font-medium text-slate-500">
+        <div className={PAGE_PANEL_SCROLL}>
+          <table className={TABLE}>
+            <thead>
               <tr>
-                <th className="px-3 py-2">Placa</th>
-                <th className="px-3 py-2">Nombre</th>
-                <th className="px-3 py-2">Rol base</th>
-                <th className="px-3 py-2">
+                <th className={TH}>Placa</th>
+                <th className={TH}>Nombre</th>
+                <th className={TH}>Rol base</th>
+                <th className={TH}>
                   Vacaciones {ANIO_REFERENCIA_VACACIONES_DEFECTO}
                 </th>
-                <th className="px-3 py-2 text-right">Acciones</th>
+                <th className={`${TH} text-right`}>Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody>
               {agentesData.length === 0 ? (
                 <tr>
                   <td
                     colSpan={5}
-                    className="px-3 py-6 text-center text-sm text-slate-500"
+                    className={`${TD} py-6 text-center text-slate-500`}
                   >
                     No hay agentes en Firestore. Importa un Excel o pulsa
                     «Nuevo agente».
@@ -811,23 +809,23 @@ export function AgentesPage() {
                 </tr>
               ) : (
                 agentesData.map((agente) => (
-                  <tr key={agente.id} className="hover:bg-slate-50">
-                    <td className="px-3 py-2 font-mono tabular-nums text-slate-700">
+                  <tr key={agente.id} className="hover:bg-slate-50/70">
+                    <td className={`${TD} font-mono tabular-nums text-slate-600`}>
                       {agente.numeroPlaca}
                     </td>
-                    <td className="px-3 py-2 font-medium text-slate-900">
+                    <td className={`${TD} font-medium text-slate-900`}>
                       {agente.nombre} {agente.apellidos}
                     </td>
-                    <td className="px-3 py-2 text-slate-600">
+                    <td className={`${TD} text-slate-600`}>
                       {ROL_LABEL[agente.rolBase]}
                     </td>
-                    <td className="px-3 py-2 text-slate-600">
+                    <td className={`${TD} text-slate-600`}>
                       {MES_LABEL[agente.mesAnclaVacaciones]}
                     </td>
-                    <td className="px-3 py-2 text-right">
+                    <td className={`${TD} text-right`}>
                       <button
                         type="button"
-                        className="mr-2 border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                        className="mr-1.5 text-[10px] font-medium text-slate-700 hover:underline"
                         onClick={() => {
                           setEsNuevo(false)
                           setAgenteModal(agente)
@@ -838,7 +836,7 @@ export function AgentesPage() {
                       <button
                         type="button"
                         disabled={guardando || !firebaseOk}
-                        className="text-xs font-semibold text-red-700 hover:underline disabled:cursor-not-allowed disabled:opacity-40"
+                        className="text-[10px] font-semibold text-red-700 hover:underline disabled:cursor-not-allowed disabled:opacity-40"
                         onClick={() => void eliminarAgente(agente)}
                       >
                         Eliminar

@@ -1,4 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
+import { PageHeader } from '@/components/ui/PageHeader'
+import {
+  ALERT_ERROR,
+  ALERT_INFO,
+  ALERT_WARN,
+  BTN_SECONDARY,
+  CAMPO,
+  PAGE_PANEL_SCROLL,
+  PAGE_SECTION,
+  PAGE_SUBTITLE,
+  TABLE,
+  TD,
+  TH,
+} from '@/lib/uiStyles'
 import { useAgentesData } from '@/lib/agentesStore'
 import { cuadranteDesdeFirestore } from '@/lib/cuadranteFirestore'
 import { diasDelMes } from '@/lib/convenio'
@@ -47,10 +61,7 @@ const ROL_LABEL: Record<RolPolicia, string> = {
   POLICIA_BOLSA: 'Policía Bolsa',
 }
 
-const CELDA =
-  'border border-slate-400 px-2 py-1 text-xs leading-tight text-center tabular-nums'
-const CAMPO =
-  'h-6 border border-slate-400 bg-white px-1 text-xs text-slate-900 outline-none focus:border-slate-700'
+const CELDA = `${TD} border-slate-200 text-center tabular-nums leading-tight`
 
 export function ListadosPage() {
   const [agentesData] = useAgentesData()
@@ -153,113 +164,101 @@ export function ListadosPage() {
   const hayCuadrante = Object.keys(cuadrante).length > 0
 
   return (
-    <section className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 px-1 py-1">
-        <div>
-          <h1 className="text-xs font-bold text-slate-900">
-            Listados · variables de cobro
-          </h1>
-          <p className="text-[11px] text-slate-600">
-            Conciliaciones de finde y festivos por policía (mes vencido)
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-1">
-            <span className="text-xs font-semibold text-slate-600">Año</span>
-            <select
-              className={CAMPO}
-              value={anio}
-              onChange={(e) => setAnio(Number(e.target.value) || anio)}
-            >
-              {Array.from({ length: 11 }, (_, i) => 2020 + i).map((valor) => (
-                <option key={valor} value={valor}>{valor}</option>
-              ))}
-            </select>
-          </label>
-          <label className="flex items-center gap-1">
-            <span className="text-xs font-semibold text-slate-600">Mes</span>
-            <select
-              className={CAMPO}
-              value={mes}
-              onChange={(e) => setMes(Number(e.target.value) || mes)}
-            >
-              {MESES.map((nombre, indice) => (
-                <option key={nombre} value={indice + 1}>{nombre}</option>
-              ))}
-            </select>
-          </label>
-          <label className="flex items-center gap-1">
-            <span className="text-xs font-semibold text-slate-600">Rol</span>
-            <select
-              className={CAMPO}
-              value={rolFiltro}
-              onChange={(e) =>
-                setRolFiltro(e.target.value as 'TODOS' | RolPolicia)
+    <section className={PAGE_SECTION}>
+      <PageHeader
+        title="Listados · variables de cobro"
+        subtitle="Conciliaciones de finde y festivos por policía (mes vencido)"
+        actions={
+          <>
+            <label className="flex items-center gap-1">
+              <span className="text-[10px] font-semibold text-slate-600">Año</span>
+              <select
+                className={CAMPO}
+                value={anio}
+                onChange={(e) => setAnio(Number(e.target.value) || anio)}
+              >
+                {Array.from({ length: 11 }, (_, i) => 2020 + i).map((valor) => (
+                  <option key={valor} value={valor}>{valor}</option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-1">
+              <span className="text-[10px] font-semibold text-slate-600">Mes</span>
+              <select
+                className={CAMPO}
+                value={mes}
+                onChange={(e) => setMes(Number(e.target.value) || mes)}
+              >
+                {MESES.map((nombre, indice) => (
+                  <option key={nombre} value={indice + 1}>{nombre}</option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-1">
+              <span className="text-[10px] font-semibold text-slate-600">Rol</span>
+              <select
+                className={CAMPO}
+                value={rolFiltro}
+                onChange={(e) =>
+                  setRolFiltro(e.target.value as 'TODOS' | RolPolicia)
+                }
+              >
+                <option value="TODOS">Todos</option>
+                {ROLES.map((rol) => (
+                  <option key={rol} value={rol}>{ROL_LABEL[rol]}</option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              className={BTN_SECONDARY}
+              disabled={!hayCuadrante || agentesVisibles.length === 0}
+              onClick={() =>
+                exportarVariablesCobroExcel({
+                  anio,
+                  mes,
+                  agentes: agentesVisibles,
+                  conteos,
+                })
               }
             >
-              <option value="TODOS">Todos</option>
-              {ROLES.map((rol) => (
-                <option key={rol} value={rol}>{ROL_LABEL[rol]}</option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="button"
-            className="h-6 border border-slate-400 bg-white px-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={!hayCuadrante || agentesVisibles.length === 0}
-            onClick={() =>
-              exportarVariablesCobroExcel({
-                anio,
-                mes,
-                agentes: agentesVisibles,
-                conteos,
-              })
-            }
-          >
-            Exportar Excel
-          </button>
-        </div>
-      </div>
+              Exportar Excel
+            </button>
+          </>
+        }
+      />
 
-      {error ? (
-        <div className="mx-1 mb-1 border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-800">
-          {error}
-        </div>
-      ) : null}
+      {error ? <p className={ALERT_ERROR}>{error}</p> : null}
 
       {loading ? (
-        <div className="mx-1 mb-1 border border-slate-300 bg-slate-50 px-2 py-1 text-xs text-slate-700">
+        <p className={ALERT_INFO}>
           Cargando cuadrante de {MESES[mes - 1]} {anio}…
-        </div>
+        </p>
       ) : null}
 
       {!loading && !hayCuadrante ? (
-        <div className="mx-1 mb-1 border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-950">
+        <p className={ALERT_WARN}>
           No hay cuadrante guardado para {MESES[mes - 1]} {anio}. Las variables
           salen en cero hasta que exista cuadrante mensual.
-        </div>
+        </p>
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-auto border border-slate-500 bg-white">
-        <table className="w-full border-separate border-spacing-0 text-xs">
-          <thead className="sticky top-0 z-10 bg-slate-100">
+      <div className={PAGE_PANEL_SCROLL}>
+        <table className={TABLE}>
+          <thead className="sticky top-0 z-10 bg-slate-50">
             <tr>
-              <th className={`${CELDA} sticky left-0 z-20 bg-slate-100 text-left font-bold`}>
-                Placa
-              </th>
-              <th className={`${CELDA} text-left font-bold min-w-[140px]`}>
-                Nombre
-              </th>
+              <th className={`${TH} sticky left-0 z-20 bg-slate-50`}>Placa</th>
+              <th className={`${TH} min-w-[7rem]`}>Nombre</th>
               {TIPOS_VARIABLE_COBRO.map((tipo) => (
                 <th
                   key={tipo}
-                  className={`${CELDA} min-w-[72px] font-bold leading-tight`}
+                  className={`${TH} min-w-[3.5rem] text-center leading-tight`}
                   title={ETIQUETA_VARIABLE_COBRO[tipo]}
                 >
                   {ETIQUETA_VARIABLE_COBRO[tipo]}
                 </th>
               ))}
-              <th className={`${CELDA} font-bold bg-slate-200`}>Total</th>
+              <th className={`${TH} bg-slate-100 text-center`}>Total</th>
             </tr>
           </thead>
           <tbody>
@@ -307,7 +306,7 @@ export function ListadosPage() {
         </table>
       </div>
 
-      <p className="shrink-0 px-1 py-1 text-[11px] text-slate-600">
+      <p className={`shrink-0 ${PAGE_SUBTITLE} px-0.5`}>
         Conciliaciones y festivo son compatibles (ej. sábado festivo con M →
         conciliación sábado mañana + festivo; con T → conciliación sábado tarde
         + festivo). Noche sábado con domingo festivo suma festivo por el tramo

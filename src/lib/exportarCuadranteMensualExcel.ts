@@ -17,7 +17,6 @@ import {
   totalConciliaciones,
   contarVariablesCobroAgente,
 } from '@/lib/variablesCobro'
-import { totalFindesTrabajados } from '@/lib/convenio'
 import {
   esPoliciaBolsa,
   type PlanAnual,
@@ -174,14 +173,12 @@ export function exportarCuadranteMensualExcel(
       const fila = cuadrante[agente.id] ?? []
       const turnoPlan = turnoPlanMes(agente, planAnual, mes)
       const trabajados = totalTrabajados(fila)
-      const findes = totalFindesTrabajados(fila, anio, mes)
-      const conciliaciones = totalConciliaciones(
-        contarVariablesCobroAgente(fila, anio, mes, eventos),
-      )
+      const variables = contarVariablesCobroAgente(fila, anio, mes, eventos)
+      const conciliaciones = totalConciliaciones(variables)
       const sumatorioF = sumatorioFMensual(fila, anio, mes, eventos)
       const objetivoFila =
         turnoPlan === 'V' || turnoPlan == null ? 0 : objetivo
-      return `${trabajados}/${objetivoFila}d\n${sumatorioF}F (${findes}+${conciliaciones})`
+      return `${trabajados}/${objetivoFila}d\n${sumatorioF}F (${variables.festivo}+${conciliaciones})`
     }),
     '',
     '',

@@ -1,4 +1,4 @@
-import { esDiaTrabajado, totalFindesTrabajados } from '@/lib/convenio'
+import { esDiaTrabajado } from '@/lib/convenio'
 import { esFestivo } from '@/lib/festivos'
 import type { EventoOperativo, Turno } from '@/types'
 
@@ -124,7 +124,11 @@ export function totalConciliaciones(conteo: ConteoVariablesCobro) {
   return TIPOS_CONCILIACION.reduce((suma, tipo) => suma + conteo[tipo], 0)
 }
 
-/** Findes laborados en el mes + unidades de conciliación (viernes N, sáb/dom M). */
+export function totalFestivos(conteo: ConteoVariablesCobro) {
+  return conteo.festivo
+}
+
+/** Festivos + conciliaciones del mes (variables de cobro, sin findes laborados). */
 export function sumatorioFMensual(
   fila: Turno[],
   anio: number,
@@ -132,7 +136,7 @@ export function sumatorioFMensual(
   eventos: EventoOperativo[],
 ) {
   const variables = contarVariablesCobroAgente(fila, anio, mes, eventos)
-  return totalFindesTrabajados(fila, anio, mes) + totalConciliaciones(variables)
+  return totalFestivos(variables) + totalConciliaciones(variables)
 }
 
 export function totalVariablesCobro(conteo: ConteoVariablesCobro) {
@@ -154,7 +158,7 @@ export function puntajeDesbalanceVariables(conteos: ConteoVariablesCobro[]) {
   return puntaje
 }
 
-/** Desbalance del sumatorio F (findes + conciliaciones) entre agentes. */
+/** Desbalance del sumatorio F (festivos + conciliaciones) entre agentes. */
 export function puntajeDesbalanceSumatorioF(sumatorios: number[]) {
   if (sumatorios.length < 2) return 0
   return (Math.max(...sumatorios) - Math.min(...sumatorios)) * 30

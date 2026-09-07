@@ -1112,7 +1112,8 @@ export function CuadranteMensualPage() {
                   eventosData,
                 )
                 const conciliaciones = totalConciliaciones(variables)
-                const sumatorioF = findes + conciliaciones
+                const festivos = variables.festivo
+                const sumatorioF = festivos + conciliaciones
                 const turnoClave = turnoPlan ?? '—'
                 const grupoF = sumatoriosFPorTurno.get(turnoClave) ?? [sumatorioF]
                 const objetivoFila =
@@ -1122,7 +1123,7 @@ export function CuadranteMensualPage() {
                     key={agente.id}
                     className={`${CELDA_PIE} bg-slate-200`}
                     style={{ width: ANCHO_AGENTE, minWidth: ANCHO_AGENTE }}
-                    title={`Trabajados ${trabajados} / ${objetivoFila} · F=${sumatorioF} (${findes} findes + ${conciliaciones} conc.) · Máx. findes seguidos ${findesConsec}`}
+                    title={`Trabajados ${trabajados} / ${objetivoFila} · F=${sumatorioF} (${festivos} fest. + ${conciliaciones} conc.) · Findes laborados ${findes} · Máx. findes seguidos ${findesConsec}`}
                   >
                     <div className="flex h-full flex-col">
                       <span

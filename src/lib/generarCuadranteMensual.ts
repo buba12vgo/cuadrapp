@@ -83,11 +83,15 @@ function desfasarFilaMensual(
   mes: number,
 ): Turno[] {
   const n = fila.length
-  const pasos = (indice * 3) % n
-  if (pasos === 0) return fila
-  const rotada = rotarFilaCiclica(fila, pasos)
-  if (filaAceptable(rotada, fila, anio, mes, false)) return rotada
-  if (filaAceptable(rotada, fila, anio, mes, true)) return rotada
+  if (n === 0) return fila
+
+  for (let t = 0; t < n; t++) {
+    const pasos = (indice * 7 + t) % n
+    if (pasos === 0) continue
+    const rotada = rotarFilaCiclica(fila, pasos)
+    if (filaAceptableParaDesfase(rotada, fila, anio, mes)) return rotada
+  }
+
   return fila
 }
 
@@ -353,6 +357,16 @@ function filaAceptableParaMinimos(
     return false
   }
   return true
+}
+
+/** Rotación/desfase: sin findes (se corrigen en refinado posterior). */
+function filaAceptableParaDesfase(
+  prueba: Turno[],
+  original: Turno[],
+  anio: number,
+  mes: number,
+) {
+  return filaAceptableParaMinimos(prueba, original, anio, mes)
 }
 
 /** Valida una fila tras un swap o traslado (mismas jornadas, reglas de fatiga). */
@@ -638,6 +652,46 @@ function intentarTrasladoParaMinimos(
     if (filaAceptableParaMinimos(prueba, fila, anio, mes)) return prueba
   }
   return null
+}
+
+function intentarRotarAgenteParaMinimos(
+  fila: Turno[],
+  diaObjetivo: number,
+  turno: Exclude<Turno, 'V' | 'D' | 'L'>,
+  anio: number,
+  mes: number,
+): Turno[] | null {
+  if (fila[diaObjetivo] === turno) return null
+  const n = fila.length
+  for (let pasos = 1; pasos < n; pasos++) {
+    const rotada = rotarFilaCiclica(fila, pasos)
+    if (rotada[diaObjetivo] !== turno) continue
+    if (filaAceptableParaDesfase(rotada, fila, anio, mes)) return rotada
+  }
+  return null
+}
+
+function intentarIntercambioDiaEntreAgentes(
+  filaA: Turno[],
+  filaB: Turno[],
+  dia: number,
+  turno: Exclude<Turno, 'V' | 'D' | 'L'>,
+  anio: number,
+  mes: number,
+): [Turno[], Turno[]] | null {
+  if (filaA[dia] === filaB[dia]) return null
+  const conteoAntes =
+    (filaA[dia] === turno ? 1 : 0) + (filaB[dia] === turno ? 1 : 0)
+  const pruebaA = [...filaA]
+  const pruebaB = [...filaB]
+  pruebaA[dia] = filaB[dia]
+  pruebaB[dia] = filaA[dia]
+  const conteoDespues =
+    (pruebaA[dia] === turno ? 1 : 0) + (pruebaB[dia] === turno ? 1 : 0)
+  if (conteoDespues <= conteoAntes) return null
+  if (!filaAceptableParaMinimos(pruebaA, filaA, anio, mes)) return null
+  if (!filaAceptableParaMinimos(pruebaB, filaB, anio, mes)) return null
+  return [pruebaA, pruebaB]
 }
 
 function puntuacionCandidato(fila: Turno[], alto: number, bajo: number) {
@@ -990,6 +1044,50 @@ function equilibrarMinimosOperativos(
             mejorado = true
             progresoEnDia = true
             break
+          }
+
+          if (!progresoEnDia) {
+            for (const id of ids) {
+              const fila = cuadrante[id]
+              if (!fila || fila[diaBajo] === turno) continue
+              const rotada = intentarRotarAgenteParaMinimos(
+                fila,
+                diaBajo,
+                turno,
+                anio,
+                mes,
+              )
+              if (!rotada) continue
+              cuadrante[id] = rotada
+              mejorado = true
+              progresoEnDia = true
+              break
+            }
+          }
+
+          if (!progresoEnDia) {
+            for (let a = 0; a < ids.length; a++) {
+              for (let b = a + 1; b < ids.length; b++) {
+                const filaA = cuadrante[ids[a]]
+                const filaB = cuadrante[ids[b]]
+                if (!filaA || !filaB) continue
+                const intercambio = intentarIntercambioDiaEntreAgentes(
+                  filaA,
+                  filaB,
+                  diaBajo,
+                  turno,
+                  anio,
+                  mes,
+                )
+                if (!intercambio) continue
+                cuadrante[ids[a]] = intercambio[0]
+                cuadrante[ids[b]] = intercambio[1]
+                mejorado = true
+                progresoEnDia = true
+                break
+              }
+              if (progresoEnDia) break
+            }
           }
         }
       }

@@ -49,6 +49,7 @@ import {
 import { esFestivo } from '@/lib/festivos'
 import {
   generarCuadranteMensualAsync,
+  PASADAS_REFINO_CUADRANTE_MENSUAL,
   type CuadranteMensual,
 } from '@/lib/generarCuadranteMensual'
 import {
@@ -492,6 +493,7 @@ export function CuadranteMensualPage() {
         anio,
         mes,
         eventosData,
+        { minimosSemana, puestos },
       )
 
       cuadranteEditadoLocalRef.current = true
@@ -688,6 +690,15 @@ export function CuadranteMensualPage() {
             {loadingCuadrante ? ' · Cargando…' : ''}
             {generandoCuadrante ? ' · Generando mes…' : ''}
           </p>
+          <p className="text-[10px] text-slate-500">
+            Pie Σ por agente:{' '}
+            <span className="font-semibold">Nd</span> jornadas del mes ·{' '}
+            <span className="font-semibold">nf</span> fines de semana laborados
+            (obj. 2, máx. 3) ·{' '}
+            <span className="font-semibold">NF</span> festivos + conciliaciones
+            (variables de cobro). Autogenerar hace{' '}
+            {PASADAS_REFINO_CUADRANTE_MENSUAL} pasadas de refinado.
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <label className="flex items-center gap-1">
@@ -836,8 +847,8 @@ export function CuadranteMensualPage() {
             disabled={!puedeAutogenerar}
             title={
               mesGuardadoEnFirestore
-                ? 'Sustituye el cuadrante guardado (doble confirmación)'
-                : 'Genera el cuadrante del mes desde el plan anual'
+                ? `Sustituye el cuadrante guardado (${PASADAS_REFINO_CUADRANTE_MENSUAL} pasadas: cobertura, mínimos diarios, variables y findes)`
+                : `Genera el cuadrante del mes (${PASADAS_REFINO_CUADRANTE_MENSUAL} pasadas de refinado)`
             }
             onClick={() => void autogenerar()}
           >
@@ -1149,7 +1160,7 @@ export function CuadranteMensualPage() {
                           findesMes,
                         )}`}
                       >
-                        {findesMes}f
+                        {findesMes}nf
                       </span>
                       <span
                         className={`flex flex-1 items-center justify-center ${claseSumatorioF(
@@ -1157,7 +1168,7 @@ export function CuadranteMensualPage() {
                           grupoF,
                         )}`}
                       >
-                        {sumatorioF}F
+                        {sumatorioF}NF
                       </span>
                     </div>
                   </td>

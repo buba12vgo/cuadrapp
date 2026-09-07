@@ -7,8 +7,14 @@ import {
   Sigma,
   Sparkles,
 } from 'lucide-react'
+import {
+  DashboardBody,
+  DashboardMain,
+  DashboardMainScroll,
+} from '@/components/ui/DashboardLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
 import {
+  ALERT_ERROR,
   BADGE_NEUTRAL,
   BADGE_OK,
   BADGE_PENDING,
@@ -409,20 +415,16 @@ export function MinimosPage() {
         </div>
       ) : null}
 
-      {error ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
-          {error}
-        </p>
-      ) : null}
+      {error ? <p className={ALERT_ERROR}>{error}</p> : null}
 
-      <div className="flex min-h-0 flex-1 flex-col gap-2 xl:flex-row">
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+      <DashboardBody>
+        <DashboardMain>
           {puestos.length === 0 ? (
             <p className="px-4 py-8 text-center text-xs text-slate-500">
               Primero configura puestos en el panel Puestos.
             </p>
           ) : (
-            <div className="min-h-0 flex-1 overflow-auto">
+            <DashboardMainScroll>
               <table className="w-full min-w-0 border-collapse text-[9px]">
                 <colgroup>
                   <col className="w-[5.25rem]" />
@@ -551,9 +553,9 @@ export function MinimosPage() {
                   </tr>
                 </tfoot>
               </table>
-            </div>
+            </DashboardMainScroll>
           )}
-        </div>
+        </DashboardMain>
 
         {puestos.length > 0 ? (
           <MinimosResumenPanel
@@ -562,7 +564,7 @@ export function MinimosPage() {
             plantillaOperativa={plantillaOperativa}
           />
         ) : null}
-      </div>
+      </DashboardBody>
     </section>
   )
 }

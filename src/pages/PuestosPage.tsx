@@ -1,4 +1,10 @@
 import { useEffect, useState } from 'react'
+import { PuestosResumenPanel } from '@/components/dashboard/PuestosResumenPanel'
+import {
+  DashboardBody,
+  DashboardMain,
+  DashboardMainScroll,
+} from '@/components/ui/DashboardLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
 import {
   ALERT_ERROR,
@@ -6,7 +12,6 @@ import {
   BTN_GHOST,
   BTN_PRIMARY,
   CAMPO,
-  PAGE_PANEL_SCROLL,
   PAGE_SECTION,
   TABLE,
   TD,
@@ -392,8 +397,10 @@ export function PuestosPage() {
 
       {error ? <p className={ALERT_ERROR}>{error}</p> : null}
 
-      <div className={PAGE_PANEL_SCROLL}>
-        <table className={TABLE}>
+      <DashboardBody>
+        <DashboardMain>
+          <DashboardMainScroll>
+            <table className={TABLE}>
           <thead>
             <tr>
               <th className={TH}>Nombre</th>
@@ -440,8 +447,11 @@ export function PuestosPage() {
               </tr>
             ) : null}
           </tbody>
-        </table>
-      </div>
+            </table>
+          </DashboardMainScroll>
+        </DashboardMain>
+        <PuestosResumenPanel puestos={puestos} />
+      </DashboardBody>
 
       {modo === 'nuevo' ? (
         <EditorPuestoModal

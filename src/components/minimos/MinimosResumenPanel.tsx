@@ -8,6 +8,16 @@ import {
   Sunset,
   Users,
 } from 'lucide-react'
+import { DashboardSidebar } from '@/components/ui/DashboardLayout'
+import {
+  KpiBarRow,
+  KpiCard,
+  KpiChipGrid,
+  KpiGrid2,
+  KpiHighlight,
+  KpiProgress,
+  KpiSection,
+} from '@/components/ui/DashboardKpi'
 import { estadisticasMinimosSemana } from '@/lib/minimosEstadisticas'
 import type { MinimosSemana, PuestoConfig } from '@/lib/calendarioPuestos'
 
@@ -36,132 +46,62 @@ export function MinimosResumenPanel({
   const coberturaOk = plantillaOperativa >= stats.picoTurno
 
   return (
-    <aside className="flex w-full shrink-0 flex-col gap-1.5 xl:w-52 2xl:w-56">
-      <div className="grid grid-cols-2 gap-1.5">
-        <div className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
-          <div className="mb-0.5 flex items-center gap-1 text-[8px] font-semibold uppercase tracking-wide text-slate-500">
-            <CalendarRange className="h-2.5 w-2.5" />
-            Semana
-          </div>
-          <p className="text-lg font-bold tabular-nums leading-tight text-slate-900">
-            {stats.totalSemanal}
-          </p>
-        </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
-          <div className="mb-0.5 flex items-center gap-1 text-[8px] font-semibold uppercase tracking-wide text-slate-500">
-            <Users className="h-2.5 w-2.5" />
-            Plantilla
-          </div>
-          <p className="text-lg font-bold tabular-nums leading-tight text-slate-900">
-            {plantillaOperativa}
-          </p>
-        </div>
-      </div>
+    <DashboardSidebar>
+      <KpiGrid2>
+        <KpiCard icon={CalendarRange} label="Semana" value={stats.totalSemanal} />
+        <KpiCard icon={Users} label="Plantilla" value={plantillaOperativa} />
+      </KpiGrid2>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
-        <p className="mb-1 text-[8px] font-semibold uppercase tracking-wide text-slate-500">
-          Pico turno
-        </p>
-        <div className="mb-0.5 flex items-baseline justify-between gap-1">
-          <span className="text-[11px] font-semibold text-slate-800">
-            {stats.picoTurno}
-          </span>
-          <span
-            className={`text-[10px] font-bold tabular-nums ${
-              coberturaOk ? 'text-emerald-600' : 'text-amber-600'
-            }`}
-          >
-            {coberturaPct}%
-          </span>
-        </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-          <div
-            className={`h-full rounded-full transition-all ${
-              coberturaOk ? 'bg-emerald-500' : 'bg-amber-500'
-            }`}
-            style={{ width: `${coberturaPct}%` }}
-          />
-        </div>
-      </div>
+      <KpiProgress
+        label="Pico turno"
+        value={stats.picoTurno}
+        pct={coberturaPct}
+        ok={coberturaOk}
+      />
 
-      <div className="grid grid-cols-2 gap-1.5">
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-1.5">
-          <div className="mb-0.5 flex items-center gap-0.5 text-[8px] font-semibold uppercase text-emerald-800">
-            <ArrowUp className="h-2.5 w-2.5" />
-            Máx
-          </div>
-          <p className="text-sm font-bold leading-tight text-emerald-950">
-            {stats.diaMayor.clave}
-          </p>
-          <p className="text-[9px] text-emerald-800/80">{stats.diaMayor.total}</p>
-        </div>
-        <div className="rounded-lg border border-sky-200 bg-sky-50/60 p-1.5">
-          <div className="mb-0.5 flex items-center gap-0.5 text-[8px] font-semibold uppercase text-sky-800">
-            <ArrowDown className="h-2.5 w-2.5" />
-            Mín
-          </div>
-          <p className="text-sm font-bold leading-tight text-sky-950">
-            {stats.diaMenor.clave}
-          </p>
-          <p className="text-[9px] text-sky-800/80">{stats.diaMenor.total}</p>
-        </div>
-      </div>
+      <KpiGrid2>
+        <KpiHighlight
+          variant="emerald"
+          icon={ArrowUp}
+          label="Máx"
+          title={stats.diaMayor.clave}
+          subtitle={stats.diaMayor.total}
+        />
+        <KpiHighlight
+          variant="sky"
+          icon={ArrowDown}
+          label="Mín"
+          title={stats.diaMenor.clave}
+          subtitle={stats.diaMenor.total}
+        />
+      </KpiGrid2>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
-        <div className="mb-1.5 flex items-center gap-1 text-[8px] font-semibold uppercase tracking-wide text-slate-500">
-          <BarChart3 className="h-2.5 w-2.5" />
-          Por turno
-        </div>
+      <KpiSection icon={BarChart3} title="Por turno">
         <div className="space-y-1.5">
-          {TURNO_META.map(({ clave, label, icon: Icon, color }) => {
-            const valor = stats.porTurnoSemana[clave]
-            const pct =
-              stats.maxTurnoSemana > 0
-                ? Math.round((valor / stats.maxTurnoSemana) * 100)
-                : 0
-            return (
-              <div key={clave}>
-                <div className="mb-0.5 flex items-center justify-between text-[10px]">
-                  <span className="flex items-center gap-1 font-medium text-slate-700">
-                    <Icon className="h-2.5 w-2.5 text-slate-500" />
-                    {label}
-                  </span>
-                  <span className="font-bold tabular-nums text-slate-900">
-                    {valor}
-                  </span>
-                </div>
-                <div className="h-1 overflow-hidden rounded-full bg-slate-100">
-                  <div
-                    className={`h-full rounded-full ${color}`}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-              </div>
-            )
-          })}
+          {TURNO_META.map(({ clave, label, icon: Icon, color }) => (
+            <KpiBarRow
+              key={clave}
+              icon={Icon}
+              label={label}
+              value={stats.porTurnoSemana[clave]}
+              max={stats.maxTurnoSemana}
+              color={color}
+            />
+          ))}
         </div>
-      </div>
+      </KpiSection>
 
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
         <p className="mb-1 text-[8px] font-semibold uppercase tracking-wide text-slate-500">
           Por día
         </p>
-        <div className="grid grid-cols-4 gap-1">
-          {stats.porDia.map((dia) => (
-            <div
-              key={dia.dia}
-              className="rounded border border-slate-200 bg-white px-1 py-0.5 text-center"
-            >
-              <div className="text-[8px] font-semibold text-slate-500">
-                {dia.clave}
-              </div>
-              <div className="text-[11px] font-bold tabular-nums leading-tight text-slate-900">
-                {dia.total}
-              </div>
-            </div>
-          ))}
-        </div>
+        <KpiChipGrid
+          items={stats.porDia.map((dia) => ({
+            clave: dia.clave,
+            total: dia.total,
+          }))}
+        />
       </div>
-    </aside>
+    </DashboardSidebar>
   )
 }

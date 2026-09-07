@@ -1,4 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
+import { CalendarioResumenPanel } from '@/components/dashboard/CalendarioResumenPanel'
+import {
+  DashboardBody,
+  DashboardMain,
+  DashboardMainScroll,
+} from '@/components/ui/DashboardLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
 import {
   ALERT_ERROR,
@@ -7,7 +13,6 @@ import {
   BTN_PRIMARY,
   CAMPO,
   CAMPO_NUM,
-  PAGE_PANEL_SCROLL,
   PAGE_SECTION,
   TD,
   TH,
@@ -435,8 +440,10 @@ export function CalendarioPage() {
 
       {error ? <p className={ALERT_ERROR}>{error}</p> : null}
 
-      <div className={`${PAGE_PANEL_SCROLL} p-1.5`}>
-        <div className="grid grid-cols-7 gap-0.5">
+      <DashboardBody>
+        <DashboardMain>
+          <DashboardMainScroll className="p-1.5">
+            <div className="grid grid-cols-7 gap-0.5">
           {DIAS_SEMANA.map((dia) => (
             <div
               key={dia}
@@ -494,8 +501,11 @@ export function CalendarioPage() {
               </button>
             )
           })}
-        </div>
-      </div>
+            </div>
+          </DashboardMainScroll>
+        </DashboardMain>
+        <CalendarioResumenPanel eventos={eventosData} anio={anio} mes={mes} />
+      </DashboardBody>
 
       {fechaSeleccionada ? (
         <EditorDiaDrawer

@@ -1,4 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { PlanAnualResumenPanel } from '@/components/dashboard/PlanAnualResumenPanel'
+import {
+  DashboardBody,
+  DashboardMain,
+  DashboardMainScroll,
+} from '@/components/ui/DashboardLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
 import {
   ALERT_ERROR,
@@ -558,7 +564,9 @@ export function PlanAnualPage() {
         </div>
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-auto border border-slate-500 bg-white">
+      <DashboardBody>
+        <DashboardMain>
+          <DashboardMainScroll>
         <table className="w-full table-fixed border-separate border-spacing-0 text-xs leading-none">
           <thead>
             <tr>
@@ -850,7 +858,15 @@ export function PlanAnualPage() {
             })}
           </tfoot>
         </table>
-      </div>
+          </DashboardMainScroll>
+        </DashboardMain>
+        <PlanAnualResumenPanel
+          agentesCount={agentesVisibles.length}
+          objetivos={objetivosGlobales}
+          marcas={marcas}
+          hayPlan={hayPlanAnio}
+        />
+      </DashboardBody>
     </section>
   )
 }

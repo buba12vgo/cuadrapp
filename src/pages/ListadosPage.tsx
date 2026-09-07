@@ -1,4 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
+import { ListadosResumenPanel } from '@/components/dashboard/ListadosResumenPanel'
+import {
+  DashboardBody,
+  DashboardMain,
+  DashboardMainScroll,
+} from '@/components/ui/DashboardLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
 import {
   ALERT_ERROR,
@@ -6,7 +12,6 @@ import {
   ALERT_WARN,
   BTN_SECONDARY,
   CAMPO,
-  PAGE_PANEL_SCROLL,
   PAGE_SECTION,
   PAGE_SUBTITLE,
   TABLE,
@@ -243,8 +248,10 @@ export function ListadosPage() {
         </p>
       ) : null}
 
-      <div className={PAGE_PANEL_SCROLL}>
-        <table className={TABLE}>
+      <DashboardBody>
+        <DashboardMain>
+          <DashboardMainScroll>
+            <table className={TABLE}>
           <thead className="sticky top-0 z-10 bg-slate-50">
             <tr>
               <th className={`${TH} sticky left-0 z-20 bg-slate-50`}>Placa</th>
@@ -304,7 +311,13 @@ export function ListadosPage() {
             </tr>
           </tfoot>
         </table>
-      </div>
+          </DashboardMainScroll>
+        </DashboardMain>
+        <ListadosResumenPanel
+          agentesCount={agentesVisibles.length}
+          totales={totalesColumna}
+        />
+      </DashboardBody>
 
       <p className={`shrink-0 ${PAGE_SUBTITLE} px-0.5`}>
         Conciliaciones y festivo son compatibles (ej. sábado festivo con M →

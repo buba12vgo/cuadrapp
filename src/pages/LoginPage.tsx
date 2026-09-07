@@ -1,6 +1,7 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAllowedAdmin } from '@/lib/authAllowlist'
+import { BLOQUE, BTN_PRIMARY, PAGE_TITLE, PAGE_SUBTITLE } from '@/lib/uiStyles'
 
 export function LoginPage() {
   const { user, loading, signInWithGoogle, error, firebaseReady } = useAuth()
@@ -12,32 +13,31 @@ export function LoginPage() {
   const puedeIniciarSesion = firebaseReady && !loading
 
   return (
-    <div className="flex h-svh flex-col items-center justify-center bg-slate-50 px-4">
-      <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 className="text-center text-lg font-semibold tracking-tight">Cuadrapp</h1>
-        <p className="mt-2 text-center text-sm text-slate-600">
-          Acceso restringido. Entra con tu cuenta de Google.
+    <div className="flex h-svh flex-col items-center justify-center bg-slate-50 px-3">
+      <div className={`w-full max-w-sm ${BLOQUE} p-4`}>
+        <h1 className={`${PAGE_TITLE} text-center`}>Cuadrapp</h1>
+        <p className={`${PAGE_SUBTITLE} mt-1 text-center`}>
+          Acceso restringido · cuenta Google
         </p>
         {loading ? (
-          <p className="mt-4 text-center text-sm text-slate-500">
+          <p className={`${PAGE_SUBTITLE} mt-3 text-center`}>
             Preparando autenticación…
           </p>
         ) : null}
         {!firebaseReady && !loading ? (
-          <p className="mt-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-            Firebase no está configurado. Revisa las variables VITE_FIREBASE_* en
-            el despliegue.
+          <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-[10px] text-red-800">
+            Firebase no está configurado. Revisa VITE_FIREBASE_* en el despliegue.
           </p>
         ) : (
           <button
             type="button"
             disabled={!puedeIniciarSesion}
             onClick={() => void signInWithGoogle()}
-            className="mt-6 flex w-full items-center justify-center gap-2 rounded-md bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className={`${BTN_PRIMARY} mt-4 w-full justify-center py-2`}
           >
             <svg
               aria-hidden
-              className="h-5 w-5"
+              className="h-4 w-4"
               viewBox="0 0 24 24"
               xmlns="http://www.w3.org/2000/svg"
             >
@@ -62,7 +62,7 @@ export function LoginPage() {
           </button>
         )}
         {error ? (
-          <p className="mt-3 text-center text-sm text-red-600">{error}</p>
+          <p className="mt-2 text-center text-[10px] text-red-600">{error}</p>
         ) : null}
       </div>
     </div>

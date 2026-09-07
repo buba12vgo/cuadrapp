@@ -1,4 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import { AgentesResumenPanel } from '@/components/dashboard/AgentesResumenPanel'
+import {
+  DashboardBody,
+  DashboardMain,
+  DashboardMainScroll,
+} from '@/components/ui/DashboardLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
 import {
   ALERT_ERROR,
@@ -10,7 +16,6 @@ import {
   BTN_SECONDARY,
   CAMPO,
   CAMPO_NUM,
-  PAGE_PANEL_SCROLL,
   PAGE_SECTION,
   TABLE,
   TD,
@@ -783,8 +788,10 @@ export function AgentesPage() {
           Cargando agentes…
         </div>
       ) : (
-        <div className={PAGE_PANEL_SCROLL}>
-          <table className={TABLE}>
+        <DashboardBody>
+          <DashboardMain>
+            <DashboardMainScroll>
+              <table className={TABLE}>
             <thead>
               <tr>
                 <th className={TH}>Placa</th>
@@ -846,8 +853,11 @@ export function AgentesPage() {
                 ))
               )}
             </tbody>
-          </table>
-        </div>
+              </table>
+            </DashboardMainScroll>
+          </DashboardMain>
+          <AgentesResumenPanel agentes={agentesData} />
+        </DashboardBody>
       )}
 
       {agenteModal ? (

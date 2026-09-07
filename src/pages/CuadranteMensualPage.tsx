@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { BolsaPuestosPanel, filtroTurnoInicial } from '@/components/BolsaPuestosPanel'
-import { PageHeader } from '@/components/ui/PageHeader'
+import { CuadranteResumenPanel } from '@/components/dashboard/CuadranteResumenPanel'
+import {
+  DashboardBody,
+  DashboardMain,
+  DashboardMainScroll,
+} from '@/components/ui/DashboardLayout'
 import {
   ALERT_ERROR,
   ALERT_INFO,
@@ -11,6 +16,7 @@ import {
   CAMPO,
   PAGE_SECTION,
 } from '@/lib/uiStyles'
+import { PageHeader } from '@/components/ui/PageHeader'
 import { PopoverPuestosCelda } from '@/components/PopoverPuestosCelda'
 import { RepartoOperativoModal } from '@/components/RepartoOperativoModal'
 import { useAgentesData } from '@/lib/agentesStore'
@@ -863,8 +869,9 @@ export function CuadranteMensualPage() {
         <p className={ALERT_INFO}>Ningún agente con ese rol o turno este mes.</p>
       ) : null}
 
-      <div className="flex min-h-0 flex-1">
-        <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+      <DashboardBody>
+        <DashboardMain>
+          <DashboardMainScroll>
           <table className="w-max border-separate border-spacing-0 text-xs leading-none">
           <thead>
             <tr>
@@ -1155,12 +1162,22 @@ export function CuadranteMensualPage() {
             </tr>
           </tfoot>
         </table>
+          </DashboardMainScroll>
+        </DashboardMain>
+        <div className="flex w-full shrink-0 flex-col gap-1.5 xl:w-52 2xl:w-56">
+          <CuadranteResumenPanel
+            agentesVisibles={agentesVisibles.length}
+            diaDesde={diaDesde}
+            diaHasta={diaHasta}
+            nDias={nDias}
+            guardado={mesGuardadoEnFirestore}
+          />
+          <BolsaPuestosPanel
+            filtroTurno={filtroTurno}
+            onFiltroTurno={setFiltroTurno}
+          />
         </div>
-        <BolsaPuestosPanel
-          filtroTurno={filtroTurno}
-          onFiltroTurno={setFiltroTurno}
-        />
-      </div>
+      </DashboardBody>
 
       {popoverCelda ? (
         <PopoverPuestosCelda

@@ -15,8 +15,9 @@ import {
 
 const TURNOS: TurnoOperativo[] = ['M', 'T', 'N']
 const INPUT_MIN =
-  'h-6 w-7 border border-slate-300 bg-white p-0 text-center text-[11px] tabular-nums outline-none focus:border-slate-700 focus:ring-1 focus:ring-slate-400'
-const CELDA = 'border border-slate-200 px-0.5 py-0.5 align-middle'
+  'h-5 w-6 border border-slate-300 bg-white p-0 text-center text-[11px] tabular-nums outline-none focus:border-slate-700 focus:ring-1 focus:ring-slate-400'
+const CELDA = 'border border-slate-200 px-0 py-0 align-middle'
+const COL_PUESTO = 'w-[8.25rem] max-w-[8.25rem] whitespace-nowrap'
 const DEBOUNCE_MS = 700
 
 function leerNumero(valor: string) {
@@ -285,11 +286,11 @@ export function MinimosPage() {
             Primero configura puestos en el panel Puestos.
           </p>
         ) : (
-          <table className="w-max min-w-full border-collapse text-[11px]">
+          <table className="w-max border-collapse text-[11px]">
             <thead className="sticky top-0 z-20 bg-slate-100">
               <tr className="text-slate-600">
                 <th
-                  className={`${CELDA} sticky left-0 z-30 min-w-[9rem] max-w-[11rem] bg-slate-100 px-1.5 text-left font-semibold`}
+                  className={`${CELDA} ${COL_PUESTO} sticky left-0 z-30 bg-slate-100 px-1 text-left font-semibold`}
                   rowSpan={2}
                 >
                   Puesto
@@ -301,8 +302,8 @@ export function MinimosPage() {
                       key={item.dia}
                       colSpan={3}
                       className={`${CELDA} border-b-0 px-0.5 text-center font-semibold ${
-                        esFinde(item.dia) ? 'bg-slate-200/80' : ''
-                      } ${
+                        item.dia !== 1 ? 'border-l border-l-slate-300' : ''
+                      } ${esFinde(item.dia) ? 'bg-slate-200/80' : ''} ${
                         activo
                           ? 'bg-amber-100 text-amber-950 ring-1 ring-inset ring-amber-400'
                           : ''
@@ -322,12 +323,12 @@ export function MinimosPage() {
               </tr>
               <tr className="text-[10px] text-slate-500">
                 {DIAS_SEMANA_CONFIG.map((item) =>
-                  TURNOS.map((turno) => (
+                  TURNOS.map((turno, indiceTurno) => (
                     <th
                       key={`${item.dia}-${turno}`}
-                      className={`${CELDA} w-8 px-0 text-center font-medium ${
-                        esFinde(item.dia) ? 'bg-slate-50' : 'bg-slate-100'
-                      } ${
+                      className={`${CELDA} w-7 px-0 text-center font-medium ${
+                        indiceTurno === 0 ? 'border-l border-l-slate-300' : ''
+                      } ${esFinde(item.dia) ? 'bg-slate-50' : 'bg-slate-100'} ${
                         diaActivo === item.dia
                           ? 'bg-amber-50 text-amber-900'
                           : ''
@@ -350,14 +351,17 @@ export function MinimosPage() {
               {puestos.map((puesto) => (
                 <tr key={puesto.codigo} className="hover:bg-slate-50/80">
                   <td
-                    className={`${CELDA} sticky left-0 z-10 min-w-[9rem] max-w-[11rem] bg-white px-1.5 leading-tight`}
+                    className={`${CELDA} ${COL_PUESTO} sticky left-0 z-10 bg-white px-1`}
+                    title={`${puesto.abreviatura} · ${puesto.nombre}`}
                   >
-                    <span className="block font-medium text-slate-800">
-                      {puesto.nombre}
-                    </span>
-                    <span className="font-mono text-[10px] font-semibold text-slate-500">
-                      {puesto.abreviatura}
-                    </span>
+                    <div className="flex min-w-0 items-baseline gap-1">
+                      <span className="shrink-0 font-mono text-[9px] font-semibold text-slate-500">
+                        {puesto.abreviatura}
+                      </span>
+                      <span className="truncate font-medium text-slate-800">
+                        {puesto.nombre}
+                      </span>
+                    </div>
                   </td>
                   {DIAS_SEMANA_CONFIG.map((item) => {
                     const fila = minimos[item.dia][puesto.nombre] ?? {
@@ -366,12 +370,14 @@ export function MinimosPage() {
                       N: 0,
                     }
                     const columnaActiva = diaActivo === item.dia
-                    return TURNOS.map((turno) => (
+                    return TURNOS.map((turno, indiceTurno) => (
                       <td
                         key={`${puesto.codigo}-${item.dia}-${turno}`}
                         className={`${CELDA} text-center ${
-                          esFinde(item.dia) ? 'bg-slate-50/60' : ''
-                        } ${columnaActiva ? 'bg-amber-50/50' : ''}`}
+                          indiceTurno === 0 ? 'border-l border-l-slate-300' : ''
+                        } ${esFinde(item.dia) ? 'bg-slate-50/60' : ''} ${
+                          columnaActiva ? 'bg-amber-50/50' : ''
+                        }`}
                       >
                         <input
                           type="number"
@@ -396,38 +402,33 @@ export function MinimosPage() {
               ))}
             </tbody>
             <tfoot className="sticky bottom-0 z-10 bg-slate-100 text-[10px] text-slate-600">
-              {(
-                [
-                  { clave: 'M' as TurnoOperativo, etiqueta: 'Σ M' },
-                  { clave: 'T' as TurnoOperativo, etiqueta: 'Σ T' },
-                  { clave: 'N' as TurnoOperativo, etiqueta: 'Σ N' },
-                ] as const
-              ).map(({ clave, etiqueta }) => (
-                <tr key={etiqueta}>
-                  <td
-                    className={`${CELDA} sticky left-0 z-20 min-w-[9rem] bg-slate-100 px-1.5 font-semibold`}
-                  >
-                    {etiqueta}
-                  </td>
-                  {DIAS_SEMANA_CONFIG.map((item) => {
-                    const sums = sumatoriosDia(item.dia, puestos, minimos)
-                    const columnaActiva = diaActivo === item.dia
-                    return TURNOS.map((turno) => (
-                      <td
-                        key={`${etiqueta}-${item.dia}-${turno}`}
-                        className={`${CELDA} text-center font-semibold tabular-nums ${
-                          esFinde(item.dia) ? 'bg-slate-200/60' : ''
-                        } ${columnaActiva ? 'bg-amber-100/80' : ''}`}
-                      >
-                        {turno === clave ? sums[clave] : ''}
-                      </td>
-                    ))
-                  })}
-                </tr>
-              ))}
               <tr>
                 <td
-                  className={`${CELDA} sticky left-0 z-20 min-w-[9rem] bg-slate-200 px-1.5 font-bold text-slate-800`}
+                  className={`${CELDA} ${COL_PUESTO} sticky left-0 z-20 bg-slate-100 px-1 font-semibold`}
+                >
+                  Σ
+                </td>
+                {DIAS_SEMANA_CONFIG.map((item) => {
+                  const sums = sumatoriosDia(item.dia, puestos, minimos)
+                  const columnaActiva = diaActivo === item.dia
+                  return TURNOS.map((turno, indiceTurno) => (
+                    <td
+                      key={`sum-${item.dia}-${turno}`}
+                      className={`${CELDA} text-center font-semibold tabular-nums ${
+                        indiceTurno === 0 ? 'border-l border-l-slate-300' : ''
+                      } ${esFinde(item.dia) ? 'bg-slate-200/60' : ''} ${
+                        columnaActiva ? 'bg-amber-100/80' : ''
+                      }`}
+                      title={`${item.label} ${turno}`}
+                    >
+                      {sums[turno]}
+                    </td>
+                  ))
+                })}
+              </tr>
+              <tr>
+                <td
+                  className={`${CELDA} ${COL_PUESTO} sticky left-0 z-20 bg-slate-200 px-1 font-bold text-slate-800`}
                 >
                   Total
                 </td>
@@ -438,14 +439,11 @@ export function MinimosPage() {
                     <td
                       key={`total-${item.dia}`}
                       colSpan={3}
-                      className={`${CELDA} text-center font-bold tabular-nums text-slate-800 ${
+                      className={`${CELDA} border-l border-l-slate-300 text-center font-bold tabular-nums text-slate-800 ${
                         esFinde(item.dia) ? 'bg-slate-200/80' : 'bg-slate-200/40'
                       } ${columnaActiva ? 'bg-amber-200/80' : ''}`}
                     >
                       {sums.total}
-                      <span className="ml-1 font-normal text-slate-500">
-                        ({sums.M}+{sums.T}+{sums.N})
-                      </span>
                     </td>
                   )
                 })}

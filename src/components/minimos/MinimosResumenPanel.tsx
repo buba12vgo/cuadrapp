@@ -92,7 +92,7 @@ export function MinimosResumenPanel({
       </KpiSection>
 
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
-        <p className="mb-1 text-[8px] font-semibold uppercase tracking-wide text-slate-500">
+        <p className="mb-1 text-sm font-semibold uppercase tracking-wide text-slate-500">
           Por día
         </p>
         <KpiChipGrid

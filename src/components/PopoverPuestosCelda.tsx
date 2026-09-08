@@ -46,11 +46,11 @@ export function PopoverPuestosCelda({
       style={{ top, left }}
       role="menu"
     >
-      <p className="border-b border-slate-200 px-2 py-1 text-[9px] font-semibold text-slate-500">
+      <p className="border-b border-slate-200 px-2 py-1 text-sm font-semibold text-slate-500">
         Asignar puesto
       </p>
       {puestos.length === 0 ? (
-        <p className="px-2 py-2 text-[10px] text-slate-500">
+        <p className="px-2 py-2 text-sm text-slate-500">
           Sin puestos permitidos
         </p>
       ) : (
@@ -59,7 +59,7 @@ export function PopoverPuestosCelda({
             key={puesto}
             type="button"
             role="menuitem"
-            className="block w-full px-2 py-1 text-left text-[10px] font-semibold text-slate-800 hover:bg-slate-100"
+            className="block w-full px-2 py-1 text-left text-sm font-semibold text-slate-800 hover:bg-slate-100"
             onClick={() => {
               onElegir(puesto)
               onCerrar()

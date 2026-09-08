@@ -25,7 +25,7 @@ export function ToolbarSection({
   return (
     <div className="flex items-center gap-1.5">
       {label ? (
-        <span className="text-xs font-semibold text-slate-500">{label}</span>
+        <span className="text-sm font-semibold text-slate-500">{label}</span>
       ) : null}
       {children}
     </div>

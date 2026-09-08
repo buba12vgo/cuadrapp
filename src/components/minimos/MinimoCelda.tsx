@@ -39,7 +39,7 @@ export function MinimoCelda({ valor, etiqueta, onCambiar }: Props) {
         aria-label={etiqueta}
         value={valor}
         onChange={(event) => onCambiar(leerNumero(event.target.value))}
-        className={`h-full w-full bg-transparent text-center text-[9px] font-semibold tabular-nums outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${
+        className={`h-full w-full bg-transparent text-center text-sm font-semibold tabular-nums outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${
           activo ? 'text-sky-900' : 'text-slate-400'
         }`}
       />

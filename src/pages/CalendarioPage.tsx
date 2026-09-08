@@ -190,12 +190,12 @@ function EditorDiaDrawer({
           <h2 id="editor-dia-titulo" className="text-sm font-bold text-slate-900">
             Configuración del día
           </h2>
-          <p className="text-xs text-slate-500">{formatoFecha(fecha)}</p>
+          <p className="text-sm text-slate-500">{formatoFecha(fecha)}</p>
         </header>
 
         <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-4">
           <label className="flex flex-col gap-1">
-            <span className="text-[11px] font-semibold text-slate-600">
+            <span className="text-sm font-semibold text-slate-600">
               Tipo de día
             </span>
             <select
@@ -214,7 +214,7 @@ function EditorDiaDrawer({
           </label>
 
           <label className="flex flex-col gap-1">
-            <span className="text-[11px] font-semibold text-slate-600">
+            <span className="text-sm font-semibold text-slate-600">
               Descripción
             </span>
             <input
@@ -226,10 +226,10 @@ function EditorDiaDrawer({
           </label>
 
           <div>
-            <p className="mb-1 text-[11px] font-semibold text-slate-600">
+            <p className="mb-1 text-sm font-semibold text-slate-600">
               Mínimos operativos por puesto
             </p>
-            <table className="w-full border-collapse text-xs">
+            <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="bg-slate-50 text-slate-600">
                   <th className={`${TH} text-left`}>Puesto</th>
@@ -272,7 +272,7 @@ function EditorDiaDrawer({
                 ))}
               </tbody>
             </table>
-            <p className="mt-1 text-[10px] text-slate-500">
+            <p className="mt-1 text-sm text-slate-500">
               Tab entre celdas. Normal + valores base no crea evento.
             </p>
           </div>
@@ -410,7 +410,7 @@ export function CalendarioPage() {
         actions={
           <>
             <label className="flex items-center gap-1">
-              <span className="text-[10px] font-semibold text-slate-600">Mes</span>
+              <span className="text-sm font-semibold text-slate-600">Mes</span>
               <select
                 className={CAMPO}
                 value={mes}
@@ -424,7 +424,7 @@ export function CalendarioPage() {
               </select>
             </label>
             <label className="flex items-center gap-1">
-              <span className="text-[10px] font-semibold text-slate-600">Año</span>
+              <span className="text-sm font-semibold text-slate-600">Año</span>
               <input
                 type="number"
                 min={2020}
@@ -449,7 +449,7 @@ export function CalendarioPage() {
           {DIAS_SEMANA.map((dia) => (
             <div
               key={dia}
-              className="py-0.5 text-center text-[9px] font-bold text-slate-500"
+              className="py-0.5 text-center text-sm font-bold text-slate-500"
             >
               {dia}
             </div>
@@ -482,21 +482,21 @@ export function CalendarioPage() {
                 }`}
                 onClick={() => setFechaSeleccionada(fecha)}
               >
-                <span className="text-[10px] font-bold text-slate-800">{dia}</span>
+                <span className="text-sm font-bold text-slate-800">{dia}</span>
                 {etiqueta ? (
                   <span
-                    className={`mt-0.5 inline-flex items-center gap-0.5 rounded px-0.5 py-0 text-[8px] font-semibold ${etiqueta.clase}`}
+                    className={`mt-0.5 inline-flex items-center gap-0.5 rounded px-0.5 py-0 text-sm font-semibold ${etiqueta.clase}`}
                   >
                     {etiqueta.emoji} {etiqueta.texto}
                   </span>
                 ) : null}
                 {evento && !etiqueta ? (
-                  <span className="mt-0.5 rounded bg-slate-100 px-0.5 py-0 text-[8px] font-medium text-slate-700">
+                  <span className="mt-0.5 rounded bg-slate-100 px-0.5 py-0 text-sm font-medium text-slate-700">
                     Override
                   </span>
                 ) : null}
                 {evento?.descripcion ? (
-                  <span className="mt-auto line-clamp-2 text-[8px] text-slate-500">
+                  <span className="mt-auto line-clamp-2 text-sm text-slate-500">
                     {evento.descripcion}
                   </span>
                 ) : null}

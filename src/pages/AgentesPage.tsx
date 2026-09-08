@@ -297,7 +297,7 @@ function FichaAgenteModal({
             <h3 className={TITULO_BLOQUE}>Datos base</h3>
             <div className="grid grid-cols-2 gap-2">
               <label className="flex flex-col gap-0.5">
-                <span className="text-[11px] font-semibold text-slate-600">
+                <span className="text-sm font-semibold text-slate-600">
                   Placa
                 </span>
                 <input
@@ -312,7 +312,7 @@ function FichaAgenteModal({
                 />
               </label>
               <label className="flex flex-col gap-0.5">
-                <span className="text-[11px] font-semibold text-slate-600">
+                <span className="text-sm font-semibold text-slate-600">
                   Rol
                 </span>
                 <select
@@ -333,7 +333,7 @@ function FichaAgenteModal({
                 </select>
               </label>
               <label className="flex flex-col gap-0.5">
-                <span className="text-[11px] font-semibold text-slate-600">
+                <span className="text-sm font-semibold text-slate-600">
                   Nombre
                 </span>
                 <input
@@ -348,7 +348,7 @@ function FichaAgenteModal({
                 />
               </label>
               <label className="flex flex-col gap-0.5">
-                <span className="text-[11px] font-semibold text-slate-600">
+                <span className="text-sm font-semibold text-slate-600">
                   Apellidos
                 </span>
                 <input
@@ -363,7 +363,7 @@ function FichaAgenteModal({
                 />
               </label>
               <label className="col-span-2 flex flex-col gap-0.5">
-                <span className="text-[11px] font-semibold text-slate-600">
+                <span className="text-sm font-semibold text-slate-600">
                   Mes de vacaciones {ANIO_REFERENCIA_VACACIONES_DEFECTO}
                 </span>
                 <select
@@ -383,7 +383,7 @@ function FichaAgenteModal({
                     </option>
                   ))}
                 </select>
-                <span className="text-[10px] text-slate-500">
+                <span className="text-sm text-slate-500">
                   Ciclo Jun → Jul → Sep → Ago. En{' '}
                   {ANIO_REFERENCIA_VACACIONES_DEFECTO + 1}:{' '}
                   {
@@ -417,7 +417,7 @@ function FichaAgenteModal({
                 </li>
               ))}
             </ul>
-            <p className="mt-2 text-[11px] text-slate-500">
+            <p className="mt-2 text-sm text-slate-500">
               Los turnos marcados son los que puede hacer. Por defecto están
               activos los tres.
             </p>
@@ -426,12 +426,12 @@ function FichaAgenteModal({
           <section className={BLOQUE}>
             <div className="mb-2 flex items-baseline justify-between gap-2">
               <h3 className={`${TITULO_BLOQUE} mb-0`}>Puestos que puede hacer</h3>
-              <span className="text-[11px] tabular-nums text-slate-500">
+              <span className="text-sm tabular-nums text-slate-500">
                 {puestosActivos}/{puestos.length} activos
               </span>
             </div>
             {puestos.length === 0 ? (
-              <p className="text-xs text-slate-500">
+              <p className="text-sm text-slate-500">
                 No hay puestos configurados. Créalos en Administración →
                 Puestos; al crearlos se activan para toda la plantilla.
               </p>
@@ -455,7 +455,7 @@ function FichaAgenteModal({
                         />
                         <span className="min-w-0 flex-1">
                           <span className="font-medium">{puesto.nombre}</span>
-                          <span className="ml-1.5 font-mono text-[11px] text-slate-500">
+                          <span className="ml-1.5 font-mono text-sm text-slate-500">
                             {puesto.abreviatura}
                           </span>
                         </span>
@@ -465,7 +465,7 @@ function FichaAgenteModal({
                 })}
               </ul>
             )}
-            <p className="mt-2 text-[11px] text-slate-500">
+            <p className="mt-2 text-sm text-slate-500">
               Desmarca un puesto para que no se pueda asignar a este agente. Un
               puesto nuevo queda activo por defecto en toda la plantilla.
             </p>
@@ -490,13 +490,13 @@ function FichaAgenteModal({
                     />
                     <span className="font-medium">{ETIQUETA_PREFERENCIA[modo]}</span>
                     {modo !== 'SIN_PREFERENCIA' ? (
-                      <span className="text-[11px] text-slate-500">
+                      <span className="text-sm text-slate-500">
                         ({objetivosDesdeModo(modo).objetivoM}M ·{' '}
                         {objetivosDesdeModo(modo).objetivoT}T ·{' '}
                         {objetivosDesdeModo(modo).objetivoN}N)
                       </span>
                     ) : (
-                      <span className="text-[11px] text-slate-500">
+                      <span className="text-sm text-slate-500">
                         (cualquiera de los tres patrones, según limitaciones)
                       </span>
                     )}
@@ -511,7 +511,7 @@ function FichaAgenteModal({
                     const turno = clave.replace('objetivo', '') as 'M' | 'T' | 'N'
                     return (
                       <label key={clave} className="flex items-center gap-1.5">
-                        <span className="text-[11px] font-semibold text-slate-600">
+                        <span className="text-sm font-semibold text-slate-600">
                           Objetivo {turno}
                         </span>
                         <input
@@ -536,7 +536,7 @@ function FichaAgenteModal({
                 )}
               </div>
             ) : null}
-            <p className="mt-1.5 text-[11px] text-slate-500">
+            <p className="mt-1.5 text-sm text-slate-500">
               {esSinPreferencia(form.preferenciaAnual) ? (
                 <>11 meses operativos · 1 mes de vacaciones (V).</>
               ) : (
@@ -837,7 +837,7 @@ export function AgentesPage() {
                     <td className={`${TD} text-right`}>
                       <button
                         type="button"
-                        className="mr-1.5 text-[10px] font-medium text-slate-700 hover:underline"
+                        className="mr-1.5 text-sm font-medium text-slate-700 hover:underline"
                         onClick={() => {
                           setEsNuevo(false)
                           setAgenteModal(agente)
@@ -848,7 +848,7 @@ export function AgentesPage() {
                       <button
                         type="button"
                         disabled={guardando || !firebaseOk}
-                        className="text-[10px] font-semibold text-red-700 hover:underline disabled:cursor-not-allowed disabled:opacity-40"
+                        className="text-sm font-semibold text-red-700 hover:underline disabled:cursor-not-allowed disabled:opacity-40"
                         onClick={() => void eliminarAgente(agente)}
                       >
                         Eliminar

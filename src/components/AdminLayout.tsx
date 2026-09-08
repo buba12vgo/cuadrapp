@@ -7,7 +7,7 @@ import { useConfigOperativaBootstrap } from '@/lib/useConfigOperativaBootstrap'
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
   [
-    'rounded-md px-2.5 py-1.5 text-xs font-medium',
+    'rounded-md px-2.5 py-1.5 text-sm font-medium',
     FOCUS_RING,
     isActive
       ? 'bg-slate-900 text-white'
@@ -34,13 +34,13 @@ export function AdminLayout() {
                 className="h-6 w-6 rounded-full"
               />
             ) : null}
-            <span className="hidden max-w-[140px] truncate text-xs text-slate-600 sm:inline">
+            <span className="hidden max-w-[140px] truncate text-sm text-slate-600 sm:inline">
               {user?.displayName ?? user?.email}
             </span>
             <button
               type="button"
               onClick={() => void signOut()}
-              className={`rounded-md px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 ${FOCUS_RING}`}
+              className={`rounded-md px-2 py-1 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 ${FOCUS_RING}`}
             >
               Salir
             </button>
@@ -76,17 +76,17 @@ export function AdminLayout() {
             </NavLink>
         </nav>
         {isDesignPreview ? (
-          <p className="border-t border-violet-200 bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-900">
+          <p className="border-t border-violet-200 bg-violet-50 px-2.5 py-1 text-sm font-medium text-violet-900">
             Modo vista previa (sin Firebase) — solo para diseño y QA local
           </p>
         ) : null}
         {estado === 'loading' ? (
-          <p className="border-t border-slate-100 px-2.5 py-1 text-xs text-slate-500">
+          <p className="border-t border-slate-100 px-2.5 py-1 text-sm text-slate-500">
             Cargando plantilla, plan anual, puestos y eventos desde Firestore…
           </p>
         ) : null}
         {error ? (
-          <p className="border-t border-red-200 bg-red-50 px-2.5 py-1 text-xs text-red-800">
+          <p className="border-t border-red-200 bg-red-50 px-2.5 py-1 text-sm text-red-800">
             {error}
             {!firebaseOk ? ' · Sin Firebase no se persisten cambios.' : ''}
           </p>

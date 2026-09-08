@@ -28,7 +28,7 @@ export function Modal({
   onClose,
   size = 'md',
   panelClassName = '',
-  bodyClassName = 'text-xs text-slate-800',
+  bodyClassName = 'text-sm text-slate-800',
   footerClassName = 'justify-end',
 }: Props) {
   useEffect(() => {
@@ -58,7 +58,7 @@ export function Modal({
               {title}
             </h2>
             {subtitle ? (
-              <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>
+              <p className="mt-0.5 text-sm text-slate-500">{subtitle}</p>
             ) : null}
           </div>
           <button

@@ -25,7 +25,7 @@ export function LoginPage() {
           </p>
         ) : null}
         {!firebaseReady && !loading ? (
-          <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-[10px] text-red-800">
+          <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-sm text-red-800">
             Firebase no está configurado. Revisa VITE_FIREBASE_* en el despliegue.
           </p>
         ) : (
@@ -62,7 +62,7 @@ export function LoginPage() {
           </button>
         )}
         {error ? (
-          <p className="mt-2 text-center text-[10px] text-red-600">{error}</p>
+          <p className="mt-2 text-center text-sm text-red-600">{error}</p>
         ) : null}
       </div>
     </div>

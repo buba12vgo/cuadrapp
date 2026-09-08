@@ -79,11 +79,11 @@ const ANCHO_TOTAL = 28
 const ANCHO_PATRON = 44
 
 const CELDA =
-  'h-6 border border-slate-400 px-1 py-0 text-xs leading-none'
+  'h-7 border border-slate-400 px-1 py-0 text-sm leading-none'
 const CELDA_PIE =
-  'h-8 border border-slate-400 px-0.5 py-0 text-[11px] leading-none'
+  'h-8 border border-slate-400 px-0.5 py-0 text-sm leading-none'
 const CAMPO_PCT =
-  'h-7 w-11 rounded-md border border-slate-200 bg-white px-1 text-center text-[10px] text-slate-900 outline-none focus:border-slate-400'
+  'h-8 w-11 rounded-md border border-slate-200 bg-white px-1 text-center text-sm text-slate-900 outline-none focus:border-slate-400'
 
 const GRUPOS_PLAN: Array<{ valor: GrupoPlanAnual; label: string }> = [
   { valor: 'OPERATIVO', label: 'Policías + jefes de equipo' },
@@ -360,7 +360,7 @@ export function PlanAnualPage() {
         toolbar={
           <>
             <label className="flex items-center gap-1">
-              <span className="text-[10px] font-semibold text-slate-600">Año</span>
+              <span className="text-sm font-semibold text-slate-600">Año</span>
               <select
                 className={CAMPO}
                 value={anio}
@@ -374,7 +374,7 @@ export function PlanAnualPage() {
               </select>
             </label>
             <label className="flex items-center gap-1">
-              <span className="text-[10px] font-semibold text-slate-600">Vista</span>
+              <span className="text-sm font-semibold text-slate-600">Vista</span>
               <select
                 className={CAMPO}
                 value={grupoVista}
@@ -389,12 +389,12 @@ export function PlanAnualPage() {
                 ))}
               </select>
             </label>
-            <span className="text-[10px] font-semibold text-slate-600">
+            <span className="text-sm font-semibold text-slate-600">
               Objetivo %
             </span>
             {(['M', 'T', 'N'] as const).map((turno) => (
               <label key={turno} className="flex items-center gap-0.5">
-                <span className="text-[10px] font-semibold text-slate-600">
+                <span className="text-sm font-semibold text-slate-600">
                   {turno}
                 </span>
                 <input
@@ -489,7 +489,7 @@ export function PlanAnualPage() {
       <DashboardBody>
         <DashboardMain>
           <DashboardMainScroll>
-        <table className="w-max min-w-full table-fixed border-separate border-spacing-0 text-xs leading-none">
+        <table className="w-max min-w-full table-fixed border-separate border-spacing-0 text-sm leading-none">
           <thead>
             <tr>
               <th
@@ -581,7 +581,7 @@ export function PlanAnualPage() {
                       </div>
                       {sinPref ? (
                         <span
-                          className="truncate text-[10px] font-semibold text-violet-700"
+                          className="truncate text-sm font-semibold text-violet-700"
                           title="Sin preferencia: se asigna 4-4-3, 4-3-4 o 5-3-3"
                         >
                           Flex · sin preferencia
@@ -663,7 +663,7 @@ export function PlanAnualPage() {
                     title={tituloPreferencia(agente, totales)}
                   >
                     {sinPref ? (
-                      <span className="block text-[10px]">
+                      <span className="block text-sm">
                         {patronAsignado ? (
                           <>
                             <span className="text-violet-700">Flex</span>
@@ -676,9 +676,9 @@ export function PlanAnualPage() {
                         )}
                       </span>
                     ) : patronAsignado ? (
-                      <span className="text-[10px]">{patronAsignado}</span>
+                      <span className="text-sm">{patronAsignado}</span>
                     ) : (
-                      <span className="text-[10px]">
+                      <span className="text-sm">
                         {etiquetaPreferenciaEnPlan(agente)}
                       </span>
                     )}

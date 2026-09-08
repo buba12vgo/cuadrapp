@@ -241,8 +241,8 @@ export function MinimosPage() {
           className={`${CELDA} ${COL_PUESTO} border-r border-slate-200 group-hover/row:bg-slate-50`}
           title={`${puesto.abreviatura} · ${puesto.nombre}`}
         >
-          <div className="truncate text-[9px] leading-none text-slate-800">
-            <span className="font-mono text-[8px] font-bold text-slate-400">
+          <div className="truncate text-sm leading-none text-slate-800">
+            <span className="font-mono text-sm font-bold text-slate-400">
               {puesto.abreviatura}
             </span>
             <span className="ml-0.5 font-medium">{puesto.nombre}</span>
@@ -312,21 +312,21 @@ export function MinimosPage() {
                 <div className="absolute left-0 z-30 mt-1 min-w-[12rem] rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
                   <button
                     type="button"
-                    className="block w-full px-2.5 py-1.5 text-left text-[10px] text-slate-700 hover:bg-slate-50"
+                    className="block w-full px-2.5 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
                     onClick={aplicarPlantillaLaborables}
                   >
                     {diaInfo.clave} → laborables (M–V)
                   </button>
                   <button
                     type="button"
-                    className="block w-full px-2.5 py-1.5 text-left text-[10px] text-slate-700 hover:bg-slate-50"
+                    className="block w-full px-2.5 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
                     onClick={aplicarPlantillaSemanaCompleta}
                   >
                     {diaInfo.clave} → toda la semana
                   </button>
                   <button
                     type="button"
-                    className="block w-full border-t border-slate-100 px-2.5 py-1.5 text-left text-[10px] text-red-700 hover:bg-red-50"
+                    className="block w-full border-t border-slate-100 px-2.5 py-1.5 text-left text-sm text-red-700 hover:bg-red-50"
                     onClick={() => void restablecerDefecto()}
                   >
                     Restablecer valores por defecto
@@ -358,7 +358,7 @@ export function MinimosPage() {
 
       {panelCopiaAbierto ? (
         <div className="shrink-0 rounded-lg border border-amber-200 bg-amber-50/50 px-2.5 py-2">
-          <p className="mb-1.5 text-[10px] text-slate-700">
+          <p className="mb-1.5 text-sm text-slate-700">
             Origen: <strong>{diaInfo.label}</strong>. Elige días destino:
           </p>
           <div className="mb-2 flex flex-wrap gap-1.5">
@@ -368,7 +368,7 @@ export function MinimosPage() {
                 <button
                   key={item.dia}
                   type="button"
-                  className={`h-7 min-w-9 rounded-md px-2 text-[10px] font-semibold transition ${
+                  className={`h-7 min-w-9 rounded-md px-2 text-sm font-semibold transition ${
                     seleccionado
                       ? 'bg-slate-900 text-white shadow-sm'
                       : 'border border-slate-200 bg-white text-slate-700 hover:border-slate-300'
@@ -384,28 +384,28 @@ export function MinimosPage() {
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              className="h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700"
+              className="h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold text-slate-700"
               onClick={seleccionarLaborables}
             >
               Laborables
             </button>
             <button
               type="button"
-              className="h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700"
+              className="h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold text-slate-700"
               onClick={seleccionarTodos}
             >
               Todos
             </button>
             <button
               type="button"
-              className="h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700"
+              className="h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold text-slate-700"
               onClick={() => setDiasDestino([])}
             >
               Ninguno
             </button>
             <button
               type="button"
-              className="ml-auto h-8 rounded-lg bg-slate-900 px-3 text-[11px] font-semibold text-white disabled:opacity-50"
+              className="ml-auto h-8 rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white disabled:opacity-50"
               disabled={diasDestino.length === 0}
               onClick={() => void copiarADiasSeleccionados()}
             >
@@ -421,12 +421,12 @@ export function MinimosPage() {
       <DashboardBody>
         <DashboardMain>
           {puestos.length === 0 ? (
-            <p className="px-4 py-8 text-center text-xs text-slate-500">
+            <p className="px-4 py-8 text-center text-sm text-slate-500">
               Primero configura puestos en el panel Puestos.
             </p>
           ) : (
             <DashboardMainScroll>
-              <table className="w-full min-w-0 border-collapse text-[9px]">
+              <table className="w-full min-w-0 border-collapse text-sm">
                 <colgroup>
                   <col className="w-[5.25rem]" />
                   {DIAS_SEMANA_CONFIG.flatMap((item) =>
@@ -441,7 +441,7 @@ export function MinimosPage() {
                 <thead className="sticky top-0 z-20 bg-slate-50/95 backdrop-blur-sm">
                   <tr>
                     <th
-                      className={`${CELDA} ${COL_PUESTO} sticky left-0 z-30 border-b border-r border-slate-200 bg-slate-50 py-0.5 text-left text-[8px] font-semibold uppercase tracking-wide text-slate-500`}
+                      className={`${CELDA} ${COL_PUESTO} sticky left-0 z-30 border-b border-r border-slate-200 bg-slate-50 py-0.5 text-left text-sm font-semibold uppercase tracking-wide text-slate-500`}
                       rowSpan={2}
                     >
                       Puesto
@@ -452,7 +452,7 @@ export function MinimosPage() {
                         <th
                           key={item.dia}
                           colSpan={3}
-                          className={`border-b border-slate-200 px-0 py-0.5 text-center text-[10px] font-bold ${
+                          className={`border-b border-slate-200 px-0 py-0.5 text-center text-sm font-bold ${
                             item.dia !== 1 ? 'border-l border-slate-200' : ''
                           } ${esFinde(item.dia) ? 'bg-slate-100' : ''} ${
                             activo
@@ -472,7 +472,7 @@ export function MinimosPage() {
                       )
                     })}
                   </tr>
-                  <tr className="text-[8px] font-semibold uppercase text-slate-400">
+                  <tr className="text-sm font-semibold uppercase text-slate-400">
                     {DIAS_SEMANA_CONFIG.map((item) =>
                       TURNOS.map((turno, indiceTurno) => (
                         <th
@@ -494,7 +494,7 @@ export function MinimosPage() {
                     <tr key={`cat-${grupo.categoria}`} className="bg-slate-50/90">
                       <td
                         colSpan={1 + DIAS_SEMANA_CONFIG.length * 3}
-                        className="sticky left-0 border-y border-slate-200 px-1 py-0.5 text-[8px] font-bold uppercase tracking-wider text-slate-500"
+                        className="sticky left-0 border-y border-slate-200 px-1 py-0.5 text-sm font-bold uppercase tracking-wider text-slate-500"
                       >
                         <span className="inline-flex items-center gap-1">
                           <Sparkles className="h-2.5 w-2.5" />
@@ -505,7 +505,7 @@ export function MinimosPage() {
                     ...grupo.puestos.map((puesto) => renderFilaPuesto(puesto)),
                   ])}
                 </tbody>
-                <tfoot className="text-[9px]">
+                <tfoot className="text-sm">
                   <tr className="bg-slate-800 text-white">
                     <td
                       className={`${CELDA} ${COL_PUESTO} border-r border-slate-600 bg-slate-800 py-0.5 font-semibold`}
@@ -543,7 +543,7 @@ export function MinimosPage() {
                         <td
                           key={`total-${item.dia}`}
                           colSpan={3}
-                          className={`${CELDA} border-l border-slate-700 py-0.5 text-center text-[10px] font-bold tabular-nums ${
+                          className={`${CELDA} border-l border-slate-700 py-0.5 text-center text-sm font-bold tabular-nums ${
                             columnaActiva ? 'bg-slate-800' : 'bg-slate-900'
                           }`}
                         >

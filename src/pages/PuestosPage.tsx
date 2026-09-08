@@ -177,7 +177,7 @@ function EditorPuestoModal({
             <h3 className={TITULO_BLOQUE}>Datos del puesto</h3>
             <div className="flex flex-col gap-2">
               <label className="flex flex-col gap-0.5">
-                <span className="text-[11px] font-semibold text-slate-600">
+                <span className="text-sm font-semibold text-slate-600">
                   Nombre
                 </span>
                 <input
@@ -200,7 +200,7 @@ function EditorPuestoModal({
                 />
               </label>
               <label className="flex flex-col gap-0.5">
-                <span className="text-[11px] font-semibold text-slate-600">
+                <span className="text-sm font-semibold text-slate-600">
                   Código
                 </span>
                 <input
@@ -215,13 +215,13 @@ function EditorPuestoModal({
                     }))
                   }}
                 />
-                <span className="text-[10px] text-slate-500">
+                <span className="text-sm text-slate-500">
                   Identificador estable (exclusiones de agentes). No se puede
                   cambiar al editar.
                 </span>
               </label>
               <label className="flex flex-col gap-0.5">
-                <span className="text-[11px] font-semibold text-slate-600">
+                <span className="text-sm font-semibold text-slate-600">
                   Abreviatura
                 </span>
                 <input
@@ -240,7 +240,7 @@ function EditorPuestoModal({
             </div>
           </section>
           {error ? (
-            <p className="border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-800">
+            <p className="border border-red-200 bg-red-50 px-2 py-1.5 text-sm text-red-800">
               {error}
             </p>
           ) : null}
@@ -412,7 +412,7 @@ export function PuestosPage() {
                 <td className={`${TD} text-right`}>
                   <button
                     type="button"
-                    className="mr-1.5 text-[10px] font-semibold text-slate-700 hover:underline disabled:opacity-40"
+                    className="mr-1.5 text-sm font-semibold text-slate-700 hover:underline disabled:opacity-40"
                     disabled={guardando}
                     onClick={() => abrirEditar(puesto)}
                   >
@@ -420,7 +420,7 @@ export function PuestosPage() {
                   </button>
                   <button
                     type="button"
-                    className="text-[10px] font-semibold text-red-700 hover:underline disabled:opacity-40"
+                    className="text-sm font-semibold text-red-700 hover:underline disabled:opacity-40"
                     disabled={guardando}
                     onClick={() => void borrar(puesto)}
                   >

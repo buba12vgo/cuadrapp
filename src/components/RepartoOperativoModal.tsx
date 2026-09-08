@@ -113,11 +113,11 @@ export function RepartoOperativoModal({
             <h2 id="reparto-titulo" className="text-sm font-bold text-slate-900">
               Reparto operativo: Día {dia}
             </h2>
-            <p className="text-xs text-slate-500">{fecha}</p>
+            <p className="text-sm text-slate-500">{fecha}</p>
           </div>
           <button
             type="button"
-            className="text-xs font-semibold text-slate-500 hover:text-slate-800"
+            className="text-sm font-semibold text-slate-500 hover:text-slate-800"
             onClick={onCerrar}
           >
             Cerrar
@@ -129,7 +129,7 @@ export function RepartoOperativoModal({
             <button
               key={turno}
               type="button"
-              className={`px-3 py-1.5 text-xs font-semibold ${
+              className={`px-3 py-1.5 text-sm font-semibold ${
                 turnoActivo === turno
                   ? 'border-b-2 border-slate-900 text-slate-900'
                   : 'text-slate-500 hover:text-slate-700'
@@ -143,12 +143,12 @@ export function RepartoOperativoModal({
 
         <div className="grid min-h-0 flex-1 grid-cols-2 gap-3 overflow-auto p-4">
           <section className="flex min-h-0 flex-col border border-slate-200">
-            <h3 className="border-b border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] font-bold text-slate-700">
+            <h3 className="border-b border-slate-200 bg-slate-50 px-2 py-1.5 text-sm font-bold text-slate-700">
               Bolsa de agentes ({bolsa.length})
             </h3>
             <ul className="min-h-0 flex-1 overflow-auto">
               {bolsa.length === 0 ? (
-                <li className="px-2 py-3 text-xs text-slate-500">
+                <li className="px-2 py-3 text-sm text-slate-500">
                   Nadie con turno {turnoActivo} este día.
                 </li>
               ) : (
@@ -157,7 +157,7 @@ export function RepartoOperativoModal({
                     key={agente.id}
                     className="flex items-center gap-2 border-b border-slate-100 px-2 py-1.5"
                   >
-                    <span className="min-w-0 flex-1 truncate text-xs">
+                    <span className="min-w-0 flex-1 truncate text-sm">
                       <span className="font-mono font-bold">
                         {agente.numeroPlaca}
                       </span>{' '}
@@ -204,7 +204,7 @@ export function RepartoOperativoModal({
           </section>
 
           <section className="flex min-h-0 flex-col border border-slate-200">
-            <h3 className="border-b border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] font-bold text-slate-700">
+            <h3 className="border-b border-slate-200 bg-slate-50 px-2 py-1.5 text-sm font-bold text-slate-700">
               Puestos a cubrir · mínimos exigidos
             </h3>
             <ul className="flex flex-col gap-2 p-2">
@@ -218,11 +218,11 @@ export function RepartoOperativoModal({
                     className="border border-slate-200 bg-white px-2 py-2"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-semibold text-slate-800">
+                      <span className="text-sm font-semibold text-slate-800">
                         {puesto.nombre}
                       </span>
                       <span
-                        className={`rounded px-1.5 py-0.5 text-xs tabular-nums ${claseContador(
+                        className={`rounded px-1.5 py-0.5 text-sm tabular-nums ${claseContador(
                           actual,
                           minimo,
                         )}`}
@@ -239,7 +239,7 @@ export function RepartoOperativoModal({
                         .map((agente) => (
                           <li
                             key={agente.id}
-                            className="text-[11px] text-slate-600"
+                            className="text-sm text-slate-600"
                           >
                             {agente.numeroPlaca} · {agente.nombre}
                           </li>
@@ -248,7 +248,7 @@ export function RepartoOperativoModal({
                         (agente) =>
                           asignacionesTurno[agente.id] !== puesto.nombre,
                       ) ? (
-                        <li className="text-[11px] text-slate-400">—</li>
+                        <li className="text-sm text-slate-400">—</li>
                       ) : null}
                     </ul>
                   </li>
@@ -261,14 +261,14 @@ export function RepartoOperativoModal({
         <footer className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
           <button
             type="button"
-            className="h-8 px-3 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+            className="h-8 px-3 text-sm font-semibold text-slate-600 hover:bg-slate-100"
             onClick={onCerrar}
           >
             Cancelar
           </button>
           <button
             type="button"
-            className="h-8 bg-slate-900 px-3 text-xs font-semibold text-white hover:bg-slate-800"
+            className="h-8 bg-slate-900 px-3 text-sm font-semibold text-white hover:bg-slate-800"
             onClick={guardar}
           >
             Guardar reparto

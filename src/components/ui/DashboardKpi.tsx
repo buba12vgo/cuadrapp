@@ -23,7 +23,7 @@ export function KpiCard({ icon: Icon, label, value, hint }: KpiCardProps) {
       <p className="text-lg font-bold tabular-nums leading-tight text-slate-900">
         {value}
       </p>
-      {hint ? <p className="mt-0.5 text-[10px] text-slate-500">{hint}</p> : null}
+      {hint ? <p className="mt-0.5 text-sm text-slate-500">{hint}</p> : null}
     </div>
   )
 }
@@ -59,7 +59,7 @@ export function KpiHighlight({
 }: KpiHighlightProps) {
   return (
     <div className={`rounded-lg border p-1.5 ${HIGHLIGHT[variant]}`}>
-      <div className="mb-0.5 flex items-center gap-0.5 text-[10px] font-semibold uppercase">
+      <div className="mb-0.5 flex items-center gap-0.5 text-sm font-semibold uppercase">
         {Icon ? <Icon className="h-2.5 w-2.5" /> : null}
         {label}
       </div>
@@ -67,7 +67,7 @@ export function KpiHighlight({
         {title}
       </p>
       {subtitle ? (
-        <p className="text-[10px] opacity-80">{subtitle}</p>
+        <p className="text-sm opacity-80">{subtitle}</p>
       ) : null}
     </div>
   )
@@ -85,9 +85,9 @@ export function KpiProgress({ label, value, pct, ok = true }: KpiProgressProps) 
     <div className={BLOQUE}>
       <p className={`${TITULO_BLOQUE} mb-1`}>{label}</p>
       <div className="mb-0.5 flex items-baseline justify-between gap-1">
-        <span className="text-[11px] font-semibold text-slate-800">{value}</span>
+        <span className="text-sm font-semibold text-slate-800">{value}</span>
         <span
-          className={`text-[10px] font-bold tabular-nums ${
+          className={`text-sm font-bold tabular-nums ${
             ok ? 'text-emerald-600' : 'text-amber-600'
           }`}
         >
@@ -118,7 +118,7 @@ export function KpiBarRow({ icon: Icon, label, value, max, color }: KpiBarRowPro
   const pct = max > 0 ? Math.round((value / max) * 100) : 0
   return (
     <div>
-      <div className="mb-0.5 flex items-center justify-between text-[10px]">
+      <div className="mb-0.5 flex items-center justify-between text-sm">
         <span className="flex items-center gap-1 font-medium text-slate-700">
           {Icon ? <Icon className="h-2.5 w-2.5 text-slate-500" /> : null}
           {label}
@@ -164,8 +164,8 @@ export function KpiChipGrid({
           key={item.clave}
           className="rounded border border-slate-200 bg-white px-1 py-0.5 text-center"
         >
-          <div className="text-[10px] font-semibold text-slate-500">{item.clave}</div>
-          <div className="text-[11px] font-bold tabular-nums leading-tight text-slate-900">
+          <div className="text-sm font-semibold text-slate-500">{item.clave}</div>
+          <div className="text-sm font-bold tabular-nums leading-tight text-slate-900">
             {item.total}
           </div>
         </div>

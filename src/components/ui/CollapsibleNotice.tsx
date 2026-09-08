@@ -29,14 +29,14 @@ export function CollapsibleNotice({
 
   return (
     <div
-      className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-[10px] ${TONE_CLASS[tone]}`}
+      className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-sm ${TONE_CLASS[tone]}`}
     >
       <div className="flex items-start gap-1.5">
         <p className="min-w-0 flex-1 leading-snug">{summary}</p>
         {expandable ? (
           <button
             type="button"
-            className="inline-flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide opacity-80 hover:opacity-100"
+            className="inline-flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-sm font-semibold uppercase tracking-wide opacity-80 hover:opacity-100"
             aria-expanded={open}
             onClick={() => setOpen((actual) => !actual)}
           >

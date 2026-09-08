@@ -12,7 +12,7 @@ import { usePuestosData } from '@/lib/puestosStore'
 import { BLOQUE, TITULO_BLOQUE } from '@/lib/uiStyles'
 
 const CLASE_PASTILLA =
-  'cursor-grab rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[9px] font-bold text-slate-800 shadow-sm active:cursor-grabbing hover:border-slate-300 hover:bg-white'
+  'cursor-grab rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-sm font-bold text-slate-800 shadow-sm active:cursor-grabbing hover:border-slate-300 hover:bg-white'
 
 const TURNOS_FILTRO: Array<{ valor: FiltroTurnoBolsa; label: string }> = [
   { valor: 'TODOS', label: 'Todos' },
@@ -71,7 +71,7 @@ export function BolsaPuestosPanel({
           <button
             key={opcion.valor}
             type="button"
-            className={`h-6 flex-1 rounded-md text-[9px] font-bold ${
+            className={`h-6 flex-1 rounded-md text-sm font-bold ${
               filtroTurno === opcion.valor
                 ? 'bg-slate-900 text-white'
                 : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
@@ -82,7 +82,7 @@ export function BolsaPuestosPanel({
           </button>
         ))}
       </div>
-      <p className="mb-1.5 text-[8px] leading-tight text-slate-500">
+      <p className="mb-1.5 text-sm leading-tight text-slate-500">
         {filtroTurno === 'TODOS'
           ? 'Arrastra a cabecera o celda.'
           : `Filtro ${filtroTurno} activo.`}
@@ -114,17 +114,17 @@ export function BolsaPuestosPanel({
           </li>
         ))}
         {visibles.length === 0 ? (
-          <li className="text-[9px] text-slate-500">No hay puestos visibles.</li>
+          <li className="text-sm text-slate-500">No hay puestos visibles.</li>
         ) : null}
         {escondidos.length > 0 ? (
           <li className="mt-1 border-t border-slate-100 pt-1">
-            <p className="mb-0.5 text-[8px] font-bold uppercase text-slate-500">
+            <p className="mb-0.5 text-sm font-bold uppercase text-slate-500">
               Ocultos
             </p>
             <ul className="flex flex-col gap-0.5">
               {escondidos.map((puesto) => (
                 <li key={puesto.codigo}>
-                  <label className="flex cursor-pointer items-center gap-1 text-[9px] text-slate-500">
+                  <label className="flex cursor-pointer items-center gap-1 text-sm text-slate-500">
                     <input
                       type="checkbox"
                       checked={false}

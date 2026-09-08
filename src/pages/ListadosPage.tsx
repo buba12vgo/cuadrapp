@@ -181,7 +181,7 @@ export function ListadosPage() {
         actions={
           <>
             <label className="flex items-center gap-1">
-              <span className="text-[10px] font-semibold text-slate-600">Año</span>
+              <span className="text-sm font-semibold text-slate-600">Año</span>
               <select
                 className={CAMPO}
                 value={anio}
@@ -193,7 +193,7 @@ export function ListadosPage() {
               </select>
             </label>
             <label className="flex items-center gap-1">
-              <span className="text-[10px] font-semibold text-slate-600">Mes</span>
+              <span className="text-sm font-semibold text-slate-600">Mes</span>
               <select
                 className={CAMPO}
                 value={mes}
@@ -205,7 +205,7 @@ export function ListadosPage() {
               </select>
             </label>
             <label className="flex items-center gap-1">
-              <span className="text-[10px] font-semibold text-slate-600">Rol</span>
+              <span className="text-sm font-semibold text-slate-600">Rol</span>
               <select
                 className={CAMPO}
                 value={rolFiltro}

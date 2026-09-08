@@ -23,7 +23,7 @@ export function KpiCard({ icon: Icon, label, value, hint }: KpiCardProps) {
       <p className="text-lg font-bold tabular-nums leading-tight text-slate-900">
         {value}
       </p>
-      {hint ? <p className="mt-0.5 text-[9px] text-slate-500">{hint}</p> : null}
+      {hint ? <p className="mt-0.5 text-[10px] text-slate-500">{hint}</p> : null}
     </div>
   )
 }
@@ -59,7 +59,7 @@ export function KpiHighlight({
 }: KpiHighlightProps) {
   return (
     <div className={`rounded-lg border p-1.5 ${HIGHLIGHT[variant]}`}>
-      <div className="mb-0.5 flex items-center gap-0.5 text-[8px] font-semibold uppercase">
+      <div className="mb-0.5 flex items-center gap-0.5 text-[10px] font-semibold uppercase">
         {Icon ? <Icon className="h-2.5 w-2.5" /> : null}
         {label}
       </div>
@@ -67,7 +67,7 @@ export function KpiHighlight({
         {title}
       </p>
       {subtitle ? (
-        <p className="text-[9px] opacity-80">{subtitle}</p>
+        <p className="text-[10px] opacity-80">{subtitle}</p>
       ) : null}
     </div>
   )
@@ -164,7 +164,7 @@ export function KpiChipGrid({
           key={item.clave}
           className="rounded border border-slate-200 bg-white px-1 py-0.5 text-center"
         >
-          <div className="text-[8px] font-semibold text-slate-500">{item.clave}</div>
+          <div className="text-[10px] font-semibold text-slate-500">{item.clave}</div>
           <div className="text-[11px] font-bold tabular-nums leading-tight text-slate-900">
             {item.total}
           </div>

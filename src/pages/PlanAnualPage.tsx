@@ -6,11 +6,11 @@ import {
   DashboardMainScroll,
 } from '@/components/ui/DashboardLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { SaveStatus } from '@/components/ui/SaveStatus'
+import { useAppDialog } from '@/components/ui/ConfirmDialog'
 import {
   ALERT_ERROR,
   ALERT_INFO,
-  BADGE_NEUTRAL,
-  BADGE_OK,
   BTN_DANGER,
   BTN_PRIMARY,
   BTN_SECONDARY,
@@ -172,6 +172,7 @@ function tituloPreferencia(agente: FichaPolicia, totales: Record<TurnoAnual, num
 }
 
 export function PlanAnualPage() {
+  const { confirm: askConfirm } = useAppDialog()
   const [agentesData] = useAgentesData()
   const {
     anio,
@@ -327,14 +328,18 @@ export function PlanAnualPage() {
   }
 
   /** Vacía solo el año del selector, tras dos confirmaciones. */
-  function limpiarAnio() {
+  async function limpiarAnio() {
     if (!planListo || !hayPlanAnio) return
-    const seguir = window.confirm(
+    const seguir = await askConfirm(
       `¿Vaciar el plan de ${anio}?\n\nSe borrarán todos los turnos de este año. ${anio + 1} y el resto no se tocan.\n\nDespués puedes rellenar ${anio} a mano (el cuadrante real) y autogenerar ${anio + 1} con las normas de fin de año.`,
+      `Vaciar plan ${anio}`,
+      true,
     )
     if (!seguir) return
-    const confirmar = window.confirm(
+    const confirmar = await askConfirm(
       `Confirmación final: el plan de ${anio} se dejará en blanco y se guardará. Esta acción no se puede deshacer.\n\n¿Limpiar ${anio}?`,
+      'Confirmar limpieza',
+      true,
     )
     if (!confirmar) return
 
@@ -350,14 +355,7 @@ export function PlanAnualPage() {
         title="Plan anual"
         subtitle={`Año ${anio} · ${agentesVisibles.length} agentes en vista`}
         status={
-          <>
-            {guardando ? (
-              <span className={BADGE_NEUTRAL}>Guardando…</span>
-            ) : null}
-            {guardadoOk && !guardando ? (
-              <span className={BADGE_OK}>Guardado</span>
-            ) : null}
-          </>
+          <SaveStatus guardando={guardando} guardadoOk={guardadoOk} />
         }
         toolbar={
           <>
@@ -453,7 +451,7 @@ export function PlanAnualPage() {
               className={BTN_DANGER}
               title={`Vacía el plan de ${anio}`}
               disabled={!planListo || !hayPlanAnio}
-              onClick={limpiarAnio}
+              onClick={() => void limpiarAnio()}
             >
               Limpiar año
             </button>

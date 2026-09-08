@@ -11,15 +11,20 @@ import {
   ALERT_ERROR,
   ALERT_INFO,
   ALERT_WARN,
-  BADGE_OK,
   BTN_PRIMARY,
   BTN_SECONDARY,
   BTN_SUCCESS,
   CAMPO,
   CLASE_TURNO_CELDA,
+  FOCUS_RING,
   PAGE_SECTION,
+  SEMAFORO_KO,
+  SEMAFORO_OK,
+  SEMAFORO_WARN,
 } from '@/lib/uiStyles'
-import { PageHeader } from '@/components/ui/PageHeader'
+import { useAppDialog } from '@/components/ui/ConfirmDialog'
+import { PageHeader, ToolbarDivider, ToolbarSection } from '@/components/ui/PageHeader'
+import { SaveStatus } from '@/components/ui/SaveStatus'
 import { PopoverPuestosCelda } from '@/components/PopoverPuestosCelda'
 import { RepartoOperativoModal } from '@/components/RepartoOperativoModal'
 import { useAgentesData } from '@/lib/agentesStore'
@@ -118,9 +123,9 @@ const ROL_LABEL: Record<RolPolicia, string> = {
 }
 
 const ANIO_ACTUAL = 2026
-const ANCHO_DIA = 36
-const ANCHO_TOT = 32
-const ANCHO_AGENTE = 36
+const ANCHO_DIA = 40
+const ANCHO_TOT = 34
+const ANCHO_AGENTE = 44
 
 const CELDA =
   'h-7 border border-slate-400 px-0.5 py-0 text-xs leading-none'
@@ -152,6 +157,11 @@ function pad(n: number) {
   return String(n).padStart(2, '0')
 }
 
+function apellidoCorto(apellidos: string) {
+  const parte = apellidos.trim().split(/\s+/)[0]
+  return parte ? parte.slice(0, 5) : ''
+}
+
 function turnoPlanMes(
   agente: { rolBase: RolPolicia; id: string },
   planAnual: PlanAnual,
@@ -174,7 +184,7 @@ function leerFecha(valor: string) {
 }
 
 function claseMinimo(real: number, minimo: number, especial: boolean) {
-  if (real < minimo) return 'bg-red-200 font-bold text-red-900'
+  if (real < minimo) return SEMAFORO_KO
   return especial ? 'bg-amber-50' : 'bg-white'
 }
 
@@ -233,9 +243,7 @@ function stickyDerecha(indice: number) {
 }
 
 function claseIndicador(ok: boolean) {
-  return ok
-    ? 'bg-green-100 font-bold text-green-800'
-    : 'bg-red-200 font-bold text-red-900'
+  return ok ? SEMAFORO_OK : SEMAFORO_KO
 }
 
 function claseSumatorioF(valor: number, valoresGrupo: number[]) {
@@ -250,15 +258,16 @@ function claseSumatorioF(valor: number, valoresGrupo: number[]) {
 
 function claseFindesMes(cantidad: number) {
   if (cantidad < OBJETIVO_FINDES_MES || cantidad > MAX_FINDES_MES) {
-    return 'bg-red-200 font-bold text-red-900'
+    return SEMAFORO_KO
   }
   if (cantidad > OBJETIVO_FINDES_MES) {
-    return 'bg-amber-100 font-bold text-amber-900'
+    return SEMAFORO_WARN
   }
-  return 'bg-green-100 font-bold text-green-800'
+  return SEMAFORO_OK
 }
 
 export function CuadranteMensualPage() {
+  const { alert, confirm } = useAppDialog()
   const [agentesData, setAgentesData] = useAgentesData()
   const [eventosData] = useEventosData()
   const [puestos] = usePuestosData()
@@ -481,16 +490,19 @@ export function CuadranteMensualPage() {
 
     if (mesGuardadoEnFirestore || cuadranteEditadoLocalRef.current) {
       const nombreMes = MESES[mes - 1]
-      const seguir = window.confirm(
+      const seguir = await confirm(
         `¿Volver a autogenerar ${nombreMes} ${anio}?\n\nSe sustituirá el cuadrante actual${
           mesGuardadoEnFirestore
             ? ' (hay uno guardado en Firestore; no se actualiza hasta que pulses Guardar)'
             : ''
         }. Los puestos asignados del mes también se borrarán.`,
+        'Autogenerar cuadrante',
       )
       if (!seguir) return
-      const confirmar = window.confirm(
+      const confirmar = await confirm(
         `Confirmación final: se perderán los cambios de ${nombreMes} ${anio} al autogenerar de nuevo.\n\n¿Continuar?`,
+        'Confirmar autogeneración',
+        true,
       )
       if (!confirmar) return
     }
@@ -522,7 +534,7 @@ export function CuadranteMensualPage() {
           ? err.message
           : 'No se pudo autogenerar el cuadrante mensual'
       setErrorCuadrante(mensaje)
-      window.alert(mensaje)
+      await alert(mensaje, 'Error al autogenerar')
     } finally {
       setGenerandoCuadrante(false)
     }
@@ -530,19 +542,23 @@ export function CuadranteMensualPage() {
 
   async function guardarCuadranteEnFirestore() {
     if (cuadranteCargaFallida && !tieneCuadranteLocal) {
-      window.alert(
+      await alert(
         'No se puede guardar: el cuadrante no se cargó correctamente desde Firestore.',
+        'No se puede guardar',
       )
       return
     }
     const ready = await ensureFirebase()
     setFirebaseOk(ready)
     if (!ready) {
-      window.alert('Firebase no configurado. Define VITE_FIREBASE_* en Vercel (valores no vacíos) y redespliega, o en .env.local en desarrollo.')
+      await alert(
+        'Firebase no configurado. Define VITE_FIREBASE_* en Vercel (valores no vacíos) y redespliega, o en .env.local en desarrollo.',
+        'Firebase no configurado',
+      )
       return
     }
     if (agentesData.length === 0) {
-      window.alert('No hay agentes cargados para guardar el cuadrante.')
+      await alert('No hay agentes cargados para guardar el cuadrante.', 'Sin agentes')
       return
     }
 
@@ -573,7 +589,7 @@ export function CuadranteMensualPage() {
           ? err.message
           : 'No se pudo guardar el cuadrante en Firestore'
       setErrorCuadrante(mensaje)
-      window.alert(mensaje)
+      await alert(mensaje, 'Error al guardar')
     } finally {
       setGuardandoCuadrante(false)
     }
@@ -606,7 +622,7 @@ export function CuadranteMensualPage() {
   )
 
   function avisarExclusion() {
-    window.alert('Puesto excluido para este agente')
+    void alert('Puesto excluido para este agente', 'Puesto no disponible')
   }
 
   function aplicarAsignacionCelda(
@@ -647,10 +663,11 @@ export function CuadranteMensualPage() {
       )
       .map(({ fecha, turno }) => ({ fecha, turno }))
     if (fechasTurno.length === 0) {
-      window.alert(
+      void alert(
         filtroTurno === 'TODOS'
           ? 'Este agente no tiene días operativos este mes'
           : `Este agente no tiene días de ${filtroTurno} este mes`,
+        'Sin días operativos',
       )
       return
     }
@@ -698,114 +715,125 @@ export function CuadranteMensualPage() {
       <PageHeader
         title="Cuadrante mensual"
         subtitle={`Convenio: ${objetivo} días · fatiga ≤ 5 · cobertura vs mínimos${loadingCuadrante ? ' · Cargando…' : ''}${generandoCuadrante ? ' · Generando…' : ''}`}
-        status={guardadoOk ? <span className={BADGE_OK}>Guardado</span> : null}
+        status={
+          <SaveStatus
+            guardando={guardandoCuadrante}
+            guardadoOk={guardadoOk}
+          />
+        }
         toolbar={
           <>
-            <label className="flex items-center gap-1">
-              <span className="text-[10px] font-semibold text-slate-600">Mes</span>
-              <select
-                className={CAMPO}
-                value={mes}
-                onChange={(event) =>
-                  aplicarMes(anio, Number(event.target.value))
-                }
-              >
-                {MESES.map((nombre, indice) => (
-                  <option key={nombre} value={indice + 1}>{nombre}</option>
-                ))}
-              </select>
-            </label>
-            <label className="flex items-center gap-1">
-              <span className="text-[10px] font-semibold text-slate-600">Año</span>
-              <input
-                type="number"
-                min={2020}
-                max={2040}
-                className={`${CAMPO} w-14`}
-                value={anio}
-                onChange={(event) =>
-                  aplicarMes(Number(event.target.value) || anio, mes)
-                }
-              />
-            </label>
-            <label className="flex items-center gap-1">
-              <span className="text-[10px] font-semibold text-slate-600">Desde</span>
-              <input
-                type="date"
-                className={CAMPO}
-                min={isoFecha(anio, mes, 1)}
-                max={isoFecha(anio, mes, nDias)}
-                value={isoFecha(anio, mes, Math.min(diaDesde, nDias))}
-                onChange={(event) => {
-                  const leida = leerFecha(event.target.value)
-                  if (!leida) return
-                  setDiaDesde(Math.min(leida.dia, nDias))
-                }}
-              />
-            </label>
-            <label className="flex items-center gap-1">
-              <span className="text-[10px] font-semibold text-slate-600">Hasta</span>
-              <input
-                type="date"
-                className={CAMPO}
-                min={isoFecha(anio, mes, 1)}
-                max={isoFecha(anio, mes, nDias)}
-                value={isoFecha(anio, mes, Math.min(diaHasta, nDias))}
-                onChange={(event) => {
-                  const leida = leerFecha(event.target.value)
-                  if (!leida) return
-                  setDiaHasta(Math.min(leida.dia, nDias))
-                }}
-              />
-            </label>
-            <label className="flex items-center gap-1">
-              <span className="text-[10px] font-semibold text-slate-600">Rol</span>
-              <select
-                className={CAMPO}
-                value={rolFiltro}
-                onChange={(event) =>
-                  setRolFiltro(event.target.value as 'TODOS' | RolPolicia)
-                }
-              >
-                <option value="TODOS">Todos</option>
-                {ROLES.map((rol) => (
-                  <option key={rol} value={rol}>{ROL_LABEL[rol]}</option>
-                ))}
-              </select>
-            </label>
-            <div
-              className="flex items-center gap-0.5"
-              title="Filtra agentes por turno del plan anual"
-            >
-              <span className="text-[10px] font-semibold text-slate-600">Turno</span>
-              {TURNOS_VISTA.map((opcion) => (
-                <button
-                  key={opcion.valor}
-                  type="button"
-                  className={`h-7 min-w-7 rounded-md px-1 text-[10px] font-bold ${
-                    filtroVistaTurno === opcion.valor
-                      ? opcion.valor === 'TODOS'
-                        ? 'bg-slate-900 text-white'
-                        : CLASE_TURNO[opcion.valor]
-                      : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                  } ${
-                    filtroVistaTurno === opcion.valor && opcion.valor !== 'TODOS'
-                      ? 'ring-1 ring-slate-700'
-                      : ''
-                  }`}
-                  aria-pressed={filtroVistaTurno === opcion.valor}
-                  onClick={() =>
-                    setFiltroVistaTurno((actual) =>
-                      actual === opcion.valor && opcion.valor !== 'TODOS'
-                        ? 'TODOS'
-                        : opcion.valor,
-                    )
+            <ToolbarSection label="Periodo">
+              <label className="flex items-center gap-1">
+                <span className="text-xs font-medium text-slate-600">Mes</span>
+                <select
+                  className={CAMPO}
+                  value={mes}
+                  onChange={(event) =>
+                    aplicarMes(anio, Number(event.target.value))
                   }
                 >
-                  {opcion.label}
-                </button>
-              ))}
-            </div>
+                  {MESES.map((nombre, indice) => (
+                    <option key={nombre} value={indice + 1}>{nombre}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex items-center gap-1">
+                <span className="text-xs font-medium text-slate-600">Año</span>
+                <input
+                  type="number"
+                  min={2020}
+                  max={2040}
+                  className={`${CAMPO} w-16`}
+                  value={anio}
+                  onChange={(event) =>
+                    aplicarMes(Number(event.target.value) || anio, mes)
+                  }
+                />
+              </label>
+              <label className="flex items-center gap-1">
+                <span className="text-xs font-medium text-slate-600">Desde</span>
+                <input
+                  type="date"
+                  className={CAMPO}
+                  min={isoFecha(anio, mes, 1)}
+                  max={isoFecha(anio, mes, nDias)}
+                  value={isoFecha(anio, mes, Math.min(diaDesde, nDias))}
+                  onChange={(event) => {
+                    const leida = leerFecha(event.target.value)
+                    if (!leida) return
+                    setDiaDesde(Math.min(leida.dia, nDias))
+                  }}
+                />
+              </label>
+              <label className="flex items-center gap-1">
+                <span className="text-xs font-medium text-slate-600">Hasta</span>
+                <input
+                  type="date"
+                  className={CAMPO}
+                  min={isoFecha(anio, mes, 1)}
+                  max={isoFecha(anio, mes, nDias)}
+                  value={isoFecha(anio, mes, Math.min(diaHasta, nDias))}
+                  onChange={(event) => {
+                    const leida = leerFecha(event.target.value)
+                    if (!leida) return
+                    setDiaHasta(Math.min(leida.dia, nDias))
+                  }}
+                />
+              </label>
+            </ToolbarSection>
+            <ToolbarDivider />
+            <ToolbarSection label="Filtros">
+              <label className="flex items-center gap-1">
+                <span className="text-xs font-medium text-slate-600">Rol</span>
+                <select
+                  className={CAMPO}
+                  value={rolFiltro}
+                  onChange={(event) =>
+                    setRolFiltro(event.target.value as 'TODOS' | RolPolicia)
+                  }
+                >
+                  <option value="TODOS">Todos</option>
+                  {ROLES.map((rol) => (
+                    <option key={rol} value={rol}>{ROL_LABEL[rol]}</option>
+                  ))}
+                </select>
+              </label>
+              <div
+                className="flex items-center gap-0.5"
+                title="Filtra agentes por turno del plan anual"
+              >
+                <span className="text-xs font-medium text-slate-600">Turno</span>
+                {TURNOS_VISTA.map((opcion) => (
+                  <button
+                    key={opcion.valor}
+                    type="button"
+                    className={`h-8 min-w-8 rounded-md px-1.5 text-xs font-bold ${FOCUS_RING} ${
+                      filtroVistaTurno === opcion.valor
+                        ? opcion.valor === 'TODOS'
+                          ? 'bg-slate-900 text-white'
+                          : CLASE_TURNO[opcion.valor]
+                        : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    } ${
+                      filtroVistaTurno === opcion.valor && opcion.valor !== 'TODOS'
+                        ? 'ring-1 ring-slate-700'
+                        : ''
+                    }`}
+                    aria-pressed={filtroVistaTurno === opcion.valor}
+                    onClick={() =>
+                      setFiltroVistaTurno((actual) =>
+                        actual === opcion.valor && opcion.valor !== 'TODOS'
+                          ? 'TODOS'
+                          : opcion.valor,
+                      )
+                    }
+                  >
+                    {opcion.label}
+                  </button>
+                ))}
+              </div>
+            </ToolbarSection>
+            <ToolbarDivider />
             <button
               type="button"
               className={BTN_SECONDARY}
@@ -905,8 +933,11 @@ export function CuadranteMensualPage() {
                       soltarEnCabeceraAgente(event, agente.id)
                     }}
                   >
-                    {agente.numeroPlaca}
-                    <span className="pointer-events-none absolute top-full left-1/2 z-50 hidden -translate-x-1/2 whitespace-nowrap border border-slate-300 bg-white px-1.5 py-0.5 text-[10px] font-sans font-medium text-slate-800 shadow group-hover:block">
+                    <span className="block font-mono">{agente.numeroPlaca}</span>
+                    <span className="block truncate text-[9px] font-sans font-normal text-slate-600 sm:hidden">
+                      {apellidoCorto(agente.apellidos)}
+                    </span>
+                    <span className="pointer-events-none absolute top-full left-1/2 z-50 hidden -translate-x-1/2 whitespace-nowrap rounded border border-slate-200 bg-white px-2 py-1 text-xs font-sans font-medium text-slate-800 shadow-md group-hover:block">
                       {nombre} · {turnoPlan ?? '—'}
                     </span>
                   </th>

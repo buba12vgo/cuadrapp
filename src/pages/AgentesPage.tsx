@@ -22,6 +22,7 @@ import {
   TH,
   TITULO_BLOQUE,
 } from '@/lib/uiStyles'
+import { useAppDialog } from '@/components/ui/ConfirmDialog'
 import { agenteNuevo, deleteAgente, getAgentes, saveAgente, saveAgentes } from '@/lib/db'
 import { ensureFirebase, isFirebaseReady } from '@/lib/firebase'
 import { isDesignPreview } from '@/lib/designPreview'
@@ -565,6 +566,7 @@ function FichaAgenteModal({
 }
 
 export function AgentesPage() {
+  const { alert, confirm } = useAppDialog()
   const [agentesData, setAgentesData] = useAgentesData()
   const [agenteModal, setAgenteModal] = useState<FichaPolicia | null>(null)
   const [esNuevo, setEsNuevo] = useState(false)
@@ -627,11 +629,11 @@ export function AgentesPage() {
 
   async function guardarFicha(ficha: FichaPolicia) {
     if (!ficha.numeroPlaca.trim()) {
-      window.alert('Indica un número de placa')
+      await alert('Indica un número de placa', 'Datos incompletos')
       return
     }
     if (!ficha.nombre.trim()) {
-      window.alert('Indica el nombre del agente')
+      await alert('Indica el nombre del agente', 'Datos incompletos')
       return
     }
 
@@ -659,7 +661,7 @@ export function AgentesPage() {
           ? err.message
           : 'No se pudo guardar el agente en Firestore'
       setError(mensaje)
-      window.alert(mensaje)
+      await alert(mensaje, 'Error al guardar')
     } finally {
       setGuardando(false)
     }
@@ -667,12 +669,14 @@ export function AgentesPage() {
 
   async function eliminarAgente(agente: FichaPolicia) {
     const etiqueta = `${agente.numeroPlaca} · ${agente.nombre} ${agente.apellidos}`.trim()
-    const ok = window.confirm(
+    const ok = await confirm(
       `¿Eliminar al agente «${etiqueta}»? Se quitará de la plantilla en Firestore.`,
+      'Eliminar agente',
+      true,
     )
     if (!ok) return
     if (!firebaseOk) {
-      window.alert('Firebase no está configurado; no se puede eliminar.')
+      await alert('Firebase no está configurado; no se puede eliminar.', 'Firebase')
       return
     }
 
@@ -692,7 +696,7 @@ export function AgentesPage() {
           ? err.message
           : 'No se pudo eliminar el agente en Firestore'
       setError(mensaje)
-      window.alert(mensaje)
+      await alert(mensaje, 'Error al eliminar')
     } finally {
       setGuardando(false)
     }
@@ -717,7 +721,7 @@ export function AgentesPage() {
         avisos.length > 0
           ? `\n\nAvisos:\n${avisos.slice(0, 12).join('\n')}`
           : ''
-      window.alert(resumen + extra)
+      await alert(resumen + extra, 'Importación completada')
       void getAgentes().then(setAgentesData).catch(() => undefined)
     } catch (err) {
       const mensaje =
@@ -725,7 +729,7 @@ export function AgentesPage() {
           ? err.message
           : 'No se pudo importar el Excel de agentes'
       setError(mensaje)
-      window.alert(mensaje)
+      await alert(mensaje, 'Error al importar')
     } finally {
       setImportando(false)
       if (inputExcel.current) inputExcel.current.value = ''

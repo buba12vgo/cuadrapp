@@ -1,11 +1,14 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import { AppDialogProvider } from '@/components/ui/ConfirmDialog'
 import { useAuth } from '@/contexts/AuthContext'
 import { isDesignPreview } from '@/lib/designPreview'
+import { FOCUS_RING } from '@/lib/uiStyles'
 import { useConfigOperativaBootstrap } from '@/lib/useConfigOperativaBootstrap'
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
   [
-    'rounded-md px-2 py-1 text-[11px] font-medium',
+    'rounded-md px-2.5 py-1.5 text-xs font-medium',
+    FOCUS_RING,
     isActive
       ? 'bg-slate-900 text-white'
       : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
@@ -16,6 +19,7 @@ export function AdminLayout() {
   const { estado, error, firebaseOk } = useConfigOperativaBootstrap()
 
   return (
+    <AppDialogProvider>
     <div className="flex h-svh flex-col bg-slate-50 text-slate-900">
       <header className="sticky top-0 z-50 shrink-0 border-b border-slate-200 bg-white">
         <div className="flex items-center justify-between gap-2 px-2.5 py-1.5">
@@ -30,13 +34,13 @@ export function AdminLayout() {
                 className="h-6 w-6 rounded-full"
               />
             ) : null}
-            <span className="hidden max-w-[120px] truncate text-[10px] text-slate-600 sm:inline">
+            <span className="hidden max-w-[140px] truncate text-xs text-slate-600 sm:inline">
               {user?.displayName ?? user?.email}
             </span>
             <button
               type="button"
               onClick={() => void signOut()}
-              className="rounded-md px-1.5 py-0.5 text-[10px] font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+              className={`rounded-md px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 ${FOCUS_RING}`}
             >
               Salir
             </button>
@@ -72,25 +76,26 @@ export function AdminLayout() {
             </NavLink>
         </nav>
         {isDesignPreview ? (
-          <p className="border-t border-violet-200 bg-violet-50 px-2.5 py-0.5 text-[10px] font-medium text-violet-900">
+          <p className="border-t border-violet-200 bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-900">
             Modo vista previa (sin Firebase) — solo para diseño y QA local
           </p>
         ) : null}
         {estado === 'loading' ? (
-          <p className="border-t border-slate-100 px-2.5 py-0.5 text-[10px] text-slate-500">
+          <p className="border-t border-slate-100 px-2.5 py-1 text-xs text-slate-500">
             Cargando plantilla, plan anual, puestos y eventos desde Firestore…
           </p>
         ) : null}
         {error ? (
-          <p className="border-t border-red-200 bg-red-50 px-2.5 py-0.5 text-[10px] text-red-800">
+          <p className="border-t border-red-200 bg-red-50 px-2.5 py-1 text-xs text-red-800">
             {error}
             {!firebaseOk ? ' · Sin Firebase no se persisten cambios.' : ''}
           </p>
         ) : null}
       </header>
-      <main className="flex min-h-0 flex-1 flex-col overflow-hidden p-1.5">
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden p-2">
         <Outlet />
       </main>
     </div>
+    </AppDialogProvider>
   )
 }

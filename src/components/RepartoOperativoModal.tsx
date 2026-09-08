@@ -7,6 +7,7 @@ import {
   type TurnoOperativo,
 } from '@/lib/calendarioPuestos'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
+import { CAMPO, SEMAFORO_KO, SEMAFORO_OK } from '@/lib/uiStyles'
 import { usePuestosData } from '@/lib/puestosStore'
 import type { FichaPolicia } from '@/types'
 
@@ -17,13 +18,8 @@ const TURNO_LABEL: Record<TurnoOperativo, string> = {
   N: 'Noche',
 }
 
-const CAMPO =
-  'h-7 border border-slate-300 bg-white px-2 text-xs text-slate-900 outline-none focus:border-slate-700'
-
 function claseContador(ocupacion: number, minimo: number) {
-  return ocupacion >= minimo
-    ? 'bg-green-100 font-bold text-green-800'
-    : 'bg-red-200 font-bold text-red-900'
+  return ocupacion >= minimo ? SEMAFORO_OK : SEMAFORO_KO
 }
 
 export function RepartoOperativoModal({

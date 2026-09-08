@@ -327,7 +327,7 @@ export function MinimosPage() {
                   <button
                     type="button"
                     className="block w-full border-t border-slate-100 px-2.5 py-1.5 text-left text-[10px] text-red-700 hover:bg-red-50"
-                    onClick={restablecerDefecto}
+                    onClick={() => void restablecerDefecto()}
                   >
                     Restablecer valores por defecto
                   </button>
@@ -407,7 +407,7 @@ export function MinimosPage() {
               type="button"
               className="ml-auto h-8 rounded-lg bg-slate-900 px-3 text-[11px] font-semibold text-white disabled:opacity-50"
               disabled={diasDestino.length === 0}
-              onClick={copiarADiasSeleccionados}
+              onClick={() => void copiarADiasSeleccionados()}
             >
               Copiar a {diasDestino.length || '…'} día
               {diasDestino.length === 1 ? '' : 's'}

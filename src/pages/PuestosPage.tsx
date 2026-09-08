@@ -6,6 +6,8 @@ import {
   DashboardMainScroll,
 } from '@/components/ui/DashboardLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { Modal } from '@/components/ui/Modal'
+import { useAppDialog } from '@/components/ui/ConfirmDialog'
 import {
   ALERT_ERROR,
   BLOQUE,
@@ -122,25 +124,41 @@ function EditorPuestoModal({
     setAbrevManual(Boolean(inicial.abreviatura))
   }, [inicial])
 
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') onCancelar()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onCancelar])
-
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4"
-      onClick={onCancelar}
+    <Modal
+      title={titulo}
+      subtitle={
+        editandoCodigo == null
+          ? 'Al crearlo se activa automáticamente para toda la plantilla.'
+          : 'Nombre, código y abreviatura del puesto operativo'
+      }
+      onClose={onCancelar}
+      size="sm"
+      bodyClassName="mt-3"
+      footer={
+        <>
+          <button
+            type="button"
+            className={BTN_GHOST}
+            disabled={guardando}
+            onClick={onCancelar}
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            form="puesto-form"
+            className={BTN_PRIMARY}
+            disabled={guardando}
+          >
+            {guardando ? 'Guardando…' : 'Guardar puesto'}
+          </button>
+        </>
+      }
     >
       <form
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="puesto-titulo"
-        className="w-full max-w-md border border-slate-300 bg-slate-50 shadow-xl"
-        onClick={(event) => event.stopPropagation()}
+        id="puesto-form"
+        className="flex flex-col gap-3"
         onSubmit={async (event) => {
           event.preventDefault()
           const fallo = validar(form, puestos, editandoCodigo)
@@ -155,18 +173,6 @@ function EditorPuestoModal({
           })
         }}
       >
-        <header className="border-b border-slate-200 bg-white px-4 py-3">
-          <h2 id="puesto-titulo" className="text-sm font-bold text-slate-900">
-            {titulo}
-          </h2>
-          <p className="text-xs text-slate-500">
-            {editandoCodigo == null
-              ? 'Al crearlo se activa automáticamente para toda la plantilla.'
-              : 'Nombre, código y abreviatura del puesto operativo'}
-          </p>
-        </header>
-
-        <div className="flex flex-col gap-3 p-4">
           <section className={BLOQUE}>
             <h3 className={TITULO_BLOQUE}>Datos del puesto</h3>
             <div className="flex flex-col gap-2">
@@ -238,31 +244,13 @@ function EditorPuestoModal({
               {error}
             </p>
           ) : null}
-        </div>
-
-        <footer className="flex justify-end gap-1 border-t border-slate-200 bg-white px-3 py-2">
-          <button
-            type="button"
-            className={BTN_GHOST}
-            disabled={guardando}
-            onClick={onCancelar}
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            className={BTN_PRIMARY}
-            disabled={guardando}
-          >
-            {guardando ? 'Guardando…' : 'Guardar puesto'}
-          </button>
-        </footer>
       </form>
-    </div>
+    </Modal>
   )
 }
 
 export function PuestosPage() {
+  const { alert: showAlert, confirm: askConfirm } = useAppDialog()
   const [puestos, setPuestos] = usePuestosData()
   const [modo, setModo] = useState<'nuevo' | 'editar' | null>(null)
   const [editando, setEditando] = useState<PuestoConfig | null>(null)
@@ -286,7 +274,7 @@ export function PuestosPage() {
 
   async function guardar(puesto: PuestoConfig) {
     if (!firebaseOk) {
-      window.alert('Firebase no está configurado; no se puede guardar.')
+      await showAlert('Firebase no está configurado; no se puede guardar.', 'Firebase')
       return
     }
 
@@ -319,7 +307,7 @@ export function PuestosPage() {
           ? err.message
           : 'No se pudo guardar el puesto en Firestore'
       setError(mensaje)
-      window.alert(mensaje)
+      await showAlert(mensaje, 'Error al guardar')
     } finally {
       setGuardando(false)
     }
@@ -345,12 +333,14 @@ export function PuestosPage() {
   }
 
   async function borrar(puesto: PuestoConfig) {
-    const ok = window.confirm(
+    const ok = await askConfirm(
       `¿Eliminar el puesto «${puesto.nombre}»? Se quitará de los mínimos configurados.`,
+      'Eliminar puesto',
+      true,
     )
     if (!ok) return
     if (!firebaseOk) {
-      window.alert('Firebase no está configurado; no se puede eliminar.')
+      await showAlert('Firebase no está configurado; no se puede eliminar.', 'Firebase')
       return
     }
 
@@ -372,7 +362,7 @@ export function PuestosPage() {
           ? err.message
           : 'No se pudo eliminar el puesto en Firestore'
       setError(mensaje)
-      window.alert(mensaje)
+      await showAlert(mensaje, 'Error al eliminar')
     } finally {
       setGuardando(false)
     }

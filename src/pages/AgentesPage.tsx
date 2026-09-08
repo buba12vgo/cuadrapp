@@ -6,6 +6,8 @@ import {
   DashboardMainScroll,
 } from '@/components/ui/DashboardLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { Modal } from '@/components/ui/Modal'
+import { useAppDialog } from '@/components/ui/ConfirmDialog'
 import {
   ALERT_ERROR,
   ALERT_INFO,
@@ -22,7 +24,6 @@ import {
   TH,
   TITULO_BLOQUE,
 } from '@/lib/uiStyles'
-import { useAppDialog } from '@/components/ui/ConfirmDialog'
 import { agenteNuevo, deleteAgente, getAgentes, saveAgente, saveAgentes } from '@/lib/db'
 import { ensureFirebase, isFirebaseReady } from '@/lib/firebase'
 import { isDesignPreview } from '@/lib/designPreview'
@@ -229,16 +230,51 @@ function FichaAgenteModal({
   ).length
 
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4"
-      onClick={onCancelar}
+    <Modal
+      title={esNuevo ? 'Nuevo agente' : 'Ficha del agente'}
+      subtitle={
+        esNuevo
+          ? 'Alta en plantilla · Firestore'
+          : `${agente.numeroPlaca} · ${agente.nombre} ${agente.apellidos}`
+      }
+      onClose={onCancelar}
+      size="md"
+      panelClassName="max-h-[90vh]"
+      bodyClassName="mt-3 min-h-0 overflow-auto"
+      footerClassName="items-center justify-between"
+      footer={
+        <>
+          <div>
+            {!esNuevo && onEliminar ? (
+              <button
+                type="button"
+                className={BTN_DANGER}
+                disabled={guardando}
+                onClick={() => void onEliminar()}
+              >
+                Eliminar agente
+              </button>
+            ) : null}
+          </div>
+          <div className="flex gap-2">
+            <button type="button" className={BTN_GHOST} onClick={onCancelar}>
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              form="ficha-agente-form"
+              disabled={guardando}
+              className={BTN_PRIMARY}
+            >
+              {guardando ? 'Guardando…' : 'Guardar'}
+            </button>
+          </div>
+        </>
+      }
     >
       <form
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="ficha-agente-titulo"
-        className="flex max-h-[90vh] w-full max-w-lg flex-col border border-slate-300 bg-slate-50 shadow-xl"
-        onClick={(event) => event.stopPropagation()}
+        id="ficha-agente-form"
+        className="flex flex-col gap-3"
         onSubmit={async (event) => {
           event.preventDefault()
           await onGuardar({
@@ -257,23 +293,6 @@ function FichaAgenteModal({
           })
         }}
       >
-        <header className="flex items-start justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
-          <div>
-            <h2
-              id="ficha-agente-titulo"
-              className="text-sm font-bold text-slate-900"
-            >
-              {esNuevo ? 'Nuevo agente' : 'Ficha del agente'}
-            </h2>
-            <p className="text-xs text-slate-500">
-              {esNuevo
-                ? 'Alta en plantilla · Firestore'
-                : `${agente.numeroPlaca} · ${agente.nombre} ${agente.apellidos}`}
-            </p>
-          </div>
-        </header>
-
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-4">
           <section className={BLOQUE}>
             <h3 className={TITULO_BLOQUE}>Datos base</h3>
             <div className="grid grid-cols-2 gap-2">
@@ -536,32 +555,8 @@ function FichaAgenteModal({
               )}
             </p>
           </section>
-        </div>
-
-        <footer className="flex items-center justify-between gap-2 border-t border-slate-200 bg-white px-3 py-2">
-          <div>
-            {!esNuevo && onEliminar ? (
-              <button
-                type="button"
-                className={BTN_DANGER}
-                disabled={guardando}
-                onClick={() => void onEliminar()}
-              >
-                Eliminar agente
-              </button>
-            ) : null}
-          </div>
-          <div className="flex gap-1">
-            <button type="button" className={BTN_GHOST} onClick={onCancelar}>
-              Cancelar
-            </button>
-            <button type="submit" disabled={guardando} className={BTN_PRIMARY}>
-              {guardando ? 'Guardando…' : 'Guardar'}
-            </button>
-          </div>
-        </footer>
       </form>
-    </div>
+    </Modal>
   )
 }
 

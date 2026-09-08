@@ -6,6 +6,7 @@ import {
   DashboardMainScroll,
 } from '@/components/ui/DashboardLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { useAppDialog } from '@/components/ui/ConfirmDialog'
 import {
   ALERT_ERROR,
   BTN_DANGER,
@@ -311,6 +312,7 @@ function EditorDiaDrawer({
 }
 
 export function CalendarioPage() {
+  const { alert: showAlert } = useAppDialog()
   const [eventosData, setEventosData] = useEventosData()
   const [puestos] = usePuestosData()
   const [semana] = useMinimosSemanaData()
@@ -337,7 +339,7 @@ export function CalendarioPage() {
   async function guardarDia(evento: EventoOperativo | null) {
     if (!fechaSeleccionada) return
     if (!firebaseOk) {
-      window.alert('Firebase no está configurado; no se puede guardar.')
+      await showAlert('Firebase no está configurado; no se puede guardar.', 'Firebase')
       return
     }
 
@@ -366,7 +368,7 @@ export function CalendarioPage() {
           ? err.message
           : 'No se pudo guardar el evento en Firestore'
       setError(mensaje)
-      window.alert(mensaje)
+      await showAlert(mensaje, 'Error al guardar')
     } finally {
       setGuardando(false)
     }
@@ -375,7 +377,7 @@ export function CalendarioPage() {
   async function borrarDia() {
     if (!fechaSeleccionada) return
     if (!firebaseOk) {
-      window.alert('Firebase no está configurado; no se puede borrar.')
+      await showAlert('Firebase no está configurado; no se puede borrar.', 'Firebase')
       return
     }
 
@@ -394,7 +396,7 @@ export function CalendarioPage() {
           ? err.message
           : 'No se pudo borrar el evento en Firestore'
       setError(mensaje)
-      window.alert(mensaje)
+      await showAlert(mensaje, 'Error al borrar')
     } finally {
       setGuardando(false)
     }

@@ -13,11 +13,10 @@ import {
   DashboardMainScroll,
 } from '@/components/ui/DashboardLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { SaveStatus } from '@/components/ui/SaveStatus'
+import { useAppDialog } from '@/components/ui/ConfirmDialog'
 import {
   ALERT_ERROR,
-  BADGE_NEUTRAL,
-  BADGE_OK,
-  BADGE_PENDING,
   BTN_PRIMARY,
   BTN_SECONDARY,
   PAGE_SECTION,
@@ -67,6 +66,7 @@ function esFinde(dia: DiaSemana) {
 }
 
 export function MinimosPage() {
+  const { confirm: askConfirm } = useAppDialog()
   const [agentes] = useAgentesData()
   const [puestos] = usePuestosData()
   const [minimos, setMinimos] = useMinimosSemanaData()
@@ -198,10 +198,11 @@ export function MinimosPage() {
     setDiasDestino(diasDisponibles.map((item) => item.dia))
   }
 
-  function copiarADiasSeleccionados() {
+  async function copiarADiasSeleccionados() {
     if (diasDestino.length === 0) return
-    const ok = window.confirm(
+    const ok = await askConfirm(
       `¿Copiar los mínimos de ${diaInfo.label} a ${etiquetasDias(diasDestino)}?`,
+      'Copiar mínimos',
     )
     if (!ok) return
     copiarMinimosDiaADias(diaActivo, diasDestino)
@@ -209,9 +210,11 @@ export function MinimosPage() {
     setPanelCopiaAbierto(false)
   }
 
-  function restablecerDefecto() {
-    const ok = window.confirm(
+  async function restablecerDefecto() {
+    const ok = await askConfirm(
       '¿Restablecer todos los días a los mínimos por defecto de cada puesto?',
+      'Restablecer mínimos',
+      true,
     )
     if (!ok) return
     setMinimos(crearMinimosSemana(puestos))
@@ -277,13 +280,11 @@ export function MinimosPage() {
         title="Mínimos semanales"
         subtitle="Dotación por puesto y día · guardado automático"
         status={
-          <>
-            {guardando ? <span className={BADGE_NEUTRAL}>Guardando…</span> : null}
-            {guardadoOk ? <span className={BADGE_OK}>Guardado</span> : null}
-            {pendiente && !guardando ? (
-              <span className={BADGE_PENDING}>Pendiente</span>
-            ) : null}
-          </>
+          <SaveStatus
+            guardando={guardando}
+            guardadoOk={guardadoOk}
+            pendiente={pendiente}
+          />
         }
         toolbar={
           <>

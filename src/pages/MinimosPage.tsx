@@ -338,7 +338,7 @@ export function MinimosPage() {
               type="button"
               className={BTN_SECONDARY}
               disabled={puestos.length === 0}
-              onClick={restablecerDefecto}
+              onClick={() => void restablecerDefecto()}
             >
               <RotateCcw className="h-3 w-3" />
               Restablecer

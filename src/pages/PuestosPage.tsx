@@ -21,8 +21,11 @@ import {
   TITULO_BLOQUE,
 } from '@/lib/uiStyles'
 import {
+  AMBITO_PUESTO_LABEL,
+  normalizarAmbitoPuesto,
   normalizarCodigo,
   sugerirAbreviatura,
+  type AmbitoPuesto,
   type PuestoConfig,
 } from '@/lib/calendarioPuestos'
 import {
@@ -45,10 +48,11 @@ type FormularioPuesto = {
   codigo: string
   nombre: string
   abreviatura: string
+  ambito: AmbitoPuesto
 }
 
 function formularioVacio(): FormularioPuesto {
-  return { codigo: '', nombre: '', abreviatura: '' }
+  return { codigo: '', nombre: '', abreviatura: '', ambito: 'OPERATIVO' }
 }
 
 function formularioDesde(puesto: PuestoConfig): FormularioPuesto {
@@ -56,6 +60,7 @@ function formularioDesde(puesto: PuestoConfig): FormularioPuesto {
     codigo: puesto.codigo,
     nombre: puesto.nombre,
     abreviatura: puesto.abreviatura,
+    ambito: normalizarAmbitoPuesto(puesto.ambito),
   }
 }
 
@@ -129,8 +134,8 @@ function EditorPuestoModal({
       title={titulo}
       subtitle={
         editandoCodigo == null
-          ? 'Al crearlo se activa automáticamente para toda la plantilla.'
-          : 'Nombre, código y abreviatura del puesto operativo'
+          ? 'Al crearlo se activa automáticamente para agentes del mismo ámbito.'
+          : 'Nombre, código, abreviatura y ámbito del puesto'
       }
       onClose={onCancelar}
       size="sm"
@@ -170,12 +175,40 @@ function EditorPuestoModal({
             codigo: normalizarCodigo(form.codigo || form.nombre),
             nombre: form.nombre.trim(),
             abreviatura: form.abreviatura.trim().toUpperCase(),
+            ambito: form.ambito,
           })
         }}
       >
           <section className={BLOQUE}>
             <h3 className={TITULO_BLOQUE}>Datos del puesto</h3>
             <div className="flex flex-col gap-2">
+              <label className="flex flex-col gap-0.5">
+                <span className="text-sm font-semibold text-slate-600">
+                  Ámbito
+                </span>
+                <select
+                  className={CAMPO_FULL}
+                  value={form.ambito}
+                  onChange={(event) =>
+                    setForm((actual) => ({
+                      ...actual,
+                      ambito: normalizarAmbitoPuesto(event.target.value),
+                    }))
+                  }
+                >
+                  {(Object.keys(AMBITO_PUESTO_LABEL) as AmbitoPuesto[]).map(
+                    (ambito) => (
+                      <option key={ambito} value={ambito}>
+                        {AMBITO_PUESTO_LABEL[ambito]}
+                      </option>
+                    ),
+                  )}
+                </select>
+                <span className="text-sm text-slate-500">
+                  Operativo = cuadrante mensual. Jefes = cuadrante jefes de
+                  servicio.
+                </span>
+              </label>
               <label className="flex flex-col gap-0.5">
                 <span className="text-sm font-semibold text-slate-600">
                   Nombre
@@ -372,7 +405,7 @@ export function PuestosPage() {
     <section className={PAGE_SECTION}>
       <PageHeader
         title="Puestos"
-        subtitle={`${puestos.length} puestos operativos · Firestore`}
+        subtitle={`${puestos.length} puestos · operativo y jefes · Firestore`}
         actions={
           <button
             type="button"
@@ -394,6 +427,7 @@ export function PuestosPage() {
           <thead className="sticky top-0 z-10 bg-slate-50">
             <tr>
               <th className={TH}>Nombre</th>
+              <th className={TH}>Ámbito</th>
               <th className={TH}>Código</th>
               <th className={TH}>Abrev.</th>
               <th className={`${TH} text-right`}>Acciones</th>
@@ -403,6 +437,9 @@ export function PuestosPage() {
             {puestos.map((puesto) => (
               <tr key={puesto.codigo} className="hover:bg-slate-50/70">
                 <td className={`${TD} font-medium`}>{puesto.nombre}</td>
+                <td className={TD}>
+                  {AMBITO_PUESTO_LABEL[normalizarAmbitoPuesto(puesto.ambito)]}
+                </td>
                 <td className={`${TD} font-mono text-slate-600`}>
                   {puesto.codigo}
                 </td>
@@ -431,7 +468,7 @@ export function PuestosPage() {
             ))}
             {puestos.length === 0 ? (
               <tr>
-                <td colSpan={4} className={`${TD} py-6 text-center text-slate-500`}>
+                <td colSpan={5} className={`${TD} py-6 text-center text-slate-500`}>
                   No hay puestos. Crea el primero para configurar mínimos.
                 </td>
               </tr>

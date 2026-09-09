@@ -68,7 +68,11 @@ function esFinde(dia: DiaSemana) {
 export function MinimosPage() {
   const { confirm: askConfirm } = useAppDialog()
   const [agentes] = useAgentesData()
-  const [puestos] = usePuestosData()
+  const [puestosTodos] = usePuestosData()
+  const puestos = useMemo(
+    () => puestosTodos.filter((puesto) => puesto.ambito === 'OPERATIVO'),
+    [puestosTodos],
+  )
   const [minimos, setMinimos] = useMinimosSemanaData()
   const [diaActivo, setDiaActivo] = useState<DiaSemana>(1)
   const [diasDestino, setDiasDestino] = useState<DiaSemana[]>([])

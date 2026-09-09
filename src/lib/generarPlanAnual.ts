@@ -93,12 +93,12 @@ export function esPoliciaBolsa(rol: RolPolicia) {
 }
 
 export function grupoPlanAnual(rol: RolPolicia): GrupoPlanAnual | null {
-  if (rol === 'JEFE_SERVICIO') return 'JEFE_SERVICIO'
+  // Jefes de servicio y responsables tienen su propio cuadrante; no entran
+  // en el plan anual operativo.
   if (
     rol === 'POLICIA' ||
     rol === 'JEFE_EQUIPO' ||
-    rol === 'POLICIA_BOLSA' ||
-    rol === 'RESPONSABLE'
+    rol === 'POLICIA_BOLSA'
   ) {
     return 'OPERATIVO'
   }
@@ -2034,19 +2034,12 @@ export function generarPlanAnual(
   opciones?: OpcionesGeneracionPlanAnual,
 ): ResultadoGeneracionPlanAnual {
   if (!opciones?.grupo) {
-    const operativo = generarPlanAnual(
-      agentes,
-      objetivosGlobales,
-      anio,
-      planAnioAnterior,
-      { ...opciones, grupo: 'OPERATIVO' },
-    )
     return generarPlanAnual(
       agentes,
       objetivosGlobales,
       anio,
       planAnioAnterior,
-      { ...opciones, grupo: 'JEFE_SERVICIO', planBase: operativo.plan },
+      { ...opciones, grupo: 'OPERATIVO' },
     )
   }
 

@@ -6,10 +6,15 @@ export type MinimosPuesto = { M: number; T: number; N: number }
 export type PuestoBase = string
 export type MinimosDia = Record<string, MinimosPuesto>
 
+/** Ámbito del puesto: operativo (cuadrante mensual) o jefes de servicio. */
+export type AmbitoPuesto = 'OPERATIVO' | 'JEFE_SERVICIO'
+
 export type PuestoConfig = {
   codigo: string
   nombre: string
   abreviatura: string
+  /** Por defecto OPERATIVO si falta (datos legacy). */
+  ambito: AmbitoPuesto
 }
 
 /** Lunes=1 … Domingo=7 (ISO). */
@@ -27,11 +32,47 @@ export const DIAS_SEMANA_CONFIG = [
 ] as const
 
 export const PUESTOS_INICIALES: PuestoConfig[] = [
-  { codigo: 'CENTRO_CONTROL', nombre: 'Centro de Control', abreviatura: 'CTR' },
-  { codigo: 'LONJAS', nombre: 'Lonjas', abreviatura: 'LNJ' },
-  { codigo: 'BERBES', nombre: 'Berbés Acceso', abreviatura: 'BRB' },
-  { codigo: 'RETEN', nombre: 'Retén', abreviatura: 'RTN' },
+  {
+    codigo: 'CENTRO_CONTROL',
+    nombre: 'Centro de Control',
+    abreviatura: 'CTR',
+    ambito: 'OPERATIVO',
+  },
+  {
+    codigo: 'LONJAS',
+    nombre: 'Lonjas',
+    abreviatura: 'LNJ',
+    ambito: 'OPERATIVO',
+  },
+  {
+    codigo: 'BERBES',
+    nombre: 'Berbés Acceso',
+    abreviatura: 'BRB',
+    ambito: 'OPERATIVO',
+  },
+  {
+    codigo: 'RETEN',
+    nombre: 'Retén',
+    abreviatura: 'RTN',
+    ambito: 'OPERATIVO',
+  },
 ]
+
+export const AMBITO_PUESTO_LABEL: Record<AmbitoPuesto, string> = {
+  OPERATIVO: 'Operativo',
+  JEFE_SERVICIO: 'Jefes de servicio',
+}
+
+export function normalizarAmbitoPuesto(valor: unknown): AmbitoPuesto {
+  return valor === 'JEFE_SERVICIO' ? 'JEFE_SERVICIO' : 'OPERATIVO'
+}
+
+export function puestosDeAmbito(
+  puestos: PuestoConfig[],
+  ambito: AmbitoPuesto,
+) {
+  return puestos.filter((puesto) => puesto.ambito === ambito)
+}
 
 /** @deprecated Usar lista desde puestosStore; se mantiene para seeds. */
 export const PUESTOS_BASE = PUESTOS_INICIALES.map((p) => p.nombre)

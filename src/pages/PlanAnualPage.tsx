@@ -88,7 +88,6 @@ const CAMPO_TOOLBAR =
 
 const GRUPOS_PLAN: Array<{ valor: GrupoPlanAnual; label: string }> = [
   { valor: 'OPERATIVO', label: 'Policías + jefes de equipo' },
-  { valor: 'JEFE_SERVICIO', label: 'Jefes de Servicio' },
 ]
 
 const CLASE_TURNO: Record<TurnoAnual, string> = {

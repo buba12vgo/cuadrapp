@@ -4,7 +4,7 @@ import { useState, type ReactNode } from 'react'
 type Tone = 'info' | 'success' | 'warn' | 'error'
 
 const TONE_CLASS: Record<Tone, string> = {
-  info: 'border-slate-200 bg-slate-50 text-slate-700',
+  info: 'border-line bg-brand-50/50 text-slate-700',
   success: 'border-emerald-200 bg-emerald-50 text-emerald-900',
   warn: 'border-amber-200 bg-amber-50 text-amber-950',
   error: 'border-red-200 bg-red-50 text-red-800',
@@ -29,7 +29,7 @@ export function CollapsibleNotice({
 
   return (
     <div
-      className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-sm ${TONE_CLASS[tone]}`}
+      className={`shrink-0 rounded-xl border px-3 py-2 text-sm ${TONE_CLASS[tone]}`}
     >
       <div className="flex items-start gap-1.5">
         <p className="min-w-0 flex-1 leading-snug">{summary}</p>

@@ -368,10 +368,10 @@ export function MinimosPage() {
                 <button
                   key={item.dia}
                   type="button"
-                  className={`h-7 min-w-9 rounded-md px-2 text-sm font-semibold transition ${
+                  className={`h-7 min-w-9 rounded-lg px-2 text-sm font-semibold transition ${
                     seleccionado
-                      ? 'bg-slate-900 text-white shadow-sm'
-                      : 'border border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                      ? 'bg-brand-600 text-white shadow-sm'
+                      : 'border border-line bg-white text-slate-700 hover:border-brand-200 hover:bg-brand-50'
                   }`}
                   aria-pressed={seleccionado}
                   onClick={() => alternarDiaDestino(item.dia)}
@@ -405,7 +405,7 @@ export function MinimosPage() {
             </button>
             <button
               type="button"
-              className="ml-auto h-8 rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white disabled:opacity-50"
+              className="ml-auto h-8 rounded-lg bg-brand-600 px-3 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
               disabled={diasDestino.length === 0}
               onClick={() => void copiarADiasSeleccionados()}
             >
@@ -530,9 +530,9 @@ export function MinimosPage() {
                       ))
                     })}
                   </tr>
-                  <tr className="bg-slate-900 text-white">
+                  <tr className="bg-brand-800 text-white">
                     <td
-                      className={`${CELDA} ${COL_PUESTO} border-r border-slate-700 bg-slate-900 py-0.5 font-bold`}
+                      className={`${CELDA} ${COL_PUESTO} border-r border-brand-700 bg-brand-800 py-0.5 font-bold`}
                     >
                       Total
                     </td>
@@ -543,8 +543,8 @@ export function MinimosPage() {
                         <td
                           key={`total-${item.dia}`}
                           colSpan={3}
-                          className={`${CELDA} border-l border-slate-700 py-0.5 text-center text-sm font-bold tabular-nums ${
-                            columnaActiva ? 'bg-slate-800' : 'bg-slate-900'
+                          className={`${CELDA} border-l border-brand-700 py-0.5 text-center text-sm font-bold tabular-nums ${
+                            columnaActiva ? 'bg-brand-700' : 'bg-brand-800'
                           }`}
                         >
                           {sums.total}

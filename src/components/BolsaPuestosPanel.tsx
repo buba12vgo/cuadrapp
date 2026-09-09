@@ -12,7 +12,7 @@ import { usePuestosData } from '@/lib/puestosStore'
 import { BLOQUE, TITULO_BLOQUE } from '@/lib/uiStyles'
 
 const CLASE_PASTILLA =
-  'cursor-grab rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-sm font-bold text-slate-800 shadow-sm active:cursor-grabbing hover:border-slate-300 hover:bg-white'
+  'cursor-grab rounded-lg border border-line bg-slate-50 px-1.5 py-0.5 text-sm font-bold text-slate-800 shadow-card active:cursor-grabbing hover:border-brand-200 hover:bg-white'
 
 const TURNOS_FILTRO: Array<{ valor: FiltroTurnoBolsa; label: string }> = [
   { valor: 'TODOS', label: 'Todos' },
@@ -71,10 +71,10 @@ export function BolsaPuestosPanel({
           <button
             key={opcion.valor}
             type="button"
-            className={`h-6 flex-1 rounded-md text-sm font-bold ${
+            className={`h-6 flex-1 rounded-lg text-sm font-bold ${
               filtroTurno === opcion.valor
-                ? 'bg-slate-900 text-white'
-                : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                ? 'bg-brand-600 text-white'
+                : 'border border-line bg-white text-slate-700 hover:bg-brand-50'
             }`}
             onClick={() => elegirTurno(opcion.valor)}
           >

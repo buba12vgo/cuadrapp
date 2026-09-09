@@ -98,19 +98,19 @@ export function RepartoOperativoModal({
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/50 p-4"
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-[2px]"
       onClick={onCerrar}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="reparto-titulo"
-        className="flex max-h-[90vh] w-full max-w-4xl flex-col border border-slate-300 bg-white shadow-xl"
+        className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-xl border border-line bg-surface shadow-card-lg"
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-3">
+        <header className="flex items-start justify-between gap-3 border-b border-line px-4 py-3">
           <div>
-            <h2 id="reparto-titulo" className="text-sm font-bold text-slate-900">
+            <h2 id="reparto-titulo" className="font-display text-base font-bold text-ink">
               Reparto operativo: Día {dia}
             </h2>
             <p className="text-sm text-slate-500">{fecha}</p>
@@ -268,7 +268,7 @@ export function RepartoOperativoModal({
           </button>
           <button
             type="button"
-            className="h-8 bg-slate-900 px-3 text-sm font-semibold text-white hover:bg-slate-800"
+            className="h-8 rounded-lg bg-brand-600 px-3 text-sm font-semibold text-white hover:bg-brand-700"
             onClick={guardar}
           >
             Guardar reparto

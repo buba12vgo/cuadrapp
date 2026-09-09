@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 
 export function DashboardBody({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden xl:flex-row">
+    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden xl:flex-row">
       {children}
     </div>
   )
@@ -17,7 +17,7 @@ export function DashboardMain({
 }) {
   return (
     <div
-      className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm ${className}`.trim()}
+      className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-card ${className}`.trim()}
     >
       {children}
     </div>
@@ -42,7 +42,7 @@ export function DashboardMainScroll({
 
 export function DashboardSidebar({ children }: { children: ReactNode }) {
   return (
-    <aside className="flex w-full shrink-0 flex-col gap-1.5 overflow-y-auto xl:w-52 xl:max-h-full 2xl:w-56">
+    <aside className="flex w-full shrink-0 flex-col gap-2 overflow-y-auto xl:w-64 xl:max-h-full 2xl:w-72">
       {children}
     </aside>
   )

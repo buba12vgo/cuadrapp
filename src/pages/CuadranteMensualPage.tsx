@@ -128,9 +128,9 @@ const ANCHO_TOT = 34
 const ANCHO_AGENTE = 44
 
 const CELDA =
-  'h-8 border border-slate-400 px-0.5 py-0 text-sm leading-none'
+  'h-8 border border-line px-0.5 py-0 text-sm leading-none'
 const CELDA_PIE =
-  'h-9 border border-slate-400 border-t-2 border-t-slate-500 px-0 py-0 text-sm leading-tight'
+  'h-9 border border-line border-t-2 border-t-slate-300 px-0 py-0 text-sm leading-tight'
 
 const CLASE_TURNO: Record<Turno, string> = {
   M: CLASE_TURNO_CELDA.M,
@@ -808,15 +808,15 @@ export function CuadranteMensualPage() {
                   <button
                     key={opcion.valor}
                     type="button"
-                    className={`h-8 min-w-8 rounded-md px-1.5 text-sm font-bold ${FOCUS_RING} ${
+                    className={`h-8 min-w-8 rounded-lg px-1.5 text-sm font-bold ${FOCUS_RING} ${
                       filtroVistaTurno === opcion.valor
                         ? opcion.valor === 'TODOS'
-                          ? 'bg-slate-900 text-white'
+                          ? 'bg-brand-600 text-white'
                           : CLASE_TURNO[opcion.valor]
-                        : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                        : 'border border-line bg-white text-slate-700 hover:bg-brand-50'
                     } ${
                       filtroVistaTurno === opcion.valor && opcion.valor !== 'TODOS'
-                        ? 'ring-1 ring-slate-700'
+                        ? 'ring-1 ring-brand-400'
                         : ''
                     }`}
                     aria-pressed={filtroVistaTurno === opcion.valor}

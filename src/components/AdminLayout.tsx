@@ -1,3 +1,4 @@
+import { CalendarDays } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { AppDialogProvider } from '@/components/ui/ConfirmDialog'
 import { useAuth } from '@/contexts/AuthContext'
@@ -5,13 +6,24 @@ import { isDesignPreview } from '@/lib/designPreview'
 import { FOCUS_RING } from '@/lib/uiStyles'
 import { useConfigOperativaBootstrap } from '@/lib/useConfigOperativaBootstrap'
 
+const NAV_ITEMS = [
+  { to: '/admin/agentes', label: 'Agentes', end: true },
+  { to: '/admin/puestos', label: 'Puestos' },
+  { to: '/admin/minimos', label: 'Mínimos' },
+  { to: '/admin/plan-anual', label: 'Plan anual' },
+  { to: '/admin/cuadrante-mensual', label: 'Cuadrante mensual' },
+  { to: '/admin/calendario', label: 'Calendario' },
+  { to: '/admin/listados', label: 'Listados' },
+  { to: '/admin/reglas', label: 'Reglas' },
+] as const
+
 const navClass = ({ isActive }: { isActive: boolean }) =>
   [
-    'rounded-md px-2.5 py-1.5 text-sm font-medium',
+    'relative rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
     FOCUS_RING,
     isActive
-      ? 'bg-slate-900 text-white'
-      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+      ? 'bg-brand-50 text-brand-700'
+      : 'text-slate-600 hover:bg-slate-100 hover:text-ink',
   ].join(' ')
 
 export function AdminLayout() {
@@ -20,82 +32,109 @@ export function AdminLayout() {
 
   return (
     <AppDialogProvider>
-    <div className="flex h-svh flex-col bg-slate-50 text-slate-900">
-      <header className="sticky top-0 z-50 shrink-0 border-b border-slate-200 bg-white">
-        <div className="flex items-center justify-between gap-2 px-2.5 py-1.5">
-          <p className="shrink-0 text-sm font-bold tracking-tight text-slate-900">
-            Cuadrapp
-          </p>
-          <div className="flex shrink-0 items-center gap-2">
-            {user?.photoURL ? (
-              <img
-                src={user.photoURL}
-                alt=""
-                className="h-6 w-6 rounded-full"
-              />
-            ) : null}
-            <span className="hidden max-w-[140px] truncate text-sm text-slate-600 sm:inline">
-              {user?.displayName ?? user?.email}
-            </span>
-            <button
-              type="button"
-              onClick={() => void signOut()}
-              className={`rounded-md px-2 py-1 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 ${FOCUS_RING}`}
+      <div className="flex h-svh flex-col bg-canvas text-ink">
+        <header className="sticky top-0 z-50 shrink-0 border-b border-line bg-surface/95 backdrop-blur-sm">
+          <div className="flex items-center gap-3 px-3 py-2.5 sm:px-4">
+            <div className="flex shrink-0 items-center gap-2.5">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
+                <CalendarDays className="h-5 w-5" aria-hidden />
+              </span>
+              <div className="leading-tight">
+                <p className="font-display text-sm font-bold tracking-tight text-ink">
+                  Cuadrapp
+                </p>
+                <span className="inline-flex rounded-full bg-blue-100 px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-blue-700">
+                  SaaS Pro
+                </span>
+              </div>
+            </div>
+
+            <nav
+              className="flex min-w-0 flex-1 gap-0.5 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              aria-label="Secciones"
             >
-              Salir
-            </button>
+              {NAV_ITEMS.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={navClass}
+                  end={'end' in item ? item.end : false}
+                >
+                  {({ isActive }) => (
+                    <>
+                      {item.label}
+                      {isActive ? (
+                        <span
+                          className="absolute -top-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-brand-600"
+                          aria-hidden
+                        />
+                      ) : null}
+                    </>
+                  )}
+                </NavLink>
+              ))}
+            </nav>
+
+            <div className="flex shrink-0 items-center gap-2 border-l border-line pl-2 sm:pl-3">
+              {user?.photoURL ? (
+                <img
+                  src={user.photoURL}
+                  alt=""
+                  className="h-8 w-8 rounded-full ring-2 ring-brand-100"
+                />
+              ) : (
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">
+                  {(user?.displayName ?? user?.email ?? '?')
+                    .slice(0, 1)
+                    .toUpperCase()}
+                </span>
+              )}
+              <div className="hidden min-w-0 leading-tight sm:block">
+                <p className="max-w-[140px] truncate text-sm font-semibold text-ink">
+                  {user?.displayName ?? user?.email ?? 'Usuario'}
+                </p>
+                <p className="text-xs text-muted">Administrador</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void signOut()}
+                className={`rounded-lg px-2.5 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-ink ${FOCUS_RING}`}
+              >
+                Salir
+              </button>
+            </div>
           </div>
-        </div>
-        <nav
-          className="flex gap-0.5 overflow-x-auto overscroll-x-contain border-t border-slate-100 px-2.5 py-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          aria-label="Secciones"
-        >
-            <NavLink to="/admin/agentes" className={navClass} end>
-              Agentes
-            </NavLink>
-            <NavLink to="/admin/puestos" className={navClass}>
-              Puestos
-            </NavLink>
-            <NavLink to="/admin/minimos" className={navClass}>
-              Mínimos
-            </NavLink>
-            <NavLink to="/admin/plan-anual" className={navClass}>
-              Plan anual
-            </NavLink>
-            <NavLink to="/admin/cuadrante-mensual" className={navClass}>
-              Cuadrante mensual
-            </NavLink>
-            <NavLink to="/admin/calendario" className={navClass}>
-              Calendario
-            </NavLink>
-            <NavLink to="/admin/listados" className={navClass}>
-              Listados
-            </NavLink>
-            <NavLink to="/admin/reglas" className={navClass}>
-              Reglas
-            </NavLink>
-        </nav>
-        {isDesignPreview ? (
-          <p className="border-t border-violet-200 bg-violet-50 px-2.5 py-1 text-sm font-medium text-violet-900">
-            Modo vista previa (sin Firebase) — solo para diseño y QA local
-          </p>
-        ) : null}
-        {estado === 'loading' ? (
-          <p className="border-t border-slate-100 px-2.5 py-1 text-sm text-slate-500">
-            Cargando plantilla, plan anual, puestos y eventos desde Firestore…
-          </p>
-        ) : null}
-        {error ? (
-          <p className="border-t border-red-200 bg-red-50 px-2.5 py-1 text-sm text-red-800">
-            {error}
-            {!firebaseOk ? ' · Sin Firebase no se persisten cambios.' : ''}
-          </p>
-        ) : null}
-      </header>
-      <main className="flex min-h-0 flex-1 flex-col overflow-hidden p-2">
-        <Outlet />
-      </main>
-    </div>
+
+          {isDesignPreview ? (
+            <p className="border-t border-violet-200 bg-violet-50 px-4 py-1.5 text-sm font-medium text-violet-900">
+              Modo vista previa (sin Firebase) — solo para diseño y QA local
+            </p>
+          ) : null}
+          {estado === 'loading' ? (
+            <p className="border-t border-line px-4 py-1.5 text-sm text-muted">
+              Cargando plantilla, plan anual, puestos y eventos desde Firestore…
+            </p>
+          ) : null}
+          {error ? (
+            <p className="border-t border-red-200 bg-red-50 px-4 py-1.5 text-sm text-red-800">
+              {error}
+              {!firebaseOk ? ' · Sin Firebase no se persisten cambios.' : ''}
+            </p>
+          ) : null}
+        </header>
+
+        <main className="flex min-h-0 flex-1 flex-col overflow-hidden p-3 sm:p-4">
+          <Outlet />
+        </main>
+
+        <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-line bg-surface px-4 py-1.5 text-[11px] text-muted">
+          <span className="flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+            Motor de planificación activo
+          </span>
+          <span>Cuadrapp · v0.1</span>
+        </footer>
+      </div>
     </AppDialogProvider>
   )
 }

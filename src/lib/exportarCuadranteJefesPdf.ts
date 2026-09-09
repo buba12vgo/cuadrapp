@@ -8,7 +8,7 @@ import {
   type AsignacionesDiarias,
   type PuestoConfig,
 } from '@/lib/calendarioPuestos'
-import { esFinDeSemana } from '@/lib/convenio'
+import { esFinDeSemana, pesoJornadaJefes, totalDiasTrabajadosJefes } from '@/lib/convenio'
 import { esFestivo } from '@/lib/festivos'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
 import { ROL_LABEL } from '@/lib/rolesCuadrante'
@@ -138,6 +138,10 @@ export function exportarCuadranteJefesPdf(
           return `<td style="background:${fondo};color:${color.texto};">${escapeHtml(texto)}</td>`
         })
         .join('')
+      const total = totalDiasTrabajadosJefes(
+        cuadrante[agente.id] ?? [],
+        diasVisibles,
+      )
       return `<tr>
         <th class="agente">
           <span class="placa">${escapeHtml(agente.numeroPlaca)}</span>
@@ -145,9 +149,24 @@ export function exportarCuadranteJefesPdf(
           <span class="rol">${escapeHtml(rol)}</span>
         </th>
         ${celdas}
+        <td class="suma">${total}d</td>
       </tr>`
     })
     .join('')
+
+  const pieDias = diasVisibles
+    .map((dia) => {
+      const n = agentes.filter((agente) =>
+        pesoJornadaJefes((cuadrante[agente.id] ?? [])[dia - 1]) > 0,
+      ).length
+      return `<td class="suma">${n}</td>`
+    })
+    .join('')
+  const totalGeneral = agentes.reduce(
+    (n, agente) =>
+      n + totalDiasTrabajadosJefes(cuadrante[agente.id] ?? [], diasVisibles),
+    0,
+  )
 
   const puestosLeyenda = puestosDeAmbito(puestos, 'JEFE_SERVICIO')
   const nomenclatura =
@@ -202,6 +221,13 @@ export function exportarCuadranteJefesPdf(
     .agente .rol { display: block; font-weight: 500; font-size: 7px; color: #64748b; }
     thead th .num { display: block; font-size: 8px; }
     thead th .dow { display: block; font-size: 7px; font-weight: 600; }
+    td.suma, th.suma {
+      background: #f1f5f9;
+      width: 28px;
+      min-width: 28px;
+      border-left: 1pt solid #475569;
+    }
+    tfoot td, tfoot th { background: #f1f5f9; }
     .leyenda { margin-top: 8px; font-size: 9px; color: #475569; }
     .nomenclatura { margin-top: 8px; }
     .nomenclatura.vacia { font-size: 9px; color: #64748b; }
@@ -241,11 +267,19 @@ export function exportarCuadranteJefesPdf(
       <tr>
         <th class="agente">Agente</th>
         ${cabecerasDias}
+        <th class="suma">Σ</th>
       </tr>
     </thead>
     <tbody>${filas}</tbody>
+    <tfoot>
+      <tr>
+        <th class="agente">Σ</th>
+        ${pieDias}
+        <td class="suma">${totalGeneral}d</td>
+      </tr>
+    </tfoot>
   </table>
-  <p class="leyenda">M mañana · T tarde · N noche · M-T mañana-tarde (finde) · L libranza · D descanso · V vacaciones</p>
+  <p class="leyenda">M mañana · T tarde · N noche · M-T mañana-tarde (finde, vale 2 días) · L libranza · D descanso · V vacaciones · Σ días trabajados</p>
   ${nomenclatura}
 </body>
 </html>`

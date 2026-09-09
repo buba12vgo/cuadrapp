@@ -39,7 +39,12 @@ import {
   cuadranteParaFirestore,
   cuadranteVacio,
 } from '@/lib/cuadranteFirestore'
-import { diasDelMes, esFinDeSemana } from '@/lib/convenio'
+import {
+  diasDelMes,
+  esFinDeSemana,
+  pesoJornadaJefes,
+  totalDiasTrabajadosJefes,
+} from '@/lib/convenio'
 import { getAgentes, getCuadranteJefes, saveCuadranteJefes } from '@/lib/db'
 import { esFestivo } from '@/lib/festivos'
 import { ensureFirebase, isFirebaseReady } from '@/lib/firebase'
@@ -69,11 +74,14 @@ const DIA_SEMANA = ['D', 'L', 'M', 'X', 'J', 'V', 'S'] as const
 const ANIO_ACTUAL = 2026
 const ANCHO_DIA = 28
 const ANCHO_AGENTE = 168
+const ANCHO_SUMA = 40
 
 const CELDA =
   'h-[26px] max-h-[26px] overflow-hidden border border-line px-0 py-0 text-[10px] leading-none'
 const CELDA_DIA =
   'h-[32px] max-h-[32px] overflow-hidden border border-line px-0 py-0 text-[10px] leading-none'
+const CELDA_PIE =
+  'h-[26px] max-h-[26px] overflow-hidden border border-line border-t-2 border-t-slate-300 bg-slate-100 px-0 py-0 text-[10px] leading-none font-bold'
 const CAMPO_TOOLBAR =
   'h-7 rounded-md border border-line bg-white px-1.5 text-xs text-ink outline-none focus:border-brand-400 focus-visible:ring-2 focus-visible:ring-brand-500/40'
 
@@ -103,6 +111,23 @@ function leerFecha(valor: string) {
   const [anio, mes, dia] = valor.split('-').map(Number)
   if (!anio || !mes || !dia) return null
   return { anio, mes, dia }
+}
+
+function desgloseTurnosJefes(fila: Turno[], dias: readonly number[]) {
+  const c = { M: 0, T: 0, N: 0, MT: 0, L: 0 }
+  for (const dia of dias) {
+    const turno = fila[dia - 1]
+    if (turno === 'M' || turno === 'T' || turno === 'N' || turno === 'MT' || turno === 'L') {
+      c[turno] += 1
+    }
+  }
+  return c
+}
+
+function tituloSumatorioJefe(fila: Turno[], dias: readonly number[]) {
+  const d = desgloseTurnosJefes(fila, dias)
+  const total = totalDiasTrabajadosJefes(fila, dias)
+  return `Trabajados ${total}d (M-T vale 2) · M ${d.M} · T ${d.T} · N ${d.N} · M-T ${d.MT} · L ${d.L}`
 }
 
 function siguienteTurno(actual: Turno, finde: boolean): Turno {
@@ -685,12 +710,21 @@ export function CuadranteJefesPage() {
                       </th>
                     )
                   })}
+                  <th
+                    className={`${CELDA_DIA} sticky top-0 right-0 z-30 border-l-2 border-l-slate-600 bg-slate-100 text-center font-bold`}
+                    style={{ width: ANCHO_SUMA, minWidth: ANCHO_SUMA }}
+                    title="Días trabajados · M-T cuenta como 2"
+                  >
+                    Σ
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {jefes.map((agente) => {
                   const nombre = `${agente.nombre} ${agente.apellidos}`
                   const rol = ROL_LABEL[agente.rolBase]
+                  const fila = cuadrante[agente.id] ?? []
+                  const totalAgente = totalDiasTrabajadosJefes(fila, diasVisibles)
                   return (
                     <tr key={agente.id}>
                       <th
@@ -719,7 +753,6 @@ export function CuadranteJefesPage() {
                         </span>
                       </th>
                       {diasVisibles.map((dia) => {
-                        const fila = cuadrante[agente.id] ?? []
                         const turno = fila[dia - 1] ?? 'D'
                         const fecha = isoFecha(anio, mes, dia)
                         const operativo = esTurnoAsignable(turno)
@@ -807,10 +840,66 @@ export function CuadranteJefesPage() {
                           </td>
                         )
                       })}
+                      <td
+                        className={`${CELDA} sticky right-0 z-20 border-l-2 border-l-slate-600 bg-slate-100 text-center font-bold tabular-nums`}
+                        style={{
+                          width: ANCHO_SUMA,
+                          minWidth: ANCHO_SUMA,
+                        }}
+                        title={tituloSumatorioJefe(fila, diasVisibles)}
+                      >
+                        {totalAgente}d
+                      </td>
                     </tr>
                   )
                 })}
               </tbody>
+              <tfoot>
+                <tr>
+                  <th
+                    className={`${CELDA_PIE} sticky bottom-0 left-0 z-40 px-1.5 text-left`}
+                    style={{ width: ANCHO_AGENTE, minWidth: ANCHO_AGENTE }}
+                    title="Agentes de servicio ese día · M-T cuenta 1 persona y 2 jornadas en Σ"
+                  >
+                    Σ
+                  </th>
+                  {diasVisibles.map((dia) => {
+                    const enServicio = jefes.filter((agente) =>
+                      pesoJornadaJefes((cuadrante[agente.id] ?? [])[dia - 1]) >
+                      0,
+                    ).length
+                    const especial =
+                      esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia)
+                    return (
+                      <td
+                        key={dia}
+                        className={`${CELDA_PIE} sticky bottom-0 z-20 text-center tabular-nums ${
+                          especial ? 'bg-amber-100' : ''
+                        }`}
+                        title={`${enServicio} agente${enServicio === 1 ? '' : 's'} de servicio`}
+                      >
+                        {enServicio}
+                      </td>
+                    )
+                  })}
+                  <td
+                    className={`${CELDA_PIE} sticky bottom-0 right-0 z-40 border-l-2 border-l-slate-600 text-center tabular-nums`}
+                    style={{ width: ANCHO_SUMA, minWidth: ANCHO_SUMA }}
+                    title="Suma de días trabajados (M-T = 2)"
+                  >
+                    {jefes.reduce(
+                      (n, agente) =>
+                        n +
+                        totalDiasTrabajadosJefes(
+                          cuadrante[agente.id] ?? [],
+                          diasVisibles,
+                        ),
+                      0,
+                    )}
+                    d
+                  </td>
+                </tr>
+              </tfoot>
             </table>
           </DashboardMainScroll>
         </DashboardMain>
@@ -831,6 +920,10 @@ export function CuadranteJefesPage() {
               </li>
               <li>O selecciona el puesto y pulsa la celda.</li>
               <li>Shift+clic en celda con turno: menú de puestos.</li>
+              <li>
+                Σ a la derecha: días trabajados del agente (M-T cuenta 2). Pie:
+                agentes de servicio ese día.
+              </li>
             </ol>
             <p className="mt-2 text-xs text-slate-500">
               {jefes.length} agente{jefes.length === 1 ? '' : 's'} (jefes y

@@ -55,6 +55,30 @@ export function totalTrabajados(fila: Turno[]) {
   return n
 }
 
+/** M-T (jefes, finde) cuenta como 2 jornadas; D y V no cuentan. */
+export function pesoJornadaJefes(turno: Turno | undefined) {
+  if (turno === 'MT') return 2
+  if (esDiaTrabajado(turno)) return 1
+  return 0
+}
+
+/** Total de días trabajados en el cuadrante de jefes. `dias` = 1–n (opcional). */
+export function totalDiasTrabajadosJefes(
+  fila: Turno[],
+  dias?: readonly number[],
+) {
+  if (!dias) {
+    let n = 0
+    for (const turno of fila) n += pesoJornadaJefes(turno)
+    return n
+  }
+  let n = 0
+  for (const dia of dias) {
+    n += pesoJornadaJefes(fila[dia - 1])
+  }
+  return n
+}
+
 export function esFinDeSemana(anio: number, mes: number, dia: number) {
   const weekday = new Date(anio, mes - 1, dia).getDay()
   return weekday === 0 || weekday === 6

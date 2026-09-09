@@ -23,7 +23,9 @@ import { useAgentesData } from '@/lib/agentesStore'
 import {
   abreviaturaPuesto,
   asignarPuestoEnCelda,
+  asignarPuestoMesAgente,
   esTurnoOperativo,
+  fechasOperativasAgenteMes,
   leerPuestoArrastrado,
   permitirSoltarPuesto,
   puestosPermitidosParaAgente,
@@ -362,6 +364,50 @@ export function CuadranteJefesPage() {
     aplicarAsignacionCelda(agenteId, fecha, turno, puesto)
   }
 
+  function aplicarAsignacionMesAgente(agenteId: string, puesto: PuestoBase) {
+    const agente = agentesPorId.get(agenteId)
+    if (!agente) return
+    const fechasTurno = fechasOperativasAgenteMes(
+      cuadrante,
+      agenteId,
+      anio,
+      mes,
+      nDias,
+      isoFecha,
+    )
+      .filter(({ turno }) => filtroTurno === 'TODOS' || turno === filtroTurno)
+      .map(({ fecha, turno }) => ({ fecha, turno }))
+    if (fechasTurno.length === 0) {
+      void alert(
+        filtroTurno === 'TODOS'
+          ? 'Este jefe no tiene días operativos (M/T/N) este mes.'
+          : `Este jefe no tiene días de ${filtroTurno} este mes.`,
+        'Sin días operativos',
+      )
+      return
+    }
+    const resultado = asignarPuestoMesAgente(
+      asignacionesDiarias,
+      agente,
+      puesto,
+      fechasTurno,
+      puestosJefes,
+    )
+    if (!resultado.ok) {
+      void alert('Puesto excluido para este agente', 'Puesto no disponible')
+      return
+    }
+    setAsignacionesDiarias(resultado.asignaciones)
+    marcarEditado()
+  }
+
+  function soltarEnCabeceraJefe(event: React.DragEvent, agenteId: string) {
+    event.preventDefault()
+    const puesto = leerPuestoArrastrado(event.dataTransfer, puestosJefes)
+    if (!puesto) return
+    aplicarAsignacionMesAgente(agenteId, puesto)
+  }
+
   function clicCelda(
     event: React.MouseEvent<HTMLTableCellElement>,
     agenteId: string,
@@ -450,7 +496,7 @@ export function CuadranteJefesPage() {
     <section className={PAGE_SECTION}>
       <PageHeader
         title="Cuadrante jefes de servicio"
-        subtitle={`Jefes y responsables · mensual · clic cicla turno · Shift+clic o arrastre asigna puesto${loadingCuadrante ? ' · Cargando…' : ''}${mesGuardadoEnFirestore ? '' : ' · Sin guardar'}`}
+        subtitle={`Jefes y responsables · mensual · clic cicla turno · Shift+clic o arrastre asigna puesto · arrastre a la placa = todos los días${loadingCuadrante ? ' · Cargando…' : ''}${mesGuardadoEnFirestore ? '' : ' · Sin guardar'}`}
         status={
           <SaveStatus
             guardando={guardandoCuadrante}
@@ -581,9 +627,20 @@ export function CuadranteJefesPage() {
                     return (
                       <th
                         key={agente.id}
-                        className={`${CELDA} group relative sticky top-0 z-20 bg-white text-center font-mono font-bold`}
+                        className={`${CELDA} group relative sticky top-0 z-20 bg-white text-center font-mono font-bold hover:bg-blue-50 data-[over=true]:bg-blue-100 data-[over=true]:ring-2 data-[over=true]:ring-inset data-[over=true]:ring-blue-500`}
                         style={{ width: ANCHO_AGENTE, minWidth: ANCHO_AGENTE }}
-                        title={`${nombre} · ${rol}`}
+                        title={`${nombre} · ${rol} · soltar puesto = todos los días`}
+                        onDragOver={permitirSoltarPuesto}
+                        onDragEnter={(event) => {
+                          event.currentTarget.dataset.over = 'true'
+                        }}
+                        onDragLeave={(event) => {
+                          event.currentTarget.dataset.over = 'false'
+                        }}
+                        onDrop={(event) => {
+                          event.currentTarget.dataset.over = 'false'
+                          soltarEnCabeceraJefe(event, agente.id)
+                        }}
                       >
                         <span className="block font-mono">
                           {agente.numeroPlaca}
@@ -723,6 +780,10 @@ export function CuadranteJefesPage() {
             <ol className="list-decimal space-y-1 pl-4 text-xs leading-snug">
               <li>Clic en celda: cicla D → M → T → N → L → V.</li>
               <li>Con M/T/N, arrastra un puesto desde la bolsa.</li>
+              <li>
+                Arrastra un puesto al número (placa) del jefe: lo pone en todos
+                sus días operativos del mes.
+              </li>
               <li>O selecciona el puesto y pulsa la celda.</li>
               <li>Shift+clic en celda operativa: menú de puestos.</li>
             </ol>

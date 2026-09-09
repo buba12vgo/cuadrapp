@@ -10,6 +10,7 @@ import {
   ALERT_ERROR,
   ALERT_INFO,
   ALERT_WARN,
+  BTN_SECONDARY,
   BTN_SUCCESS,
   CLASE_TURNO_CELDA,
   FOCUS_RING,
@@ -46,6 +47,7 @@ import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
 import type { FiltroTurnoBolsa } from '@/lib/bolsaPuestosPreferencias'
 import { usePuestosData } from '@/lib/puestosStore'
 import { agentesCuadranteJefes, ROL_LABEL } from '@/lib/rolesCuadrante'
+import { exportarCuadranteJefesPdf } from '@/lib/exportarCuadranteJefesPdf'
 import type { Turno } from '@/types'
 
 const MESES = [
@@ -65,11 +67,13 @@ const MESES = [
 
 const DIA_SEMANA = ['D', 'L', 'M', 'X', 'J', 'V', 'S'] as const
 const ANIO_ACTUAL = 2026
-const ANCHO_DIA = 36
-const ANCHO_AGENTE = 46
+const ANCHO_DIA = 28
+const ANCHO_AGENTE = 168
 
 const CELDA =
-  'h-[22px] max-h-[22px] overflow-hidden border border-line px-0 py-0 text-[10px] leading-none'
+  'h-[26px] max-h-[26px] overflow-hidden border border-line px-0 py-0 text-[10px] leading-none'
+const CELDA_DIA =
+  'h-[32px] max-h-[32px] overflow-hidden border border-line px-0 py-0 text-[10px] leading-none'
 const CAMPO_TOOLBAR =
   'h-7 rounded-md border border-line bg-white px-1.5 text-xs text-ink outline-none focus:border-brand-400 focus-visible:ring-2 focus-visible:ring-brand-500/40'
 
@@ -502,7 +506,7 @@ export function CuadranteJefesPage() {
     <section className={PAGE_SECTION}>
       <PageHeader
         title="Cuadrante jefes de servicio"
-        subtitle={`Jefes y responsables · mensual · clic cicla turno · finde incluye M-T · Shift+clic o arrastre asigna puesto · arrastre a la placa = todos los días con turno${loadingCuadrante ? ' · Cargando…' : ''}${mesGuardadoEnFirestore ? '' : ' · Sin guardar'}`}
+        subtitle={`Jefes y responsables · mensual · clic cicla turno · finde incluye M-T · Shift+clic o arrastre asigna puesto · arrastre al nombre = todos los días con turno${loadingCuadrante ? ' · Cargando…' : ''}${mesGuardadoEnFirestore ? '' : ' · Sin guardar'}`}
         status={
           <SaveStatus
             guardando={guardandoCuadrante}
@@ -577,6 +581,33 @@ export function CuadranteJefesPage() {
             </ToolbarSection>
             <button
               type="button"
+              className={BTN_SECONDARY}
+              disabled={!cuadranteListo || jefes.length === 0}
+              onClick={() => {
+                try {
+                  exportarCuadranteJefesPdf({
+                    anio,
+                    mes,
+                    agentes: jefes,
+                    cuadrante,
+                    asignacionesDiarias,
+                    puestos,
+                    diasVisibles,
+                  })
+                } catch (err) {
+                  void alert(
+                    err instanceof Error
+                      ? err.message
+                      : 'No se pudo exportar el PDF',
+                    'Exportar PDF',
+                  )
+                }
+              }}
+            >
+              Exportar PDF
+            </button>
+            <button
+              type="button"
               className={BTN_SUCCESS}
               disabled={
                 !cuadranteListo ||
@@ -622,20 +653,50 @@ export function CuadranteJefesPage() {
               <thead>
                 <tr>
                   <th
-                    className={`${CELDA} sticky top-0 left-0 z-40 bg-white text-left font-bold`}
-                    style={{ width: ANCHO_DIA, minWidth: ANCHO_DIA }}
+                    className={`${CELDA_DIA} sticky top-0 left-0 z-40 bg-white px-1.5 text-left font-bold`}
+                    style={{ width: ANCHO_AGENTE, minWidth: ANCHO_AGENTE }}
                   >
-                    Día
+                    Agente
                   </th>
-                  {jefes.map((agente) => {
-                    const nombre = `${agente.nombre} ${agente.apellidos}`
-                    const rol = ROL_LABEL[agente.rolBase]
+                  {diasVisibles.map((dia) => {
+                    const weekday = new Date(anio, mes - 1, dia).getDay()
+                    const especial =
+                      esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia)
                     return (
                       <th
-                        key={agente.id}
-                        className={`${CELDA} group relative sticky top-0 z-20 bg-white text-center font-mono font-bold hover:bg-blue-50 data-[over=true]:bg-blue-100 data-[over=true]:ring-2 data-[over=true]:ring-inset data-[over=true]:ring-blue-500`}
+                        key={dia}
+                        className={`${CELDA_DIA} sticky top-0 z-20 text-center ${
+                          especial ? 'bg-amber-50' : 'bg-white'
+                        }`}
+                        style={{ width: ANCHO_DIA, minWidth: ANCHO_DIA }}
+                      >
+                        <span
+                          className={`block font-bold ${especial ? 'text-red-600' : ''}`}
+                        >
+                          {dia}
+                        </span>
+                        <span
+                          className={`block text-[9px] font-bold ${
+                            especial ? 'text-red-600' : 'text-slate-500'
+                          }`}
+                        >
+                          {DIA_SEMANA[weekday]}
+                        </span>
+                      </th>
+                    )
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {jefes.map((agente) => {
+                  const nombre = `${agente.nombre} ${agente.apellidos}`
+                  const rol = ROL_LABEL[agente.rolBase]
+                  return (
+                    <tr key={agente.id}>
+                      <th
+                        className={`${CELDA} sticky left-0 z-30 bg-white px-1.5 text-left font-sans font-semibold hover:bg-blue-50 data-[over=true]:bg-blue-100 data-[over=true]:ring-2 data-[over=true]:ring-inset data-[over=true]:ring-blue-500`}
                         style={{ width: ANCHO_AGENTE, minWidth: ANCHO_AGENTE }}
-                        title={`${nombre} · ${rol} · soltar puesto = todos los días`}
+                        title={`${nombre} · ${rol} · soltar puesto = todos los días con turno`}
                         onDragOver={permitirSoltarPuesto}
                         onDragEnter={(event) => {
                           event.currentTarget.dataset.over = 'true'
@@ -648,43 +709,16 @@ export function CuadranteJefesPage() {
                           soltarEnCabeceraJefe(event, agente.id)
                         }}
                       >
-                        <span className="block font-mono">
-                          {agente.numeroPlaca}
-                        </span>
-                        <span className="pointer-events-none absolute top-full left-1/2 z-50 hidden -translate-x-1/2 whitespace-nowrap rounded border border-slate-200 bg-white px-2 py-1 text-xs font-sans font-medium text-slate-800 shadow-md group-hover:block">
-                          {nombre} · {rol}
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <span className="shrink-0 font-mono font-bold">
+                            {agente.numeroPlaca}
+                          </span>
+                          <span className="min-w-0 truncate font-sans font-medium text-ink">
+                            {nombre}
+                          </span>
                         </span>
                       </th>
-                    )
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {diasVisibles.map((dia) => {
-                  const weekday = new Date(anio, mes - 1, dia).getDay()
-                  const especial =
-                    esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia)
-                  const fondoFila = especial ? 'bg-amber-50' : 'bg-white'
-                  return (
-                    <tr key={dia} className={fondoFila}>
-                      <td
-                        className={`${CELDA} sticky left-0 z-20 px-0.5 ${fondoFila}`}
-                        style={{ width: ANCHO_DIA, minWidth: ANCHO_DIA }}
-                      >
-                        <span
-                          className={`font-bold ${especial ? 'text-red-600' : ''}`}
-                        >
-                          {dia}
-                        </span>
-                        <span
-                          className={`ml-0.5 font-bold ${
-                            especial ? 'text-red-600' : 'text-slate-500'
-                          }`}
-                        >
-                          {DIA_SEMANA[weekday]}
-                        </span>
-                      </td>
-                      {jefes.map((agente) => {
+                      {diasVisibles.map((dia) => {
                         const fila = cuadrante[agente.id] ?? []
                         const turno = fila[dia - 1] ?? 'D'
                         const fecha = isoFecha(anio, mes, dia)
@@ -699,13 +733,16 @@ export function CuadranteJefesPage() {
                             )
                           : null
                         const atenuada = !turnoCoincideFiltro(turno, filtroTurno)
+                        const especial =
+                          esFinDeSemana(anio, mes, dia) ||
+                          esFestivo(anio, mes, dia)
                         const fondoSuave =
                           especial && (turno === 'D' || turno === 'V')
                             ? '!bg-amber-50'
                             : ''
                         return (
                           <td
-                            key={agente.id}
+                            key={dia}
                             className={`${CELDA} cursor-pointer text-center font-bold ${CLASE_TURNO[turno]} ${fondoSuave} ${
                               atenuada ? 'opacity-30' : ''
                             } ${
@@ -789,8 +826,8 @@ export function CuadranteJefesPage() {
               </li>
               <li>Con turno (M/T/N/M-T), arrastra un puesto desde la bolsa.</li>
               <li>
-                Arrastra un puesto al número (placa) del jefe: lo pone en todos
-                sus días con turno.
+                Arrastra un puesto al número o nombre del jefe: lo pone en
+                todos sus días con turno.
               </li>
               <li>O selecciona el puesto y pulsa la celda.</li>
               <li>Shift+clic en celda con turno: menú de puestos.</li>

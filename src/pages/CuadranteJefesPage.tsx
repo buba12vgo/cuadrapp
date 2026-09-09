@@ -41,7 +41,7 @@ import { ensureFirebase, isFirebaseReady } from '@/lib/firebase'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
 import type { FiltroTurnoBolsa } from '@/lib/bolsaPuestosPreferencias'
 import { usePuestosData } from '@/lib/puestosStore'
-import { agentesJefesServicio } from '@/lib/rolesCuadrante'
+import { agentesCuadranteJefes, ROL_LABEL } from '@/lib/rolesCuadrante'
 import type { Turno } from '@/types'
 
 const MESES = [
@@ -160,7 +160,7 @@ export function CuadranteJefesPage() {
     rect: DOMRect
   } | null>(null)
 
-  const jefes = useMemo(() => agentesJefesServicio(agentesData), [agentesData])
+  const jefes = useMemo(() => agentesCuadranteJefes(agentesData), [agentesData])
   const jefesIdsKey = useMemo(
     () => jefes.map((agente) => agente.id).join('\0'),
     [jefes],
@@ -408,7 +408,10 @@ export function CuadranteJefesPage() {
       return
     }
     if (jefes.length === 0) {
-      await alert('No hay jefes de servicio en la plantilla.', 'Sin jefes')
+      await alert(
+        'No hay jefes de servicio ni responsables en la plantilla.',
+        'Sin plantilla',
+      )
       return
     }
 
@@ -447,7 +450,7 @@ export function CuadranteJefesPage() {
     <section className={PAGE_SECTION}>
       <PageHeader
         title="Cuadrante jefes de servicio"
-        subtitle={`Solo mensual · clic cicla turno · Shift+clic o arrastre asigna puesto${loadingCuadrante ? ' · Cargando…' : ''}${mesGuardadoEnFirestore ? '' : ' · Sin guardar'}`}
+        subtitle={`Jefes y responsables · mensual · clic cicla turno · Shift+clic o arrastre asigna puesto${loadingCuadrante ? ' · Cargando…' : ''}${mesGuardadoEnFirestore ? '' : ' · Sin guardar'}`}
         status={
           <SaveStatus
             guardando={guardandoCuadrante}
@@ -549,7 +552,8 @@ export function CuadranteJefesPage() {
       {errorCuadrante ? <p className={ALERT_ERROR}>{errorCuadrante}</p> : null}
       {jefes.length === 0 && !loadingCuadrante ? (
         <p className={ALERT_INFO}>
-          No hay agentes con rol «Jefe de servicio». Añádelos en Agentes.
+          No hay jefes de servicio ni responsables en la plantilla. Añádelos en
+          Agentes.
         </p>
       ) : null}
       {puestoSeleccionado ? (
@@ -573,18 +577,19 @@ export function CuadranteJefesPage() {
                   </th>
                   {jefes.map((agente) => {
                     const nombre = `${agente.nombre} ${agente.apellidos}`
+                    const rol = ROL_LABEL[agente.rolBase]
                     return (
                       <th
                         key={agente.id}
                         className={`${CELDA} group relative sticky top-0 z-20 bg-white text-center font-mono font-bold`}
                         style={{ width: ANCHO_AGENTE, minWidth: ANCHO_AGENTE }}
-                        title={nombre}
+                        title={`${nombre} · ${rol}`}
                       >
                         <span className="block font-mono">
                           {agente.numeroPlaca}
                         </span>
                         <span className="pointer-events-none absolute top-full left-1/2 z-50 hidden -translate-x-1/2 whitespace-nowrap rounded border border-slate-200 bg-white px-2 py-1 text-xs font-sans font-medium text-slate-800 shadow-md group-hover:block">
-                          {nombre}
+                          {nombre} · {rol}
                         </span>
                       </th>
                     )
@@ -722,8 +727,8 @@ export function CuadranteJefesPage() {
               <li>Shift+clic en celda operativa: menú de puestos.</li>
             </ol>
             <p className="mt-2 text-xs text-slate-500">
-              {jefes.length} jefe{jefes.length === 1 ? '' : 's'} ·{' '}
-              {puestosJefes.length} puesto
+              {jefes.length} agente{jefes.length === 1 ? '' : 's'} (jefes y
+              responsables) · {puestosJefes.length} puesto
               {puestosJefes.length === 1 ? '' : 's'} exclusivo
               {puestosJefes.length === 1 ? '' : 's'}
             </p>

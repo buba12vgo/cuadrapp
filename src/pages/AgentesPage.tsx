@@ -189,7 +189,9 @@ function FichaAgenteModal({
   const [form, setForm] = useState(() => formularioDesde(agente))
   const puestos = useMemo(() => {
     const ambito =
-      form.rolBase === 'JEFE_SERVICIO' ? 'JEFE_SERVICIO' : 'OPERATIVO'
+      form.rolBase === 'JEFE_SERVICIO' || form.rolBase === 'RESPONSABLE'
+        ? 'JEFE_SERVICIO'
+        : 'OPERATIVO'
     return puestosTodos.filter((puesto) => puesto.ambito === ambito)
   }, [puestosTodos, form.rolBase])
 

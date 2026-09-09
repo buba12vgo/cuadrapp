@@ -60,7 +60,7 @@ export const PUESTOS_INICIALES: PuestoConfig[] = [
 
 export const AMBITO_PUESTO_LABEL: Record<AmbitoPuesto, string> = {
   OPERATIVO: 'Operativo',
-  JEFE_SERVICIO: 'Jefes de servicio',
+  JEFE_SERVICIO: 'Jefes y responsables',
 }
 
 export function normalizarAmbitoPuesto(valor: unknown): AmbitoPuesto {

@@ -205,8 +205,8 @@ function EditorPuestoModal({
                   )}
                 </select>
                 <span className="text-sm text-slate-500">
-                  Operativo = cuadrante mensual. Jefes = cuadrante jefes de
-                  servicio.
+                  Operativo = cuadrante mensual. Jefes y responsables =
+                  cuadrante jefes.
                 </span>
               </label>
               <label className="flex flex-col gap-0.5">

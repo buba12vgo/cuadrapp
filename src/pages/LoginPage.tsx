@@ -1,7 +1,8 @@
+import { CalendarDays } from 'lucide-react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAllowedAdmin } from '@/lib/authAllowlist'
-import { BLOQUE, BTN_PRIMARY, PAGE_TITLE, PAGE_SUBTITLE } from '@/lib/uiStyles'
+import { BLOQUE, BTN_PRIMARY, PAGE_SUBTITLE, PAGE_TITLE } from '@/lib/uiStyles'
 
 export function LoginPage() {
   const { user, loading, signInWithGoogle, error, firebaseReady } = useAuth()
@@ -13,19 +14,32 @@ export function LoginPage() {
   const puedeIniciarSesion = firebaseReady && !loading
 
   return (
-    <div className="flex h-svh flex-col items-center justify-center bg-slate-50 px-3">
-      <div className={`w-full max-w-sm ${BLOQUE} p-4`}>
-        <h1 className={`${PAGE_TITLE} text-center`}>Cuadrapp</h1>
-        <p className={`${PAGE_SUBTITLE} mt-1 text-center`}>
-          Acceso restringido · cuenta Google
-        </p>
+    <div className="relative flex h-svh flex-col items-center justify-center overflow-hidden bg-canvas px-4">
+      <div
+        className="pointer-events-none absolute inset-0 opacity-70"
+        aria-hidden
+        style={{
+          background:
+            'radial-gradient(ellipse 80% 50% at 50% -20%, color-mix(in srgb, var(--color-brand-500) 22%, transparent), transparent), radial-gradient(ellipse 60% 40% at 100% 100%, color-mix(in srgb, #3b82f6 12%, transparent), transparent)',
+        }}
+      />
+      <div className={`relative w-full max-w-sm ${BLOQUE} p-6 shadow-card-lg`}>
+        <div className="mb-4 flex flex-col items-center gap-2">
+          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-600 text-white shadow-sm">
+            <CalendarDays className="h-6 w-6" aria-hidden />
+          </span>
+          <h1 className={`${PAGE_TITLE} text-center`}>Cuadrapp</h1>
+          <p className={`${PAGE_SUBTITLE} text-center`}>
+            Acceso restringido · cuenta Google
+          </p>
+        </div>
         {loading ? (
-          <p className={`${PAGE_SUBTITLE} mt-3 text-center`}>
+          <p className={`${PAGE_SUBTITLE} text-center`}>
             Preparando autenticación…
           </p>
         ) : null}
         {!firebaseReady && !loading ? (
-          <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-sm text-red-800">
+          <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             Firebase no está configurado. Revisa VITE_FIREBASE_* en el despliegue.
           </p>
         ) : (
@@ -33,7 +47,7 @@ export function LoginPage() {
             type="button"
             disabled={!puedeIniciarSesion}
             onClick={() => void signInWithGoogle()}
-            className={`${BTN_PRIMARY} mt-4 w-full justify-center py-2`}
+            className={`${BTN_PRIMARY} mt-2 w-full justify-center py-2.5`}
           >
             <svg
               aria-hidden
@@ -62,7 +76,7 @@ export function LoginPage() {
           </button>
         )}
         {error ? (
-          <p className="mt-2 text-center text-sm text-red-600">{error}</p>
+          <p className="mt-3 text-center text-sm text-red-600">{error}</p>
         ) : null}
       </div>
     </div>

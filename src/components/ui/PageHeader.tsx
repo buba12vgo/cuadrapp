@@ -25,7 +25,9 @@ export function ToolbarSection({
   return (
     <div className="flex items-center gap-1.5">
       {label ? (
-        <span className="text-sm font-semibold text-slate-500">{label}</span>
+        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          {label}
+        </span>
       ) : null}
       {children}
     </div>
@@ -39,19 +41,19 @@ export function ToolbarDivider() {
 export function PageHeader({ title, subtitle, status, actions, toolbar }: Props) {
   return (
     <header className={PAGE_HEADER}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <h1 className={PAGE_TITLE}>{title}</h1>
-          {subtitle ? <p className={PAGE_SUBTITLE}>{subtitle}</p> : null}
+          {subtitle ? <p className={`${PAGE_SUBTITLE} mt-0.5`}>{subtitle}</p> : null}
         </div>
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
           {status}
           {actions}
         </div>
       </div>
       {toolbar ? (
         <div className={PAGE_TOOLBAR}>
-          <div className="flex min-w-max flex-wrap items-center gap-1.5">
+          <div className="flex min-w-max flex-wrap items-center gap-2">
             {toolbar}
           </div>
         </div>

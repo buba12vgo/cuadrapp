@@ -79,9 +79,9 @@ const ANCHO_TOTAL = 28
 const ANCHO_PATRON = 44
 
 const CELDA =
-  'h-7 border border-slate-400 px-1 py-0 text-sm leading-none'
+  'h-7 border border-line px-1 py-0 text-sm leading-none'
 const CELDA_PIE =
-  'h-8 border border-slate-400 px-0.5 py-0 text-sm leading-none'
+  'h-8 border border-line px-0.5 py-0 text-sm leading-none'
 const CAMPO_PCT =
   'h-8 w-11 rounded-md border border-slate-200 bg-white px-1 text-center text-sm text-slate-900 outline-none focus:border-slate-400'
 

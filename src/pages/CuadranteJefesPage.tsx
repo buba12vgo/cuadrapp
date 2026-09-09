@@ -24,13 +24,15 @@ import {
   abreviaturaPuesto,
   asignarPuestoEnCelda,
   asignarPuestoMesAgente,
-  esTurnoOperativo,
+  esTurnoAsignable,
+  etiquetaTurno,
   fechasOperativasAgenteMes,
   leerPuestoArrastrado,
   permitirSoltarPuesto,
   puestosPermitidosParaAgente,
+  turnoCoincideFiltro,
 } from '@/lib/asignacionPuestos'
-import type { AsignacionesDiarias, PuestoBase, TurnoOperativo } from '@/lib/calendarioPuestos'
+import type { AsignacionesDiarias, PuestoBase, TurnoAsignable } from '@/lib/calendarioPuestos'
 import {
   cuadranteDesdeFirestore,
   cuadranteParaFirestore,
@@ -64,7 +66,7 @@ const MESES = [
 const DIA_SEMANA = ['D', 'L', 'M', 'X', 'J', 'V', 'S'] as const
 const ANIO_ACTUAL = 2026
 const ANCHO_DIA = 36
-const ANCHO_AGENTE = 40
+const ANCHO_AGENTE = 46
 
 const CELDA =
   'h-[22px] max-h-[22px] overflow-hidden border border-line px-0 py-0 text-[10px] leading-none'
@@ -75,13 +77,15 @@ const CLASE_TURNO: Record<Turno, string> = {
   M: CLASE_TURNO_CELDA.M,
   T: CLASE_TURNO_CELDA.T,
   N: CLASE_TURNO_CELDA.N,
+  MT: CLASE_TURNO_CELDA.MT,
   L: 'bg-emerald-50 text-emerald-900',
   D: 'bg-white text-slate-500',
   V: CLASE_TURNO_CELDA.V,
 }
 
-/** Ciclo de turno manual: descanso → operativos → libranza → vacaciones. */
-const CICLO_TURNO: Turno[] = ['D', 'M', 'T', 'N', 'L', 'V']
+/** Laboral: D → M → T → N → L → V. Finde: incluye M-T (Mañana Tarde). */
+const CICLO_SEMANA: Turno[] = ['D', 'M', 'T', 'N', 'L', 'V']
+const CICLO_FINDE: Turno[] = ['D', 'M', 'T', 'N', 'MT', 'L', 'V']
 
 function pad(n: number) {
   return String(n).padStart(2, '0')
@@ -97,17 +101,19 @@ function leerFecha(valor: string) {
   return { anio, mes, dia }
 }
 
-function siguienteTurno(actual: Turno): Turno {
-  const indice = CICLO_TURNO.indexOf(actual)
-  if (indice < 0) return 'D'
-  return CICLO_TURNO[(indice + 1) % CICLO_TURNO.length]!
+function siguienteTurno(actual: Turno, finde: boolean): Turno {
+  const ciclo = finde ? CICLO_FINDE : CICLO_SEMANA
+  const indice = ciclo.indexOf(actual)
+  if (indice >= 0) return ciclo[(indice + 1) % ciclo.length]!
+  if (actual === 'MT') return 'L'
+  return 'D'
 }
 
 function quitarAsignacionCelda(
   asignaciones: AsignacionesDiarias,
   agenteId: string,
   fecha: string,
-  turno: TurnoOperativo,
+  turno: TurnoAsignable,
 ): AsignacionesDiarias {
   const porTurno = asignaciones[fecha]
   if (!porTurno?.[turno]?.[agenteId]) return asignaciones
@@ -158,7 +164,7 @@ export function CuadranteJefesPage() {
   const [popoverCelda, setPopoverCelda] = useState<{
     agenteId: string
     fecha: string
-    turno: TurnoOperativo
+    turno: TurnoAsignable
     rect: DOMRect
   } | null>(null)
 
@@ -310,7 +316,7 @@ export function CuadranteJefesPage() {
     const filaActual =
       cuadrante[agenteId] ?? Array.from({ length: nDias }, () => 'D' as Turno)
     const anterior = filaActual[indice] ?? 'D'
-    const siguiente = siguienteTurno(anterior)
+    const siguiente = siguienteTurno(anterior, esFinDeSemana(anio, mes, dia))
     const fecha = isoFecha(anio, mes, dia)
 
     setCuadrante((actual) => {
@@ -318,7 +324,7 @@ export function CuadranteJefesPage() {
       fila[indice] = siguiente
       return { ...actual, [agenteId]: fila }
     })
-    if (esTurnoOperativo(anterior)) {
+    if (esTurnoAsignable(anterior)) {
       setAsignacionesDiarias((actual) =>
         quitarAsignacionCelda(actual, agenteId, fecha, anterior),
       )
@@ -329,7 +335,7 @@ export function CuadranteJefesPage() {
   function aplicarAsignacionCelda(
     agenteId: string,
     fecha: string,
-    turno: TurnoOperativo,
+    turno: TurnoAsignable,
     puesto: PuestoBase,
   ) {
     const agente = agentesPorId.get(agenteId)
@@ -354,13 +360,13 @@ export function CuadranteJefesPage() {
     event: React.DragEvent,
     agenteId: string,
     fecha: string,
-    turno: TurnoOperativo,
+    turno: TurnoAsignable,
   ) {
     event.preventDefault()
     event.stopPropagation()
     const puesto = leerPuestoArrastrado(event.dataTransfer, puestosJefes)
     if (!puesto) return
-    if (filtroTurno !== 'TODOS' && turno !== filtroTurno) return
+    if (!turnoCoincideFiltro(turno, filtroTurno)) return
     aplicarAsignacionCelda(agenteId, fecha, turno, puesto)
   }
 
@@ -375,14 +381,14 @@ export function CuadranteJefesPage() {
       nDias,
       isoFecha,
     )
-      .filter(({ turno }) => filtroTurno === 'TODOS' || turno === filtroTurno)
+      .filter(({ turno }) => turnoCoincideFiltro(turno, filtroTurno))
       .map(({ fecha, turno }) => ({ fecha, turno }))
     if (fechasTurno.length === 0) {
       void alert(
         filtroTurno === 'TODOS'
-          ? 'Este jefe no tiene días operativos (M/T/N) este mes.'
-          : `Este jefe no tiene días de ${filtroTurno} este mes.`,
-        'Sin días operativos',
+          ? 'Este jefe no tiene días con turno este mes.'
+          : `Este jefe no tiene días de ${etiquetaTurno(filtroTurno)} este mes.`,
+        'Sin días con turno',
       )
       return
     }
@@ -416,7 +422,7 @@ export function CuadranteJefesPage() {
     fecha: string,
   ) {
     event.stopPropagation()
-    const operativo = esTurnoOperativo(turno)
+    const operativo = esTurnoAsignable(turno)
 
     if (puestoSeleccionado && operativo) {
       aplicarAsignacionCelda(agenteId, fecha, turno, puestoSeleccionado)
@@ -496,7 +502,7 @@ export function CuadranteJefesPage() {
     <section className={PAGE_SECTION}>
       <PageHeader
         title="Cuadrante jefes de servicio"
-        subtitle={`Jefes y responsables · mensual · clic cicla turno · Shift+clic o arrastre asigna puesto · arrastre a la placa = todos los días${loadingCuadrante ? ' · Cargando…' : ''}${mesGuardadoEnFirestore ? '' : ' · Sin guardar'}`}
+        subtitle={`Jefes y responsables · mensual · clic cicla turno · finde incluye M-T · Shift+clic o arrastre asigna puesto · arrastre a la placa = todos los días con turno${loadingCuadrante ? ' · Cargando…' : ''}${mesGuardadoEnFirestore ? '' : ' · Sin guardar'}`}
         status={
           <SaveStatus
             guardando={guardandoCuadrante}
@@ -605,7 +611,7 @@ export function CuadranteJefesPage() {
       {puestoSeleccionado ? (
         <p className={ALERT_INFO}>
           Puesto seleccionado: <strong>{puestoSeleccionado}</strong>. Pulsa una
-          celda con turno M/T/N para asignarlo (o cicla el turno con clic).
+          celda con turno (M/T/N/M-T) para asignarlo (o cicla el turno con clic).
         </p>
       ) : null}
 
@@ -682,7 +688,7 @@ export function CuadranteJefesPage() {
                         const fila = cuadrante[agente.id] ?? []
                         const turno = fila[dia - 1] ?? 'D'
                         const fecha = isoFecha(anio, mes, dia)
-                        const operativo = esTurnoOperativo(turno)
+                        const operativo = esTurnoAsignable(turno)
                         const abrevPuesto = operativo
                           ? abreviaturaPuesto(
                               asignacionesDiarias,
@@ -692,8 +698,7 @@ export function CuadranteJefesPage() {
                               puestos,
                             )
                           : null
-                        const atenuada =
-                          filtroTurno !== 'TODOS' && turno !== filtroTurno
+                        const atenuada = !turnoCoincideFiltro(turno, filtroTurno)
                         const fondoSuave =
                           especial && (turno === 'D' || turno === 'V')
                             ? '!bg-amber-50'
@@ -710,8 +715,8 @@ export function CuadranteJefesPage() {
                             }`}
                             title={
                               operativo
-                                ? `${agente.numeroPlaca} · día ${dia} · ${turno}${abrevPuesto ? ` · ${abrevPuesto}` : ''} · clic=ciclo · Shift+clic=puesto · arrastrar`
-                                : `${agente.numeroPlaca} · día ${dia} · ${turno} · clic cicla turno`
+                                ? `${agente.numeroPlaca} · día ${dia} · ${etiquetaTurno(turno)}${turno === 'MT' ? ' (Mañana Tarde)' : ''}${abrevPuesto ? ` · ${abrevPuesto}` : ''} · clic=ciclo · Shift+clic=puesto · arrastrar`
+                                : `${agente.numeroPlaca} · día ${dia} · ${etiquetaTurno(turno)} · clic cicla turno`
                             }
                             onDragOver={
                               operativo && !atenuada
@@ -759,8 +764,8 @@ export function CuadranteJefesPage() {
                           >
                             <span className="block truncate px-0.5 text-[10px] leading-none">
                               {abrevPuesto
-                                ? `${turno}·${abrevPuesto}`
-                                : turno}
+                                ? `${etiquetaTurno(turno)}·${abrevPuesto}`
+                                : etiquetaTurno(turno)}
                             </span>
                           </td>
                         )
@@ -778,14 +783,17 @@ export function CuadranteJefesPage() {
               Cómo usarlo
             </p>
             <ol className="list-decimal space-y-1 pl-4 text-xs leading-snug">
-              <li>Clic en celda: cicla D → M → T → N → L → V.</li>
-              <li>Con M/T/N, arrastra un puesto desde la bolsa.</li>
+              <li>
+                Clic en celda: cicla D → M → T → N → L → V. En fin de semana
+                también M-T (Mañana Tarde).
+              </li>
+              <li>Con turno (M/T/N/M-T), arrastra un puesto desde la bolsa.</li>
               <li>
                 Arrastra un puesto al número (placa) del jefe: lo pone en todos
-                sus días operativos del mes.
+                sus días con turno.
               </li>
               <li>O selecciona el puesto y pulsa la celda.</li>
-              <li>Shift+clic en celda operativa: menú de puestos.</li>
+              <li>Shift+clic en celda con turno: menú de puestos.</li>
             </ol>
             <p className="mt-2 text-xs text-slate-500">
               {jefes.length} agente{jefes.length === 1 ? '' : 's'} (jefes y

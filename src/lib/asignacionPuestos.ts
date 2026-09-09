@@ -9,6 +9,7 @@ import {
   type MinimosSemana,
   type PuestoBase,
   type PuestoConfig,
+  type TurnoAsignable,
   type TurnoOperativo,
 } from '@/lib/calendarioPuestos'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
@@ -23,11 +24,31 @@ export function esTurnoOperativo(
   return turno === 'M' || turno === 'T' || turno === 'N'
 }
 
+export function esTurnoAsignable(
+  turno: string | undefined,
+): turno is TurnoAsignable {
+  return esTurnoOperativo(turno) || turno === 'MT'
+}
+
+export function etiquetaTurno(turno: string): string {
+  return turno === 'MT' ? 'M-T' : turno
+}
+
+/** M-T (finde jefes) cuenta como mañana y como tarde. */
+export function turnoCoincideFiltro(
+  turno: string,
+  filtro: 'TODOS' | TurnoOperativo,
+) {
+  if (filtro === 'TODOS') return true
+  if (turno === 'MT') return filtro === 'M' || filtro === 'T'
+  return turno === filtro
+}
+
 export function abreviaturaPuesto(
   asignaciones: AsignacionesDiarias,
   fecha: string,
   agenteId: string,
-  turno: TurnoOperativo,
+  turno: TurnoAsignable,
   puestos: PuestoConfig[] = getPuestos(),
 ) {
   const puesto = asignaciones[fecha]?.[turno]?.[agenteId]
@@ -80,7 +101,7 @@ function clonarAsignaciones(actual: AsignacionesDiarias): AsignacionesDiarias {
   for (const [fecha, porTurno] of Object.entries(actual)) {
     copia[fecha] = {}
     for (const [turno, porAgente] of Object.entries(porTurno)) {
-      copia[fecha][turno as TurnoOperativo] = { ...porAgente }
+      copia[fecha][turno as TurnoAsignable] = { ...porAgente }
     }
   }
   return copia
@@ -188,7 +209,7 @@ export function asignarPuestoEnCelda(
   asignaciones: AsignacionesDiarias,
   agente: FichaPolicia,
   fecha: string,
-  turno: TurnoOperativo,
+  turno: TurnoAsignable,
   puesto: PuestoBase,
   puestos: PuestoConfig[] = getPuestos(),
 ): { ok: true; asignaciones: AsignacionesDiarias } | { ok: false; error: string } {
@@ -211,7 +232,7 @@ export function asignarPuestoMesAgente(
   asignaciones: AsignacionesDiarias,
   agente: FichaPolicia,
   puesto: PuestoBase,
-  fechasTurno: Array<{ fecha: string; turno: TurnoOperativo }>,
+  fechasTurno: Array<{ fecha: string; turno: TurnoAsignable }>,
   puestos: PuestoConfig[] = getPuestos(),
   minimosDeFecha?: (fecha: string) => MinimosDia,
 ): { ok: true; asignaciones: AsignacionesDiarias } | { ok: false; error: string } {
@@ -228,18 +249,19 @@ export function asignarPuestoMesAgente(
     if (!copia[fecha]) copia[fecha] = {}
     if (!copia[fecha][turno]) copia[fecha][turno] = {}
 
-    const minimos = minimosDeFecha?.(fecha)
-    const elegido = minimos
-      ? elegirPuestoParaDia({
-          preferido: puesto,
-          agente,
-          asignaciones: copia,
-          fecha,
-          turno,
-          minimos,
-          puestos,
-        })
-      : puesto
+    const minimos = turno === 'MT' ? undefined : minimosDeFecha?.(fecha)
+    const elegido =
+      minimos && turno !== 'MT'
+        ? elegirPuestoParaDia({
+            preferido: puesto,
+            agente,
+            asignaciones: copia,
+            fecha,
+            turno,
+            minimos,
+            puestos,
+          })
+        : puesto
 
     copia[fecha][turno] = {
       ...copia[fecha][turno],
@@ -257,12 +279,12 @@ export function fechasOperativasAgenteMes(
   nDias: number,
   isoFecha: (anio: number, mes: number, dia: number) => string,
 ) {
-  const fechas: Array<{ fecha: string; turno: TurnoOperativo; dia: number }> =
+  const fechas: Array<{ fecha: string; turno: TurnoAsignable; dia: number }> =
     []
   const fila = cuadrante[agenteId] ?? []
   for (let dia = 1; dia <= nDias; dia++) {
     const turno = fila[dia - 1]
-    if (!esTurnoOperativo(turno)) continue
+    if (!esTurnoAsignable(turno)) continue
     fechas.push({ fecha: isoFecha(anio, mes, dia), turno, dia })
   }
   return fechas

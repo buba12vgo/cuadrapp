@@ -80,11 +80,12 @@ export const BADGE_PENDING =
 export const BADGE_NEUTRAL =
   'rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600'
 
-/** Celdas M/T/N/V — badges pastel estilo dashboard SaaS. */
-export const CLASE_TURNO_CELDA: Record<'M' | 'T' | 'N' | 'V', string> = {
+/** Celdas M/T/N/MT/V — badges pastel estilo dashboard SaaS. */
+export const CLASE_TURNO_CELDA: Record<'M' | 'T' | 'N' | 'MT' | 'V', string> = {
   M: 'rounded-md bg-blue-100 font-semibold text-blue-700',
   T: 'rounded-md bg-orange-100 font-semibold text-orange-700',
   N: 'rounded-md bg-violet-100 font-semibold text-violet-700',
+  MT: 'rounded-md bg-teal-100 font-semibold text-teal-800',
   V: 'rounded-md bg-emerald-100 font-semibold text-emerald-700',
 }
 

@@ -2,14 +2,14 @@ import {
   type AsignacionesDiarias,
   type PuestoBase,
   type PuestoConfig,
-  type TurnoOperativo,
+  type TurnoAsignable,
   abreviaturaDesdePuestos,
 } from '@/lib/calendarioPuestos'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
 import { getPuestos } from '@/lib/puestosStore'
 import type { FichaPolicia, Turno } from '@/types'
 
-const TURNOS: Turno[] = ['M', 'T', 'N', 'L', 'D', 'V']
+const TURNOS: Turno[] = ['M', 'T', 'N', 'MT', 'L', 'D', 'V']
 
 export type CeldaCuadranteFirestore = {
   t: Turno
@@ -35,8 +35,8 @@ function esTurno(valor: unknown): valor is Turno {
   return typeof valor === 'string' && TURNOS.includes(valor as Turno)
 }
 
-function esTurnoOperativo(turno: Turno): turno is TurnoOperativo {
-  return turno === 'M' || turno === 'T' || turno === 'N'
+function esTurnoAsignable(turno: Turno): turno is TurnoAsignable {
+  return turno === 'M' || turno === 'T' || turno === 'N' || turno === 'MT'
 }
 
 function isoFecha(anio: number, mes: number, dia: number) {
@@ -86,7 +86,7 @@ export function cuadranteParaFirestore(
     for (let dia = 1; dia <= nDias; dia++) {
       const turno = fila[dia - 1] ?? 'D'
       const celda: CeldaCuadranteFirestore = { t: turno }
-      if (esTurnoOperativo(turno)) {
+      if (esTurnoAsignable(turno)) {
         const fecha = isoFecha(anio, mes, dia)
         const puesto = asignaciones[fecha]?.[turno]?.[agente.id]
         if (puesto) celda.p = abreviaturaDesdePuestos(puestos, puesto)
@@ -134,7 +134,7 @@ export function cuadranteDesdeFirestore(
         typeof raw.p === 'string' ? raw.p : undefined,
         puestos,
       )
-      if (puesto && esTurnoOperativo(turno)) {
+      if (puesto && esTurnoAsignable(turno)) {
         const fecha = isoFecha(anio, mes, dia)
         if (!asignaciones[fecha]) asignaciones[fecha] = {}
         if (!asignaciones[fecha][turno]) asignaciones[fecha][turno] = {}

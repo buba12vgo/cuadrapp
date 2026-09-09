@@ -1,6 +1,8 @@
 import type { EventoOperativo } from '@/types'
 
 export type TurnoOperativo = 'M' | 'T' | 'N'
+/** Turnos que admiten puesto: operativos + M-T (jefes, finde). */
+export type TurnoAsignable = TurnoOperativo | 'MT'
 export type MinimosPuesto = { M: number; T: number; N: number }
 /** Nombre del puesto (clave usada en asignaciones y eventos). */
 export type PuestoBase = string
@@ -103,7 +105,7 @@ export const CODIGO_PUESTO = CODIGO_PUESTO_INICIAL
 /** Asignaciones: fecha ISO → turno → agenteId → puesto (nombre). */
 export type AsignacionesDiarias = Record<
   string,
-  Partial<Record<TurnoOperativo, Record<string, PuestoBase>>>
+  Partial<Record<TurnoAsignable, Record<string, PuestoBase>>>
 >
 
 export type TipoDiaEditor = 'NORMAL' | 'FESTIVO' | 'CRUCERO' | 'CONCIERTO'

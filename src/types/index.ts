@@ -5,7 +5,8 @@ export type RolPolicia =
   | 'POLICIA'
   | 'POLICIA_BOLSA'
 
-export type Turno = 'M' | 'T' | 'N' | 'L' | 'D' | 'V'
+/** `MT` = Mañana+Tarde, solo fines de semana en cuadrante de jefes. */
+export type Turno = 'M' | 'T' | 'N' | 'MT' | 'L' | 'D' | 'V'
 
 export type TipoEvento =
   | 'FESTIVO'

@@ -129,6 +129,7 @@ const CLASE_TURNO: Record<Turno, string> = {
   M: CLASE_TURNO_CELDA.M,
   T: CLASE_TURNO_CELDA.T,
   N: CLASE_TURNO_CELDA.N,
+  MT: CLASE_TURNO_CELDA.MT,
   L: 'bg-emerald-50 text-emerald-900',
   D: 'bg-white text-slate-500',
   V: CLASE_TURNO_CELDA.V,

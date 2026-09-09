@@ -14,7 +14,6 @@ import {
   BTN_DANGER,
   BTN_PRIMARY,
   BTN_SECONDARY,
-  CLASE_TURNO_CELDA,
   MARCA_PLAN_CABECERA,
   MARCA_PLAN_FILA,
   PAGE_SECTION,
@@ -75,13 +74,13 @@ const TOTALES = ['M', 'T', 'N', 'V'] as const
 const ANCHO_AGENTE = 110
 const ANCHO_MES = 30
 const ANCHO_TOTAL = 22
-const ANCHO_PATRON = 32
+const ANCHO_PATRON = 52
 
-/** Densidad alta: más filas visibles sin perder legibilidad. */
+/** Filas de altura fija: Pat no puede empujar la fila. */
 const CELDA =
-  'h-[18px] max-h-[18px] overflow-hidden border border-line px-0.5 py-0 text-[10px] leading-none'
+  'box-border h-[20px] max-h-[20px] overflow-hidden border border-slate-300 px-0.5 py-0 text-[10px] leading-none'
 const CELDA_PIE =
-  'h-[18px] max-h-[18px] overflow-hidden border border-line px-0.5 py-0 text-[10px] leading-none'
+  'box-border h-[20px] max-h-[20px] overflow-hidden border border-slate-300 px-0.5 py-0 text-[10px] leading-none'
 const CAMPO_PCT =
   'h-7 w-10 rounded-md border border-line bg-white px-1 text-center text-xs tabular-nums text-ink outline-none focus:border-brand-400'
 const CAMPO_TOOLBAR =
@@ -92,7 +91,23 @@ const GRUPOS_PLAN: Array<{ valor: GrupoPlanAnual; label: string }> = [
   { valor: 'JEFE_SERVICIO', label: 'Jefes de Servicio' },
 ]
 
-const CLASE_TURNO: Record<TurnoAnual, string> = CLASE_TURNO_CELDA
+const CLASE_TURNO: Record<TurnoAnual, string> = {
+  M: 'bg-blue-100 font-semibold text-blue-700',
+  T: 'bg-orange-100 font-semibold text-orange-700',
+  N: 'bg-violet-100 font-semibold text-violet-700',
+  V: 'bg-emerald-100 font-semibold text-emerald-700',
+}
+
+function etiquetaPatCelda(
+  sinPref: boolean,
+  patronAsignado: string | null,
+  etiquetaFallback: string,
+) {
+  if (sinPref && patronAsignado) return `Flex ${patronAsignado}`
+  if (sinPref) return 'Flex'
+  if (patronAsignado) return patronAsignado
+  return etiquetaFallback
+}
 
 function totalesFila(turnos: CeldaPlanAnual[]) {
   const totales = { M: 0, T: 0, N: 0, V: 0 }
@@ -491,9 +506,9 @@ export function PlanAnualPage() {
       <DashboardBody>
         <DashboardMain>
           <DashboardMainScroll>
-        <table className="w-max min-w-full table-fixed border-separate border-spacing-0 text-[11px] leading-none">
+        <table className="w-max min-w-full table-fixed border-separate border-spacing-0 text-[10px] leading-none">
           <thead>
-            <tr>
+            <tr className="h-[20px]">
               <th
                 className={`${CELDA} sticky top-0 left-0 z-40 bg-white text-left font-bold`}
                 style={{ width: ANCHO_AGENTE, minWidth: ANCHO_AGENTE }}
@@ -553,7 +568,7 @@ export function PlanAnualPage() {
                 sinLimitaciones && patronAsignado != null
 
               return (
-                <tr key={agente.id}>
+                <tr key={agente.id} className="h-[20px]">
                   <td
                     className={`${CELDA} sticky left-0 z-10 ${
                       fichaMarcada
@@ -605,13 +620,13 @@ export function PlanAnualPage() {
                         key={MESES[mes]}
                         role="button"
                         tabIndex={0}
-                        className={`${CELDA} cursor-pointer select-none text-center font-bold hover:z-10 hover:ring-2 hover:ring-blue-500 ${
+                        className={`${CELDA} cursor-pointer select-none text-center font-bold hover:z-10 hover:ring-1 hover:ring-inset hover:ring-blue-500 ${
                           turno ? CLASE_TURNO[turno] : 'bg-white text-slate-400'
                         } ${
                           mesesMarcados.has(mes)
-                            ? 'outline outline-1 outline-amber-300'
+                            ? 'shadow-[inset_0_0_0_1px_rgb(252_211_77)]'
                             : ''
-                        } ${aviso ? 'ring-1 ring-inset ring-dashed ring-red-500' : ''}`}
+                        } ${aviso ? 'shadow-[inset_0_0_0_1px_rgb(239_68_68)]' : ''}`}
                         style={{ minWidth: ANCHO_MES }}
                         title={
                           turno
@@ -646,7 +661,7 @@ export function PlanAnualPage() {
                     </td>
                   ))}
                   <td
-                    className={`${CELDA} sticky z-10 border-l border-slate-300 text-center leading-tight ${
+                    className={`${CELDA} sticky z-10 border-l-2 border-l-slate-400 text-center ${
                       patronAsignado
                         ? 'bg-emerald-50 font-semibold text-emerald-800'
                         : sinPref
@@ -662,26 +677,13 @@ export function PlanAnualPage() {
                     style={stickyPatron()}
                     title={tituloPreferencia(agente, totales)}
                   >
-                    {sinPref ? (
-                      <span className="block text-[10px] leading-tight">
-                        {patronAsignado ? (
-                          <>
-                            <span className="text-violet-700">Flex</span>
-                            <span className="block text-green-800">
-                              {patronAsignado}
-                            </span>
-                          </>
-                        ) : (
-                          'Flex'
-                        )}
-                      </span>
-                    ) : patronAsignado ? (
-                      <span className="text-[10px]">{patronAsignado}</span>
-                    ) : (
-                      <span className="text-[10px]">
-                        {etiquetaPreferenciaEnPlan(agente)}
-                      </span>
-                    )}
+                    <span className="block truncate px-0.5 text-[10px] leading-none">
+                      {etiquetaPatCelda(
+                        sinPref,
+                        patronAsignado,
+                        etiquetaPreferenciaEnPlan(agente),
+                      )}
+                    </span>
                   </td>
                 </tr>
               )

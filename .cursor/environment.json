@@ -1,0 +1,17 @@
+{
+  "name": "Cuadrapp",
+  "install": "npm ci",
+  "terminals": [
+    {
+      "name": "vite-dev",
+      "command": "npm run dev -- --host 0.0.0.0 --port 5173",
+      "description": "Vite dev server (React + TS). Sin secretos de Firebase muestra login/config; para auditar la UI con datos mock sin Firebase usa 'npm run dev:preview'."
+    }
+  ],
+  "ports": [
+    {
+      "name": "vite",
+      "port": 5173
+    }
+  ]
+}

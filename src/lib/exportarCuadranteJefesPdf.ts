@@ -3,7 +3,11 @@ import {
   esTurnoAsignable,
   etiquetaTurno,
 } from '@/lib/asignacionPuestos'
-import type { AsignacionesDiarias, PuestoConfig } from '@/lib/calendarioPuestos'
+import {
+  puestosDeAmbito,
+  type AsignacionesDiarias,
+  type PuestoConfig,
+} from '@/lib/calendarioPuestos'
 import { esFinDeSemana } from '@/lib/convenio'
 import { esFestivo } from '@/lib/festivos'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
@@ -145,6 +149,22 @@ export function exportarCuadranteJefesPdf(
     })
     .join('')
 
+  const puestosLeyenda = puestosDeAmbito(puestos, 'JEFE_SERVICIO')
+  const nomenclatura =
+    puestosLeyenda.length === 0
+      ? '<p class="nomenclatura vacia">No hay puestos de jefes y responsables configurados.</p>'
+      : `<div class="nomenclatura">
+        <p class="nomenclatura-titulo">Puestos</p>
+        <ul>
+          ${puestosLeyenda
+            .map(
+              (puesto) =>
+                `<li><span class="abrev">${escapeHtml(puesto.abreviatura)}</span><span class="sep">·</span><span class="nom">${escapeHtml(puesto.nombre)}</span></li>`,
+            )
+            .join('')}
+        </ul>
+      </div>`
+
   const html = `<!doctype html>
 <html lang="es">
 <head>
@@ -183,6 +203,31 @@ export function exportarCuadranteJefesPdf(
     thead th .num { display: block; font-size: 8px; }
     thead th .dow { display: block; font-size: 7px; font-weight: 600; }
     .leyenda { margin-top: 8px; font-size: 9px; color: #475569; }
+    .nomenclatura { margin-top: 8px; }
+    .nomenclatura.vacia { font-size: 9px; color: #64748b; }
+    .nomenclatura-titulo {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #475569;
+      margin: 0 0 4px;
+    }
+    .nomenclatura ul {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 14px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .nomenclatura li { font-size: 9px; color: #0f172a; }
+    .nomenclatura .abrev {
+      font-family: ui-monospace, Menlo, monospace;
+      font-weight: 700;
+    }
+    .nomenclatura .sep { margin: 0 4px; color: #94a3b8; }
+    .nomenclatura .nom { font-weight: 500; }
     @media print {
       body { padding: 0; }
     }
@@ -201,6 +246,7 @@ export function exportarCuadranteJefesPdf(
     <tbody>${filas}</tbody>
   </table>
   <p class="leyenda">M mañana · T tarde · N noche · M-T mañana-tarde (finde) · L libranza · D descanso · V vacaciones</p>
+  ${nomenclatura}
 </body>
 </html>`
 

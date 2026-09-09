@@ -364,7 +364,7 @@ export function PlanAnualPage() {
             <label className="flex items-center gap-1">
               <span className="text-xs font-semibold text-slate-600">Año</span>
               <select
-                className={`${CAMPO_TOOLBAR} w-[4.75rem]`}
+                className={`${CAMPO_TOOLBAR} min-w-[5.25rem] pr-6`}
                 value={anio}
                 onChange={(event) =>
                   setAnio(Number(event.target.value) || anio)

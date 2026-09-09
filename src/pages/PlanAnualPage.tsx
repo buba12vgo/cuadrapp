@@ -14,7 +14,6 @@ import {
   BTN_DANGER,
   BTN_PRIMARY,
   BTN_SECONDARY,
-  CAMPO,
   CLASE_TURNO_CELDA,
   MARCA_PLAN_CABECERA,
   MARCA_PLAN_FILA,
@@ -73,17 +72,20 @@ const MESES = [
 ] as const
 
 const TOTALES = ['M', 'T', 'N', 'V'] as const
-const ANCHO_AGENTE = 148
-const ANCHO_MES = 48
-const ANCHO_TOTAL = 28
-const ANCHO_PATRON = 44
+const ANCHO_AGENTE = 110
+const ANCHO_MES = 30
+const ANCHO_TOTAL = 22
+const ANCHO_PATRON = 32
 
+/** Densidad alta: más filas visibles sin perder legibilidad. */
 const CELDA =
-  'h-7 border border-line px-1 py-0 text-sm leading-none'
+  'h-[18px] max-h-[18px] overflow-hidden border border-line px-0.5 py-0 text-[10px] leading-none'
 const CELDA_PIE =
-  'h-8 border border-line px-0.5 py-0 text-sm leading-none'
+  'h-[18px] max-h-[18px] overflow-hidden border border-line px-0.5 py-0 text-[10px] leading-none'
 const CAMPO_PCT =
-  'h-8 w-11 rounded-md border border-slate-200 bg-white px-1 text-center text-sm text-slate-900 outline-none focus:border-slate-400'
+  'h-7 w-10 rounded-md border border-line bg-white px-1 text-center text-xs tabular-nums text-ink outline-none focus:border-brand-400'
+const CAMPO_TOOLBAR =
+  'h-7 rounded-md border border-line bg-white px-1.5 text-xs text-ink outline-none focus:border-brand-400 focus-visible:ring-2 focus-visible:ring-brand-500/40'
 
 const GRUPOS_PLAN: Array<{ valor: GrupoPlanAnual; label: string }> = [
   { valor: 'OPERATIVO', label: 'Policías + jefes de equipo' },
@@ -360,9 +362,9 @@ export function PlanAnualPage() {
         toolbar={
           <>
             <label className="flex items-center gap-1">
-              <span className="text-sm font-semibold text-slate-600">Año</span>
+              <span className="text-xs font-semibold text-slate-600">Año</span>
               <select
-                className={CAMPO}
+                className={`${CAMPO_TOOLBAR} w-[4.75rem]`}
                 value={anio}
                 onChange={(event) =>
                   setAnio(Number(event.target.value) || anio)
@@ -374,9 +376,9 @@ export function PlanAnualPage() {
               </select>
             </label>
             <label className="flex items-center gap-1">
-              <span className="text-sm font-semibold text-slate-600">Vista</span>
+              <span className="text-xs font-semibold text-slate-600">Vista</span>
               <select
-                className={CAMPO}
+                className={CAMPO_TOOLBAR}
                 value={grupoVista}
                 onChange={(event) =>
                   setGrupoVista(event.target.value as GrupoPlanAnual)
@@ -389,12 +391,12 @@ export function PlanAnualPage() {
                 ))}
               </select>
             </label>
-            <span className="text-sm font-semibold text-slate-600">
+            <span className="text-xs font-semibold text-slate-600">
               Objetivo %
             </span>
             {(['M', 'T', 'N'] as const).map((turno) => (
               <label key={turno} className="flex items-center gap-0.5">
-                <span className="text-sm font-semibold text-slate-600">
+                <span className="text-xs font-semibold text-slate-600">
                   {turno}
                 </span>
                 <input
@@ -489,7 +491,7 @@ export function PlanAnualPage() {
       <DashboardBody>
         <DashboardMain>
           <DashboardMainScroll>
-        <table className="w-max min-w-full table-fixed border-separate border-spacing-0 text-sm leading-none">
+        <table className="w-max min-w-full table-fixed border-separate border-spacing-0 text-[11px] leading-none">
           <thead>
             <tr>
               <th
@@ -565,26 +567,24 @@ export function PlanAnualPage() {
                         : `Vacaciones ${anio}: ${ETIQUETA_MES_VACACIONES[mesVacacionesCiclo(agente, anio)]}${sinPref ? ' · Sin preferencia de turnos' : ''}`
                     }
                   >
-                    <div className="flex min-w-0 flex-col gap-0.5">
-                      <div className="flex min-w-0 items-center gap-1">
-                        {fichaMarcada ? (
-                          <span className="shrink-0 text-amber-700" aria-hidden>
-                            !
-                          </span>
-                        ) : null}
-                        <span className="shrink-0 font-mono font-semibold">
-                          {agente.numeroPlaca}
+                    <div className="flex min-w-0 items-center gap-1">
+                      {fichaMarcada ? (
+                        <span className="shrink-0 text-amber-700" aria-hidden>
+                          !
                         </span>
-                        <span className="truncate text-slate-700">
-                          {agente.nombre} {agente.apellidos}
-                        </span>
-                      </div>
+                      ) : null}
+                      <span className="shrink-0 font-mono font-semibold">
+                        {agente.numeroPlaca}
+                      </span>
+                      <span className="truncate text-slate-700">
+                        {agente.nombre} {agente.apellidos}
+                      </span>
                       {sinPref ? (
                         <span
-                          className="truncate text-sm font-semibold text-violet-700"
+                          className="shrink-0 rounded bg-violet-100 px-1 text-[9px] font-bold text-violet-700"
                           title="Sin preferencia: se asigna 4-4-3, 4-3-4 o 5-3-3"
                         >
-                          Flex · sin preferencia
+                          Flex
                         </span>
                       ) : null}
                     </div>
@@ -663,7 +663,7 @@ export function PlanAnualPage() {
                     title={tituloPreferencia(agente, totales)}
                   >
                     {sinPref ? (
-                      <span className="block text-sm">
+                      <span className="block text-[10px] leading-tight">
                         {patronAsignado ? (
                           <>
                             <span className="text-violet-700">Flex</span>
@@ -676,9 +676,9 @@ export function PlanAnualPage() {
                         )}
                       </span>
                     ) : patronAsignado ? (
-                      <span className="text-sm">{patronAsignado}</span>
+                      <span className="text-[10px]">{patronAsignado}</span>
                     ) : (
-                      <span className="text-sm">
+                      <span className="text-[10px]">
                         {etiquetaPreferenciaEnPlan(agente)}
                       </span>
                     )}

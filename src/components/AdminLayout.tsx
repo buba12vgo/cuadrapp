@@ -123,11 +123,11 @@ export function AdminLayout() {
           ) : null}
         </header>
 
-        <main className="flex min-h-0 flex-1 flex-col overflow-hidden p-3 sm:p-4">
+        <main className="flex min-h-0 flex-1 flex-col overflow-hidden p-2 sm:p-2.5">
           <Outlet />
         </main>
 
-        <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-line bg-surface px-4 py-1.5 text-[11px] text-muted">
+        <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-line bg-surface px-3 py-1 text-[10px] text-muted">
           <span className="flex items-center gap-1.5">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
             Motor de planificación activo

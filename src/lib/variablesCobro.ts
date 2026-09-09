@@ -50,6 +50,22 @@ export const ETIQUETA_VARIABLE_COBRO: Record<TipoVariableCobro, string> = {
   festivo: 'Festivo',
 }
 
+/** Etiquetas cortas para widgets y cabeceras densas. */
+export const ETIQUETA_CORTA_VARIABLE_COBRO: Record<TipoVariableCobro, string> = {
+  conciliacion_viernes_noche: 'Conciliación VN',
+  conciliacion_sabado_manana: 'Conciliación SM',
+  conciliacion_sabado_tarde: 'Conciliación ST',
+  festivo: 'Festivo',
+}
+
+/** Abreviatura de columna (tabla). */
+export const ABREV_VARIABLE_COBRO: Record<TipoVariableCobro, string> = {
+  conciliacion_viernes_noche: 'VN',
+  conciliacion_sabado_manana: 'SM',
+  conciliacion_sabado_tarde: 'ST',
+  festivo: 'Fest.',
+}
+
 export type ConteoVariablesCobro = Record<TipoVariableCobro, number>
 
 export function conteoVariablesCobroVacio(): ConteoVariablesCobro {

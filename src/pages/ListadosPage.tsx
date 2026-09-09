@@ -5,13 +5,13 @@ import {
   DashboardMain,
   DashboardMainScroll,
 } from '@/components/ui/DashboardLayout'
-import { PageHeader } from '@/components/ui/PageHeader'
+import { PageHeader, ToolbarDivider, ToolbarSection } from '@/components/ui/PageHeader'
 import {
   ALERT_ERROR,
   ALERT_INFO,
   ALERT_WARN,
   BTN_SECONDARY,
-  CAMPO,
+  FOCUS_RING,
   PAGE_SECTION,
   TABLE,
   TD,
@@ -27,6 +27,7 @@ import { useEventosData } from '@/lib/eventosStore'
 import { ensureFirebase } from '@/lib/firebase'
 import { isDesignPreview } from '@/lib/designPreview'
 import {
+  ABREV_VARIABLE_COBRO,
   contarVariablesCobroAgente,
   conteoVariablesCobroVacio,
   ETIQUETA_VARIABLE_COBRO,
@@ -66,7 +67,8 @@ const ROL_LABEL: Record<RolPolicia, string> = {
   POLICIA_BOLSA: 'Policía Bolsa',
 }
 
-const CELDA = `${TD} border-slate-200 text-center tabular-nums leading-tight`
+const CAMPO_TOOLBAR =
+  'h-7 rounded-md border border-line bg-white px-1.5 text-xs text-ink outline-none focus:border-brand-400 focus-visible:ring-2 focus-visible:ring-brand-500/40'
 
 export function ListadosPage() {
   const [agentesData] = useAgentesData()
@@ -172,6 +174,7 @@ export function ListadosPage() {
   }, [agentesVisibles, conteos])
 
   const hayCuadrante = Object.keys(cuadrante).length > 0
+  const granTotal = Object.values(totalesColumna).reduce((s, n) => s + n, 0)
 
   return (
     <section className={PAGE_SECTION}>
@@ -179,61 +182,74 @@ export function ListadosPage() {
         title="Listados · variables de cobro"
         subtitle="Conciliaciones de finde y festivos por policía (mes vencido)"
         actions={
+          <button
+            type="button"
+            className={BTN_SECONDARY}
+            disabled={!hayCuadrante || agentesVisibles.length === 0}
+            onClick={() =>
+              exportarVariablesCobroExcel({
+                anio,
+                mes,
+                agentes: agentesVisibles,
+                conteos,
+              })
+            }
+          >
+            Exportar Excel
+          </button>
+        }
+        toolbar={
           <>
-            <label className="flex items-center gap-1">
-              <span className="text-sm font-semibold text-slate-600">Año</span>
-              <select
-                className={CAMPO}
-                value={anio}
-                onChange={(e) => setAnio(Number(e.target.value) || anio)}
-              >
-                {Array.from({ length: 11 }, (_, i) => 2020 + i).map((valor) => (
-                  <option key={valor} value={valor}>{valor}</option>
-                ))}
-              </select>
-            </label>
-            <label className="flex items-center gap-1">
-              <span className="text-sm font-semibold text-slate-600">Mes</span>
-              <select
-                className={CAMPO}
-                value={mes}
-                onChange={(e) => setMes(Number(e.target.value) || mes)}
-              >
-                {MESES.map((nombre, indice) => (
-                  <option key={nombre} value={indice + 1}>{nombre}</option>
-                ))}
-              </select>
-            </label>
-            <label className="flex items-center gap-1">
-              <span className="text-sm font-semibold text-slate-600">Rol</span>
-              <select
-                className={CAMPO}
-                value={rolFiltro}
-                onChange={(e) =>
-                  setRolFiltro(e.target.value as 'TODOS' | RolPolicia)
-                }
-              >
-                <option value="TODOS">Todos</option>
-                {ROLES.map((rol) => (
-                  <option key={rol} value={rol}>{ROL_LABEL[rol]}</option>
-                ))}
-              </select>
-            </label>
-            <button
-              type="button"
-              className={BTN_SECONDARY}
-              disabled={!hayCuadrante || agentesVisibles.length === 0}
-              onClick={() =>
-                exportarVariablesCobroExcel({
-                  anio,
-                  mes,
-                  agentes: agentesVisibles,
-                  conteos,
-                })
-              }
-            >
-              Exportar Excel
-            </button>
+            <ToolbarSection label="Periodo">
+              <label className="flex items-center gap-1">
+                <span className="text-xs font-medium text-slate-600">Año</span>
+                <select
+                  className={`${CAMPO_TOOLBAR} min-w-[5.25rem] pr-6 ${FOCUS_RING}`}
+                  value={anio}
+                  onChange={(e) => setAnio(Number(e.target.value) || anio)}
+                >
+                  {Array.from({ length: 11 }, (_, i) => 2020 + i).map((valor) => (
+                    <option key={valor} value={valor}>
+                      {valor}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex items-center gap-1">
+                <span className="text-xs font-medium text-slate-600">Mes</span>
+                <select
+                  className={CAMPO_TOOLBAR}
+                  value={mes}
+                  onChange={(e) => setMes(Number(e.target.value) || mes)}
+                >
+                  {MESES.map((nombre, indice) => (
+                    <option key={nombre} value={indice + 1}>
+                      {nombre}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </ToolbarSection>
+            <ToolbarDivider />
+            <ToolbarSection label="Filtros">
+              <label className="flex items-center gap-1">
+                <span className="text-xs font-medium text-slate-600">Rol</span>
+                <select
+                  className={CAMPO_TOOLBAR}
+                  value={rolFiltro}
+                  onChange={(e) =>
+                    setRolFiltro(e.target.value as 'TODOS' | RolPolicia)
+                  }
+                >
+                  <option value="TODOS">Todos</option>
+                  {ROLES.map((rol) => (
+                    <option key={rol} value={rol}>
+                      {ROL_LABEL[rol]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </ToolbarSection>
           </>
         }
       />
@@ -256,66 +272,98 @@ export function ListadosPage() {
       <DashboardBody>
         <DashboardMain>
           <DashboardMainScroll className="p-1.5">
-            <table className={`${TABLE} w-max min-w-full`}>
-          <thead className="sticky top-0 z-10 bg-slate-50">
-            <tr>
-              <th className={`${TH} sticky left-0 z-20 bg-slate-50`}>Placa</th>
-              <th className={`${TH} min-w-[7rem]`}>Nombre</th>
-              {TIPOS_VARIABLE_COBRO.map((tipo) => (
-                <th
-                  key={tipo}
-                  className={`${TH} min-w-[3.5rem] text-center leading-tight`}
-                  title={ETIQUETA_VARIABLE_COBRO[tipo]}
-                >
-                  {ETIQUETA_VARIABLE_COBRO[tipo]}
-                </th>
-              ))}
-              <th className={`${TH} bg-slate-100 text-center`}>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {agentesVisibles.map((agente) => {
-              const conteo = conteos[agente.id]
-              const total = conteo ? totalVariablesCobro(conteo) : 0
-              return (
-                <tr key={agente.id} className="hover:bg-slate-50">
-                  <td className={`${CELDA} sticky left-0 z-10 bg-white font-mono font-semibold text-left`}>
-                    {agente.numeroPlaca}
-                  </td>
-                  <td className={`${CELDA} text-left`}>
-                    {agente.nombre} {agente.apellidos}
+            <table className={TABLE}>
+              <thead className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur-sm">
+                <tr>
+                  <th className={`${TH} sticky left-0 z-20 bg-slate-50/95`}>
+                    Placa
+                  </th>
+                  <th className={TH}>Nombre</th>
+                  {TIPOS_VARIABLE_COBRO.map((tipo) => (
+                    <th
+                      key={tipo}
+                      className={`${TH} text-center`}
+                      title={ETIQUETA_VARIABLE_COBRO[tipo]}
+                    >
+                      {ABREV_VARIABLE_COBRO[tipo]}
+                    </th>
+                  ))}
+                  <th className={`${TH} text-center`}>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {agentesVisibles.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={3 + TIPOS_VARIABLE_COBRO.length}
+                      className={`${TD} py-6 text-center text-slate-500`}
+                    >
+                      No hay agentes en la vista.
+                    </td>
+                  </tr>
+                ) : (
+                  agentesVisibles.map((agente) => {
+                    const conteo = conteos[agente.id]
+                    const total = conteo ? totalVariablesCobro(conteo) : 0
+                    return (
+                      <tr key={agente.id} className="hover:bg-slate-50/70">
+                        <td
+                          className={`${TD} sticky left-0 z-10 bg-white font-mono tabular-nums text-slate-600`}
+                        >
+                          {agente.numeroPlaca}
+                        </td>
+                        <td className={`${TD} font-medium text-ink`}>
+                          {agente.nombre} {agente.apellidos}
+                        </td>
+                        {TIPOS_VARIABLE_COBRO.map((tipo) => {
+                          const valor = conteo?.[tipo] ?? 0
+                          return (
+                            <td
+                              key={tipo}
+                              className={`${TD} text-center tabular-nums ${
+                                valor > 0
+                                  ? 'bg-emerald-50 font-semibold text-emerald-900'
+                                  : 'text-slate-500'
+                              }`}
+                            >
+                              {valor}
+                            </td>
+                          )
+                        })}
+                        <td
+                          className={`${TD} text-center font-bold tabular-nums text-ink`}
+                        >
+                          {total}
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+              <tfoot>
+                <tr className="bg-slate-50 font-bold">
+                  <td
+                    className={`${TD} sticky left-0 z-10 border-t border-line bg-slate-50 text-left`}
+                    colSpan={2}
+                  >
+                    TOTAL
                   </td>
                   {TIPOS_VARIABLE_COBRO.map((tipo) => (
                     <td
                       key={tipo}
-                      className={`${CELDA} ${
-                        conteo && conteo[tipo] > 0
-                          ? 'bg-emerald-50 font-semibold text-emerald-900'
-                          : ''
-                      }`}
+                      className={`${TD} border-t border-line text-center tabular-nums`}
                     >
-                      {conteo?.[tipo] ?? 0}
+                      {totalesColumna[tipo]}
                     </td>
                   ))}
-                  <td className={`${CELDA} bg-slate-50 font-bold`}>{total}</td>
+                  <td
+                    className={`${TD} border-t border-line text-center tabular-nums`}
+                  >
+                    {granTotal}
+                  </td>
                 </tr>
-              )
-            })}
-          </tbody>
-          <tfoot className="z-10 bg-slate-200 font-bold">
-            <tr>
-              <td className={`${CELDA} sticky left-0 z-20 bg-slate-200 text-left`} colSpan={2}>
-                TOTAL
-              </td>
-              {TIPOS_VARIABLE_COBRO.map((tipo) => (
-                <td key={tipo} className={CELDA}>{totalesColumna[tipo]}</td>
-              ))}
-              <td className={CELDA}>
-                {Object.values(totalesColumna).reduce((s, n) => s + n, 0)}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
+              </tfoot>
+            </table>
           </DashboardMainScroll>
         </DashboardMain>
         <ListadosResumenPanel

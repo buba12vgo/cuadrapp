@@ -12,17 +12,17 @@ export const TEXT_CAPTION = 'text-xs'
 /** Etiquetas de formulario y toolbar. */
 export const TEXT_LABEL = 'text-sm font-semibold text-slate-500'
 
-export const PAGE_SECTION = 'flex h-full min-h-0 flex-col gap-3'
+export const PAGE_SECTION = 'flex h-full min-h-0 flex-col gap-2'
 
 export const PAGE_HEADER =
-  'shrink-0 rounded-xl border border-line bg-surface px-4 py-3 shadow-card'
+  'shrink-0 rounded-lg border border-line bg-surface px-2.5 py-1.5 shadow-card'
 
-export const PAGE_TITLE = 'font-display text-xl font-bold tracking-tight text-ink'
+export const PAGE_TITLE = 'font-display text-base font-bold tracking-tight text-ink'
 
-export const PAGE_SUBTITLE = 'text-sm text-muted'
+export const PAGE_SUBTITLE = 'text-[11px] text-muted'
 
 export const PAGE_TOOLBAR =
-  'mt-3 flex min-w-0 flex-wrap items-center gap-2 overflow-x-auto overscroll-x-contain border-t border-line pt-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+  'mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5 overflow-x-auto overscroll-x-contain border-t border-line pt-1.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
 
 export const TOOLBAR_DIVIDER = 'mx-0.5 h-5 w-px shrink-0 bg-line'
 
@@ -104,4 +104,4 @@ export const SEMAFORO_NEUTRO = 'bg-slate-100 text-slate-500'
 
 /** Celda densa de cuadrante / plan anual. */
 export const CELDA_GRID =
-  'h-7 border border-line px-1 py-0 text-sm leading-none'
+  'h-[22px] border border-line px-0 py-0 text-[11px] leading-none'

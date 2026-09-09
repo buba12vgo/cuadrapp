@@ -14,7 +14,6 @@ import {
   BTN_PRIMARY,
   BTN_SECONDARY,
   BTN_SUCCESS,
-  CAMPO,
   CLASE_TURNO_CELDA,
   FOCUS_RING,
   PAGE_SECTION,
@@ -123,14 +122,17 @@ const ROL_LABEL: Record<RolPolicia, string> = {
 }
 
 const ANIO_ACTUAL = 2026
-const ANCHO_DIA = 40
-const ANCHO_TOT = 34
-const ANCHO_AGENTE = 44
+const ANCHO_DIA = 28
+const ANCHO_TOT = 24
+const ANCHO_AGENTE = 32
 
+/** Densidad alta: el mes completo debe caber en altura de viewport. */
 const CELDA =
-  'h-8 border border-line px-0.5 py-0 text-sm leading-none'
+  'h-[18px] max-h-[18px] overflow-hidden border border-line px-0 py-0 text-[10px] leading-none'
 const CELDA_PIE =
-  'h-9 border border-line border-t-2 border-t-slate-300 px-0 py-0 text-sm leading-tight'
+  'h-[18px] max-h-[18px] overflow-hidden border border-line border-t-2 border-t-slate-300 px-0 py-0 text-[9px] leading-none'
+const CAMPO_TOOLBAR =
+  'h-7 rounded-md border border-line bg-white px-1.5 text-xs text-ink outline-none focus:border-brand-400 focus-visible:ring-2 focus-visible:ring-brand-500/40'
 
 const CLASE_TURNO: Record<Turno, string> = {
   M: CLASE_TURNO_CELDA.M,
@@ -214,16 +216,14 @@ function CeldaSumatorioMinimo({
       style={style}
       title={`${real} en ${turno} · mínimo ${minimo}`}
     >
-      <div className="flex h-full flex-col leading-tight">
+      <div className="flex h-full items-center justify-center gap-px leading-none">
         <span
-          className={`flex flex-1 items-center justify-center text-sm font-bold ${
-            bajoMinimo ? 'text-red-900' : ''
-          }`}
+          className={`text-[10px] font-bold ${bajoMinimo ? 'text-red-900' : ''}`}
         >
           {real}
         </span>
         <span
-          className={`flex flex-1 items-center justify-center text-sm font-semibold ${
+          className={`text-[9px] font-semibold ${
             bajoMinimo ? 'text-red-800' : 'text-slate-500'
           }`}
         >
@@ -725,9 +725,9 @@ export function CuadranteMensualPage() {
           <>
             <ToolbarSection label="Periodo">
               <label className="flex items-center gap-1">
-                <span className="text-sm font-medium text-slate-600">Mes</span>
+                <span className="text-xs font-medium text-slate-600">Mes</span>
                 <select
-                  className={CAMPO}
+                  className={CAMPO_TOOLBAR}
                   value={mes}
                   onChange={(event) =>
                     aplicarMes(anio, Number(event.target.value))
@@ -739,23 +739,26 @@ export function CuadranteMensualPage() {
                 </select>
               </label>
               <label className="flex items-center gap-1">
-                <span className="text-sm font-medium text-slate-600">Año</span>
-                <input
-                  type="number"
-                  min={2020}
-                  max={2040}
-                  className={`${CAMPO} w-16`}
+                <span className="text-xs font-medium text-slate-600">Año</span>
+                <select
+                  className={`${CAMPO_TOOLBAR} min-w-[5.25rem] pr-6`}
                   value={anio}
                   onChange={(event) =>
                     aplicarMes(Number(event.target.value) || anio, mes)
                   }
-                />
+                >
+                  {Array.from({ length: 21 }, (_, i) => 2020 + i).map((valor) => (
+                    <option key={valor} value={valor}>
+                      {valor}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className="flex items-center gap-1">
-                <span className="text-sm font-medium text-slate-600">Desde</span>
+                <span className="text-xs font-medium text-slate-600">Desde</span>
                 <input
                   type="date"
-                  className={CAMPO}
+                  className={`${CAMPO_TOOLBAR} w-[8.5rem]`}
                   min={isoFecha(anio, mes, 1)}
                   max={isoFecha(anio, mes, nDias)}
                   value={isoFecha(anio, mes, Math.min(diaDesde, nDias))}
@@ -767,10 +770,10 @@ export function CuadranteMensualPage() {
                 />
               </label>
               <label className="flex items-center gap-1">
-                <span className="text-sm font-medium text-slate-600">Hasta</span>
+                <span className="text-xs font-medium text-slate-600">Hasta</span>
                 <input
                   type="date"
-                  className={CAMPO}
+                  className={`${CAMPO_TOOLBAR} w-[8.5rem]`}
                   min={isoFecha(anio, mes, 1)}
                   max={isoFecha(anio, mes, nDias)}
                   value={isoFecha(anio, mes, Math.min(diaHasta, nDias))}
@@ -785,9 +788,9 @@ export function CuadranteMensualPage() {
             <ToolbarDivider />
             <ToolbarSection label="Filtros">
               <label className="flex items-center gap-1">
-                <span className="text-sm font-medium text-slate-600">Rol</span>
+                <span className="text-xs font-medium text-slate-600">Rol</span>
                 <select
-                  className={CAMPO}
+                  className={CAMPO_TOOLBAR}
                   value={rolFiltro}
                   onChange={(event) =>
                     setRolFiltro(event.target.value as 'TODOS' | RolPolicia)
@@ -803,12 +806,12 @@ export function CuadranteMensualPage() {
                 className="flex items-center gap-0.5"
                 title="Filtra agentes por turno del plan anual"
               >
-                <span className="text-sm font-medium text-slate-600">Turno</span>
+                <span className="text-xs font-medium text-slate-600">Turno</span>
                 {TURNOS_VISTA.map((opcion) => (
                   <button
                     key={opcion.valor}
                     type="button"
-                    className={`h-8 min-w-8 rounded-lg px-1.5 text-sm font-bold ${FOCUS_RING} ${
+                    className={`h-7 min-w-7 rounded-md px-1.5 text-xs font-bold ${FOCUS_RING} ${
                       filtroVistaTurno === opcion.valor
                         ? opcion.valor === 'TODOS'
                           ? 'bg-brand-600 text-white'
@@ -903,7 +906,7 @@ export function CuadranteMensualPage() {
       <DashboardBody>
         <DashboardMain>
           <DashboardMainScroll>
-          <table className="w-max border-separate border-spacing-0 text-sm leading-none">
+          <table className="w-max border-separate border-spacing-0 text-[11px] leading-none">
           <thead>
             <tr>
               <th
@@ -934,10 +937,10 @@ export function CuadranteMensualPage() {
                     }}
                   >
                     <span className="block font-mono">{agente.numeroPlaca}</span>
-                    <span className="block truncate text-sm font-sans font-normal text-slate-600 sm:hidden">
+                    <span className="block truncate text-[10px] font-sans font-normal text-slate-600 sm:hidden">
                       {apellidoCorto(agente.apellidos)}
                     </span>
-                    <span className="pointer-events-none absolute top-full left-1/2 z-50 hidden -translate-x-1/2 whitespace-nowrap rounded border border-slate-200 bg-white px-2 py-1 text-sm font-sans font-medium text-slate-800 shadow-md group-hover:block">
+                    <span className="pointer-events-none absolute top-full left-1/2 z-50 hidden -translate-x-1/2 whitespace-nowrap rounded border border-slate-200 bg-white px-2 py-1 text-xs font-sans font-medium text-slate-800 shadow-md group-hover:block">
                       {nombre} · {turnoPlan ?? '—'}
                     </span>
                   </th>
@@ -1093,12 +1096,9 @@ export function CuadranteMensualPage() {
                             : undefined
                         }
                       >
-                        <span className="block text-sm leading-none">{turno}</span>
-                        {abrevPuesto ? (
-                          <span className="block text-sm font-bold leading-none text-gray-700">
-                            {abrevPuesto}
-                          </span>
-                        ) : null}
+                        <span className="block truncate px-0.5 text-[10px] leading-none">
+                          {abrevPuesto ? `${turno}·${abrevPuesto}` : turno}
+                        </span>
                       </td>
                     )
                   })}
@@ -1157,28 +1157,20 @@ export function CuadranteMensualPage() {
                     style={{ width: ANCHO_AGENTE, minWidth: ANCHO_AGENTE }}
                     title={`Trabajados ${trabajados} / ${objetivoFila} · Findes ${findesMes}/${OBJETIVO_FINDES_MES} (máx. ${MAX_FINDES_MES}, prohibido 0 y 1) · ${findesDias} días finde · Máx. seguidos ${findesConsec} · F=${sumatorioF} (${festivos} fest. + ${conciliaciones} conc.)`}
                   >
-                    <div className="flex h-full flex-col">
+                    <div
+                      className="flex h-full items-center justify-center gap-0.5 leading-none"
+                      title={`Trabajados ${trabajados} / ${objetivoFila} · Findes ${findesMes}/${OBJETIVO_FINDES_MES} · F=${sumatorioF}`}
+                    >
                       <span
-                        className={`flex flex-1 items-center justify-center ${claseIndicador(
-                          trabajados === objetivoFila,
-                        )}`}
+                        className={claseIndicador(trabajados === objetivoFila)}
                       >
                         {trabajados}d
                       </span>
-                      <span
-                        className={`flex flex-1 items-center justify-center text-sm leading-none ${claseFindesMes(
-                          findesMes,
-                        )}`}
-                      >
+                      <span className={claseFindesMes(findesMes)}>
                         {findesMes}nf
                       </span>
-                      <span
-                        className={`flex flex-1 items-center justify-center ${claseSumatorioF(
-                          sumatorioF,
-                          grupoF,
-                        )}`}
-                      >
-                        {sumatorioF}NF
+                      <span className={claseSumatorioF(sumatorioF, grupoF)}>
+                        {sumatorioF}F
                       </span>
                     </div>
                   </td>

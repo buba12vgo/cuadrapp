@@ -3,6 +3,7 @@ import {
   abreviaturaDesdePuestos,
   minimosParaFecha,
   puestoExcluidoParaAgente,
+  type AmbitoPuesto,
   type AsignacionesDiarias,
   type MinimosDia,
   type MinimosSemana,
@@ -37,8 +38,10 @@ export function abreviaturaPuesto(
 export function puestosPermitidosParaAgente(
   agente: FichaPolicia,
   puestos: PuestoConfig[] = getPuestos(),
+  ambito?: AmbitoPuesto,
 ) {
   return puestos
+    .filter((puesto) => (ambito ? puesto.ambito === ambito : true))
     .filter(
       (puesto) =>
         !puestoExcluidoParaAgente(

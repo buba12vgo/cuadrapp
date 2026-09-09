@@ -13,7 +13,10 @@ import {
 } from '@/lib/calendarioPuestos'
 
 function clonarPuesto(puesto: PuestoConfig): PuestoConfig {
-  return { ...puesto }
+  return {
+    ...puesto,
+    ambito: puesto.ambito === 'JEFE_SERVICIO' ? 'JEFE_SERVICIO' : 'OPERATIVO',
+  }
 }
 
 function clonarPuestos(puestos: PuestoConfig[]) {

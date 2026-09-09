@@ -12,6 +12,7 @@ import {
   PUESTOS_INICIALES,
   clonarMinimosPuesto,
   crearMinimosSemana,
+  normalizarAmbitoPuesto,
   type DiaSemana,
   type MinimosDia,
   type MinimosPuesto,
@@ -46,6 +47,7 @@ import type {
 
 const COLECCION_AGENTES = 'agentes'
 const COLECCION_CUADRANTES = 'cuadrantes'
+const COLECCION_CUADRANTES_JEFES = 'cuadrantesJefes'
 const COLECCION_EVENTOS = 'eventos'
 const COLECCION_PUESTOS = 'puestos'
 const COLECCION_CONFIG = 'config'
@@ -327,6 +329,40 @@ export async function saveCuadrante(
   )
 }
 
+export async function getCuadranteJefes(
+  mes: number,
+  anio: number,
+): Promise<CuadranteMensualFirestore | null> {
+  const firestore = await requireDb()
+  const docId = idDocumentoCuadrante(anio, mes)
+  const snapshot = await getDoc(
+    doc(firestore, COLECCION_CUADRANTES_JEFES, docId),
+  )
+  if (!snapshot.exists()) return null
+  return parseCuadranteFirestore(snapshot.data())
+}
+
+export async function saveCuadranteJefes(
+  mes: number,
+  anio: number,
+  datosCuadrante: CuadranteMensualFirestore,
+): Promise<void> {
+  const firestore = await requireDb()
+  const docId = idDocumentoCuadrante(anio, mes)
+  await conTiempoLimite(
+    setDoc(
+      doc(firestore, COLECCION_CUADRANTES_JEFES, docId),
+      {
+        ...datosCuadrante,
+        anio,
+        mes,
+        actualizadoEn: new Date().toISOString(),
+      },
+      { merge: true },
+    ),
+  )
+}
+
 function leerMinimosPuesto(valor: unknown): MinimosPuesto | null {
   if (!valor || typeof valor !== 'object') return null
   const raw = valor as Record<string, unknown>
@@ -443,7 +479,12 @@ function puestoDesdeFirestore(
       ? data.abreviatura.trim().toUpperCase()
       : ''
   if (!codigo || !nombre || !abreviatura) return null
-  return { codigo, nombre, abreviatura }
+  return {
+    codigo,
+    nombre,
+    abreviatura,
+    ambito: normalizarAmbitoPuesto(data.ambito),
+  }
 }
 
 function puestoParaFirestore(puesto: PuestoConfig): PuestoConfig {
@@ -453,7 +494,12 @@ function puestoParaFirestore(puesto: PuestoConfig): PuestoConfig {
   if (!codigo) throw new Error('El código del puesto es obligatorio')
   if (!nombre) throw new Error('El nombre del puesto es obligatorio')
   if (!abreviatura) throw new Error('La abreviatura del puesto es obligatoria')
-  return { codigo, nombre, abreviatura }
+  return {
+    codigo,
+    nombre,
+    abreviatura,
+    ambito: normalizarAmbitoPuesto(puesto.ambito),
+  }
 }
 
 export async function getPuestos(): Promise<PuestoConfig[]> {

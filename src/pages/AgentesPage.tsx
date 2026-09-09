@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AgentesResumenPanel } from '@/components/dashboard/AgentesResumenPanel'
 import {
   DashboardBody,
@@ -185,8 +185,15 @@ function FichaAgenteModal({
   onEliminar?: () => void | Promise<void>
   onCancelar: () => void
 }) {
-  const [puestos] = usePuestosData()
+  const [puestosTodos] = usePuestosData()
   const [form, setForm] = useState(() => formularioDesde(agente))
+  const puestos = useMemo(() => {
+    const ambito =
+      form.rolBase === 'JEFE_SERVICIO' || form.rolBase === 'RESPONSABLE'
+        ? 'JEFE_SERVICIO'
+        : 'OPERATIVO'
+    return puestosTodos.filter((puesto) => puesto.ambito === ambito)
+  }, [puestosTodos, form.rolBase])
 
   useEffect(() => {
     setForm(formularioDesde(agente))

@@ -314,7 +314,11 @@ function EditorDiaDrawer({
 export function CalendarioPage() {
   const { alert: showAlert } = useAppDialog()
   const [eventosData, setEventosData] = useEventosData()
-  const [puestos] = usePuestosData()
+  const [puestosTodos] = usePuestosData()
+  const puestos = useMemo(
+    () => puestosTodos.filter((puesto) => puesto.ambito === 'OPERATIVO'),
+    [puestosTodos],
+  )
   const [semana] = useMinimosSemanaData()
   const [anio, setAnio] = useState(ANIO_INICIAL)
   const [mes, setMes] = useState(8)

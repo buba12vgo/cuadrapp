@@ -3,6 +3,7 @@ import { AdminLayout } from '@/components/AdminLayout'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { AgentesPage } from '@/pages/AgentesPage'
 import { CalendarioPage } from '@/pages/CalendarioPage'
+import { CuadranteJefesPage } from '@/pages/CuadranteJefesPage'
 import { CuadranteMensualPage } from '@/pages/CuadranteMensualPage'
 import { MinimosPage } from '@/pages/MinimosPage'
 import { PlanAnualPage } from '@/pages/PlanAnualPage'
@@ -27,6 +28,7 @@ export default function App() {
             element={<Navigate to="/admin/plan-anual" replace />}
           />
           <Route path="/admin/cuadrante-mensual" element={<CuadranteMensualPage />} />
+          <Route path="/admin/cuadrante-jefes" element={<CuadranteJefesPage />} />
           <Route
             path="/admin/cuadrante"
             element={<Navigate to="/admin/cuadrante-mensual" replace />}

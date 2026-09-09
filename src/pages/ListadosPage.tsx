@@ -35,6 +35,11 @@ import {
   totalVariablesCobro,
 } from '@/lib/variablesCobro'
 import type { RolPolicia } from '@/types'
+import {
+  ROLES_OPERATIVO_CUADRANTE,
+  ROL_LABEL,
+  esRolOperativoCuadrante,
+} from '@/lib/rolesCuadrante'
 
 const MESES = [
   'Enero',
@@ -51,21 +56,7 @@ const MESES = [
   'Diciembre',
 ] as const
 
-const ROLES: RolPolicia[] = [
-  'RESPONSABLE',
-  'JEFE_SERVICIO',
-  'JEFE_EQUIPO',
-  'POLICIA',
-  'POLICIA_BOLSA',
-]
-
-const ROL_LABEL: Record<RolPolicia, string> = {
-  RESPONSABLE: 'Responsable',
-  JEFE_SERVICIO: 'Jefe de servicio',
-  JEFE_EQUIPO: 'Jefe de equipo',
-  POLICIA: 'Policía',
-  POLICIA_BOLSA: 'Policía Bolsa',
-}
+const ROLES = ROLES_OPERATIVO_CUADRANTE
 
 const CAMPO_TOOLBAR =
   'h-7 rounded-md border border-line bg-white px-1.5 text-xs text-ink outline-none focus:border-brand-400 focus-visible:ring-2 focus-visible:ring-brand-500/40'
@@ -85,6 +76,7 @@ export function ListadosPage() {
 
   const agentesVisibles = useMemo(() => {
     const lista = agentesData.filter((agente) => {
+      if (!esRolOperativoCuadrante(agente.rolBase)) return false
       if (rolFiltro !== 'TODOS' && agente.rolBase !== rolFiltro) return false
       return true
     })

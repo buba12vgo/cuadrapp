@@ -89,6 +89,11 @@ import {
 } from '@/lib/variablesCobro'
 import { maxFindesConsecutivosLaborados, findesLaboradosEnMes, MAX_FINDES_MES, OBJETIVO_FINDES_MES } from '@/lib/finesSemana'
 import type { RolPolicia, Turno } from '@/types'
+import {
+  ROLES_OPERATIVO_CUADRANTE,
+  ROL_LABEL,
+  agentesOperativosCuadrante,
+} from '@/lib/rolesCuadrante'
 
 const MESES = [
   'Enero',
@@ -106,21 +111,7 @@ const MESES = [
 ] as const
 
 const DIA_SEMANA = ['D', 'L', 'M', 'X', 'J', 'V', 'S'] as const
-const ROLES: RolPolicia[] = [
-  'RESPONSABLE',
-  'JEFE_SERVICIO',
-  'JEFE_EQUIPO',
-  'POLICIA',
-  'POLICIA_BOLSA',
-]
-const ROL_LABEL: Record<RolPolicia, string> = {
-  RESPONSABLE: 'Responsable',
-  JEFE_SERVICIO: 'Jefe de servicio',
-  JEFE_EQUIPO: 'Jefe de equipo',
-  POLICIA: 'Policía',
-  POLICIA_BOLSA: 'Policía Bolsa',
-}
-
+const ROLES = ROLES_OPERATIVO_CUADRANTE
 const ANIO_ACTUAL = 2026
 const ANCHO_DIA = 28
 const ANCHO_TOT = 24
@@ -299,13 +290,18 @@ export function CuadranteMensualPage() {
   const [filtroTurno, setFiltroTurno] =
     useState<FiltroTurnoBolsa>(filtroTurnoInicial)
 
-  const ids = useMemo(
-    () => agentesData.map((agente) => agente.id),
+  const agentesOperativos = useMemo(
+    () => agentesOperativosCuadrante(agentesData),
     [agentesData],
   )
+
+  const ids = useMemo(
+    () => agentesOperativos.map((agente) => agente.id),
+    [agentesOperativos],
+  )
   const agentesIdsKey = useMemo(
-    () => agentesData.map((agente) => agente.id).join('\0'),
-    [agentesData],
+    () => agentesOperativos.map((agente) => agente.id).join('\0'),
+    [agentesOperativos],
   )
 
   const nDias = diasDelMes(anio, mes)
@@ -324,14 +320,14 @@ export function CuadranteMensualPage() {
 
   const agentesVisibles = useMemo(
     () =>
-      agentesData.filter((agente) => {
+      agentesOperativos.filter((agente) => {
         if (rolFiltro !== 'TODOS' && agente.rolBase !== rolFiltro) return false
         if (filtroVistaTurno === 'TODOS') return true
         const turnoPlan = turnoPlanMes(agente, planAnual, mes)
         if (!turnoPlan) return false
         return turnoPlan === filtroVistaTurno
       }),
-    [agentesData, rolFiltro, filtroVistaTurno, planAnual, mes],
+    [agentesOperativos, rolFiltro, filtroVistaTurno, planAnual, mes],
   )
 
   const diasVisibles = useMemo(() => {
@@ -346,7 +342,7 @@ export function CuadranteMensualPage() {
 
   const sumatoriosFPorTurno = useMemo(() => {
     const mapa = new Map<string, number[]>()
-    for (const agente of agentesData) {
+    for (const agente of agentesOperativos) {
       const turno = turnoPlanMes(agente, planAnual, mes)
       const clave = turno ?? '—'
       const fila = cuadrante[agente.id] ?? []
@@ -356,7 +352,7 @@ export function CuadranteMensualPage() {
       mapa.set(clave, lista)
     }
     return mapa
-  }, [agentesData, planAnual, mes, cuadrante, anio, eventosData])
+  }, [agentesOperativos, planAnual, mes, cuadrante, anio, eventosData])
 
   useEffect(() => {
     let cancelado = false
@@ -420,10 +416,10 @@ export function CuadranteMensualPage() {
         ])
         if (cancelado || cargaId !== cargaCuadranteRef.current) return
 
-        if (datosPrev && agentesData.length > 0) {
+        if (datosPrev && agentesOperativos.length > 0) {
           const { cuadrante: prevCuad } = cuadranteDesdeFirestore(
             datosPrev,
-            agentesData,
+            agentesOperativos,
             prev.anio,
             prev.mes,
             nDiasPrev,
@@ -435,12 +431,12 @@ export function CuadranteMensualPage() {
           setColaMesAnterior({})
         }
 
-        if (datos && agentesData.length > 0) {
+        if (datos && agentesOperativos.length > 0) {
           setMesGuardadoEnFirestore(true)
           if (!cuadranteEditadoLocalRef.current) {
             const { cuadrante: cargado, asignaciones } = cuadranteDesdeFirestore(
               datos,
-              agentesData,
+              agentesOperativos,
               anio,
               mes,
               nDias,
@@ -448,10 +444,10 @@ export function CuadranteMensualPage() {
             setCuadrante(cargado)
             setAsignacionesDiarias(asignaciones)
           }
-        } else if (agentesData.length > 0) {
+        } else if (agentesOperativos.length > 0) {
           setMesGuardadoEnFirestore(false)
           if (!cuadranteEditadoLocalRef.current) {
-            setCuadrante(cuadranteVacio(agentesData, nDias))
+            setCuadrante(cuadranteVacio(agentesOperativos, nDias))
             setAsignacionesDiarias({})
           }
         }
@@ -475,7 +471,7 @@ export function CuadranteMensualPage() {
     return () => {
       cancelado = true
     }
-  }, [mes, anio, nDias, agentesIdsKey, agentesCargados, agentesData, ids])
+  }, [mes, anio, nDias, agentesIdsKey, agentesCargados, agentesOperativos, ids])
 
   function aplicarMes(siguienteAnio: number, siguienteMes: number) {
     const dias = diasDelMes(siguienteAnio, siguienteMes)
@@ -522,7 +518,7 @@ export function CuadranteMensualPage() {
         anio,
         mes,
         eventosData,
-        { minimosSemana, puestos },
+        { minimosSemana, puestos: puestosOperativos },
       )
 
       cuadranteEditadoLocalRef.current = true
@@ -557,7 +553,7 @@ export function CuadranteMensualPage() {
       )
       return
     }
-    if (agentesData.length === 0) {
+    if (agentesOperativos.length === 0) {
       await alert('No hay agentes cargados para guardar el cuadrante.', 'Sin agentes')
       return
     }
@@ -569,7 +565,7 @@ export function CuadranteMensualPage() {
       const payload = cuadranteParaFirestore(
         cuadrante,
         asignacionesDiarias,
-        agentesData,
+        agentesOperativos,
         anio,
         mes,
         nDias,
@@ -617,8 +613,13 @@ export function CuadranteMensualPage() {
   } | null>(null)
 
   const agentesPorId = useMemo(
-    () => new Map(agentesData.map((agente) => [agente.id, agente])),
-    [agentesData],
+    () => new Map(agentesOperativos.map((agente) => [agente.id, agente])),
+    [agentesOperativos],
+  )
+
+  const puestosOperativos = useMemo(
+    () => puestos.filter((puesto) => puesto.ambito === 'OPERATIVO'),
+    [puestos],
   )
 
   function avisarExclusion() {
@@ -676,8 +677,8 @@ export function CuadranteMensualPage() {
       agente,
       puesto,
       fechasTurno,
-      puestos,
-      crearMinimosDeFecha(eventosData, minimosSemana, puestos),
+      puestosOperativos,
+      crearMinimosDeFecha(eventosData, minimosSemana, puestosOperativos),
     )
     if (!resultado.ok) {
       avisarExclusion()
@@ -853,11 +854,11 @@ export function CuadranteMensualPage() {
                     TURNOS_VISTA.find((t) => t.valor === filtroVistaTurno)?.label ??
                     filtroVistaTurno,
                   agentes: agentesVisibles,
-                  agentesTotales: agentesData,
+                  agentesTotales: agentesOperativos,
                   cuadrante,
                   planAnual,
                   asignacionesDiarias,
-                  puestos,
+                  puestos: puestosOperativos,
                   diasVisibles,
                   eventos: eventosData,
                 })
@@ -967,7 +968,7 @@ export function CuadranteMensualPage() {
                 esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia)
               const fondoFila = especial ? 'bg-amber-50' : 'bg-white'
               const totales = { M: 0, T: 0, N: 0 }
-              for (const agente of agentesData) {
+              for (const agente of agentesOperativos) {
                 const turno = cuadrante[agente.id]?.[dia - 1]
                 if (turno === 'M' || turno === 'T' || turno === 'N') {
                   totales[turno] += 1
@@ -978,7 +979,7 @@ export function CuadranteMensualPage() {
                 fechaDia,
                 eventosData,
                 minimosSemana,
-                puestos,
+                puestosOperativos,
               )
 
               return (
@@ -1103,7 +1104,7 @@ export function CuadranteMensualPage() {
                     )
                   })}
                   {TURNOS_OP.map((turno, indice) => {
-                    const minimo = totalMinimosTurno(minimosDia, turno, puestos)
+                    const minimo = totalMinimosTurno(minimosDia, turno, puestosOperativos)
                     return (
                       <CeldaSumatorioMinimo
                         key={turno}
@@ -1201,6 +1202,7 @@ export function CuadranteMensualPage() {
           <BolsaPuestosPanel
             filtroTurno={filtroTurno}
             onFiltroTurno={setFiltroTurno}
+            ambito="OPERATIVO"
           />
         </DashboardSidebar>
       </DashboardBody>
@@ -1212,6 +1214,8 @@ export function CuadranteMensualPage() {
             agentesPorId.get(popoverCelda.agenteId)
               ? puestosPermitidosParaAgente(
                   agentesPorId.get(popoverCelda.agenteId)!,
+                  puestosOperativos,
+                  'OPERATIVO',
                 )
               : []
           }
@@ -1232,13 +1236,13 @@ export function CuadranteMensualPage() {
           key={fechaReparto}
           dia={diaReparto}
           fecha={fechaReparto}
-          agentes={agentesData}
+          agentes={agentesOperativos}
           cuadrante={cuadrante}
           minimos={minimosParaFecha(
             fechaReparto,
             eventosData,
             minimosSemana,
-            puestos,
+            puestosOperativos,
           )}
           asignacionesDia={asignacionesDiarias[fechaReparto] ?? {}}
           onGuardar={(asignaciones) =>

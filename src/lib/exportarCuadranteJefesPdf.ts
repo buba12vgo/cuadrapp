@@ -89,13 +89,14 @@ function textoCelda(
   puestos: PuestoConfig[],
   permisos: PermisoConfig[],
 ) {
-  if (!esTurnoAsignable(turno)) return etiquetaTurno(turno)
+  if (!esTurnoAsignable(turno)) return escapeHtml(etiquetaTurno(turno))
   if (esTurnoPermiso(turno)) {
     const nombre = asignaciones[fecha]?.[turno]?.[agenteId]
     const abrev = nombre
       ? abreviaturaDesdePermisos(permisos, nombre)
       : null
-    return abrev ? `P·${abrev}` : 'P'
+    if (!abrev) return escapeHtml('P')
+    return `<span class="turno">P</span><span class="abrev">${escapeHtml(abrev)}</span>`
   }
   const abrev = abreviaturaPuesto(
     asignaciones,
@@ -104,7 +105,8 @@ function textoCelda(
     turno,
     puestos,
   )
-  return abrev ? `${etiquetaTurno(turno)}·${abrev}` : etiquetaTurno(turno)
+  if (!abrev) return escapeHtml(etiquetaTurno(turno))
+  return `<span class="turno">${escapeHtml(etiquetaTurno(turno))}</span><span class="abrev">${escapeHtml(abrev)}</span>`
 }
 
 function contarAsignacionesPuesto(
@@ -201,7 +203,7 @@ export function exportarCuadranteJefesPdf(
             especial && (turno === 'D' || turno === 'V')
               ? '#fffbeb'
               : color.fondo
-          return `<td class="celda" style="background:${fondo};color:${color.texto};">${escapeHtml(texto)}</td>`
+          return `<td class="celda" style="background:${fondo};color:${color.texto};">${texto}</td>`
         })
         .join('')
       const total = totalDiasTrabajadosJefes(fila, diasVisibles)
@@ -387,9 +389,24 @@ export function exportarCuadranteJefesPdf(
     td.celda {
       font-size: 9.5px;
       font-weight: 800;
-      padding: 3px 0 !important;
+      padding: 2px 0 !important;
       white-space: nowrap;
       overflow: hidden;
+      line-height: 1.05;
+    }
+    td.celda .turno {
+      display: block;
+      font-size: 8.5px;
+      font-weight: 800;
+      line-height: 1.05;
+    }
+    td.celda .abrev {
+      display: block;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 8.5px;
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: -0.02em;
     }
 
     th.suma-h, td.suma {

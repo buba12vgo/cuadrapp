@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Briefcase,
-  CalendarDays,
   ChevronLeft,
   ChevronRight,
   FileDown,
@@ -11,24 +10,21 @@ import {
   Printer,
   Shield,
   Table2,
+  FileText,
 } from 'lucide-react'
 import {
   DashboardBody,
   DashboardMain,
-  DashboardMainScroll,
   DashboardSidebar,
 } from '@/components/ui/DashboardLayout'
-import { KpiBarRow, KpiSection } from '@/components/ui/DashboardKpi'
 import { useAppDialog } from '@/components/ui/ConfirmDialog'
 import { PageHeader, ToolbarDivider, ToolbarSection } from '@/components/ui/PageHeader'
 import {
   ALERT_ERROR,
   ALERT_INFO,
-  BLOQUE,
   BTN_GHOST,
   BTN_PRIMARY,
   BTN_SECONDARY,
-  CAMPO,
   FOCUS_RING,
   PAGE_SECTION,
   TITULO_BLOQUE,
@@ -111,6 +107,10 @@ const BARRA_TURNO: Record<'M' | 'T' | 'N' | 'MT' | 'finde', string> = {
 const TRAMA_DESCANSO =
   'bg-slate-50 bg-[radial-gradient(circle,_#cbd5e1_0.65px,_transparent_0.7px)] bg-[length:7px_7px]'
 
+/** Select compacto alineado con la toolbar (evita el look raro de CAMPO h-9). */
+const SELECT_TOOLBAR =
+  `h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-ink shadow-none ${FOCUS_RING} focus:border-brand-400`
+
 type FiltroLeyenda = Turno | 'TODOS'
 
 function pad(n: number) {
@@ -176,14 +176,14 @@ function PillTurno({
 }) {
   return (
     <span
-      className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-extrabold leading-none tracking-tight ${PILDORA_TURNO[turno]} ${className}`}
+      className={`inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-extrabold leading-none tracking-tight ${PILDORA_TURNO[turno]} ${className}`}
     >
       {etiquetaTurno(turno)}
     </span>
   )
 }
 
-function KpiBadge({
+function KpiChip({
   icon: Icon,
   label,
   value,
@@ -192,39 +192,54 @@ function KpiBadge({
   icon: typeof Briefcase
   label: string
   value: number | string
-  tone: 'sky' | 'violet' | 'amber' | 'rose' | 'slate'
+  tone: 'sky' | 'violet' | 'amber' | 'rose'
 }) {
   const tones = {
     sky: 'border-sky-200 bg-sky-50 text-sky-900',
     violet: 'border-violet-200 bg-violet-50 text-violet-900',
     amber: 'border-amber-200 bg-amber-50 text-amber-950',
     rose: 'border-rose-200 bg-rose-50 text-rose-900',
-    slate: 'border-slate-200 bg-white text-slate-800',
-  } as const
-  const iconTone = {
-    sky: 'text-sky-600',
-    violet: 'text-violet-600',
-    amber: 'text-amber-600',
-    rose: 'text-rose-600',
-    slate: 'text-slate-500',
   } as const
   return (
     <div
-      className={`flex min-w-[7.5rem] flex-1 items-center gap-2 rounded-xl border px-2.5 py-2 shadow-sm ${tones[tone]}`}
+      className={`inline-flex h-7 items-center gap-1 rounded-md border px-1.5 ${tones[tone]}`}
+      title={label}
     >
-      <span
-        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/70 ${iconTone[tone]}`}
-      >
-        <Icon className="h-4 w-4" />
+      <Icon className="h-3 w-3 shrink-0 opacity-70" />
+      <span className="text-[10px] font-bold uppercase tracking-wide opacity-70">
+        {label}
       </span>
-      <div className="min-w-0">
-        <p className="text-[10px] font-bold uppercase tracking-wider opacity-70">
-          {label}
-        </p>
-        <p className="font-display text-lg font-bold tabular-nums leading-none">
-          {value}
-        </p>
+      <span className="text-xs font-extrabold tabular-nums">{value}</span>
+    </div>
+  )
+}
+
+function BarraCompacta({
+  label,
+  value,
+  max,
+  color,
+}: {
+  label: string
+  value: number
+  max: number
+  color: string
+}) {
+  const pct = max > 0 ? Math.round((value / max) * 100) : 0
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="w-14 shrink-0 truncate text-[10px] font-medium text-slate-600">
+        {label}
+      </span>
+      <div className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100">
+        <div
+          className={`h-full rounded-full ${color}`}
+          style={{ width: `${pct}%` }}
+        />
       </div>
+      <span className="w-4 shrink-0 text-right text-[10px] font-bold tabular-nums text-ink">
+        {value}
+      </span>
     </div>
   )
 }
@@ -420,29 +435,27 @@ export function CalendarioJefesPage() {
   }
 
   return (
-    <section className={PAGE_SECTION}>
+    <section className={`${PAGE_SECTION} gap-1.5 overflow-hidden`}>
       <PageHeader
         title="Calendario jefes"
-        subtitle={`Vista mensual operativa · cuadrante de jefes${loading ? ' · Cargando…' : ''}`}
+        subtitle={`Vista mensual · cuadrante de jefes${loading ? ' · Cargando…' : ''}`}
         actions={
-          <div className="flex flex-wrap items-center gap-1.5">
-            <button
-              type="button"
-              className={BTN_SECONDARY}
-              disabled={!agenteSeleccionado || loading}
-              onClick={exportarPdf}
-            >
-              <FileDown className="h-4 w-4" />
-              Exportar PDF
-            </button>
-          </div>
+          <button
+            type="button"
+            className={`${BTN_SECONDARY} h-8 px-2.5 text-xs`}
+            disabled={!agenteSeleccionado || loading}
+            onClick={exportarPdf}
+          >
+            <FileDown className="h-3.5 w-3.5" />
+            PDF
+          </button>
         }
         toolbar={
           <>
             <ToolbarSection label="Periodo">
               <button
                 type="button"
-                className={`${BTN_GHOST} h-9 w-9 shrink-0 px-0`}
+                className={`${BTN_GHOST} h-8 w-8 shrink-0 px-0`}
                 aria-label="Mes anterior"
                 onClick={() => {
                   const prev = mesAnterior(anio, mes)
@@ -452,7 +465,7 @@ export function CalendarioJefesPage() {
                 <ChevronLeft className="h-4 w-4" />
               </button>
               <select
-                className={`${CAMPO} min-w-[8.5rem]`}
+                className={`${SELECT_TOOLBAR} w-[8.25rem]`}
                 value={mes}
                 onChange={(event) =>
                   aplicarMes(anio, Number(event.target.value))
@@ -465,7 +478,7 @@ export function CalendarioJefesPage() {
                 ))}
               </select>
               <select
-                className={`${CAMPO} min-w-[5.5rem]`}
+                className={`${SELECT_TOOLBAR} w-[4.75rem]`}
                 value={anio}
                 onChange={(event) =>
                   aplicarMes(Number(event.target.value) || anio, mes)
@@ -479,7 +492,7 @@ export function CalendarioJefesPage() {
               </select>
               <button
                 type="button"
-                className={`${BTN_GHOST} h-9 w-9 shrink-0 px-0`}
+                className={`${BTN_GHOST} h-8 w-8 shrink-0 px-0`}
                 aria-label="Mes siguiente"
                 onClick={() => {
                   const next = mesSiguiente(anio, mes)
@@ -492,7 +505,7 @@ export function CalendarioJefesPage() {
             <ToolbarDivider />
             <ToolbarSection label="Agente">
               <select
-                className={`${CAMPO} min-w-[16rem] max-w-[24rem]`}
+                className={`${SELECT_TOOLBAR} w-[15.5rem] max-w-[40vw]`}
                 value={agenteId}
                 disabled={jefes.length === 0}
                 onChange={(event) => setAgenteId(event.target.value)}
@@ -520,50 +533,43 @@ export function CalendarioJefesPage() {
         </p>
       ) : null}
 
-      <DashboardBody>
-        <DashboardMain>
-          <DashboardMainScroll className="p-3 sm:p-4">
+      <DashboardBody className="gap-2">
+        <DashboardMain className="overflow-hidden">
+          <div className="flex min-h-0 flex-1 flex-col gap-1.5 p-2">
             {agenteSeleccionado ? (
-              <div className="mb-3 flex flex-col gap-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 font-mono text-sm font-extrabold text-ink">
-                    <Shield className="h-3.5 w-3.5 text-slate-500" />
-                    {agenteSeleccionado.numeroPlaca}
+              <div className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-xs font-extrabold text-ink">
+                  <Shield className="h-3 w-3 text-slate-500" />
+                  {agenteSeleccionado.numeroPlaca}
+                </span>
+                <p className="min-w-0 truncate text-xs font-bold text-ink">
+                  {agenteSeleccionado.nombre} {agenteSeleccionado.apellidos}
+                  <span className="ml-1.5 font-medium text-slate-500">
+                    {ROL_LABEL[agenteSeleccionado.rolBase]}
                   </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-bold text-ink">
-                      {agenteSeleccionado.nombre}{' '}
-                      {agenteSeleccionado.apellidos}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      {ROL_LABEL[agenteSeleccionado.rolBase]} · {MESES[mes - 1]}{' '}
-                      {anio}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <KpiBadge
+                </p>
+                <div className="flex flex-wrap items-center gap-1">
+                  <KpiChip
                     icon={Briefcase}
-                    label="Trabajados"
+                    label="Trab."
                     value={`${totalTrabajados}d`}
                     tone="sky"
                   />
-                  <KpiBadge
+                  <KpiChip
                     icon={Moon}
                     label="Noches"
                     value={desglose.noches}
                     tone="violet"
                   />
-                  <KpiBadge
+                  <KpiChip
                     icon={PartyPopper}
-                    label="Festivos"
+                    label="Fest."
                     value={desglose.festivosTrabajados}
                     tone="amber"
                   />
-                  <KpiBadge
-                    icon={CalendarDays}
-                    label="Permisos"
+                  <KpiChip
+                    icon={FileText}
+                    label="Perm."
                     value={desglose.P}
                     tone="rose"
                   />
@@ -571,14 +577,14 @@ export function CalendarioJefesPage() {
               </div>
             ) : null}
 
-            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-              <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50/90">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div className="grid shrink-0 grid-cols-7 border-b border-slate-200 bg-slate-50/90">
                 {DIAS_SEMANA.map((dia, indice) => {
                   const finde = indice >= 5
                   return (
                     <div
                       key={dia}
-                      className={`py-2 text-center text-[11px] font-bold uppercase tracking-wider ${
+                      className={`py-1 text-center text-[10px] font-bold uppercase tracking-wider ${
                         finde ? 'text-red-600' : 'text-slate-500'
                       }`}
                     >
@@ -588,13 +594,20 @@ export function CalendarioJefesPage() {
                 })}
               </div>
 
-              <div className="grid grid-cols-7 gap-px bg-slate-200">
+              <div
+                className="grid min-h-0 flex-1 grid-cols-7 gap-px bg-slate-200 [grid-template-rows:repeat(var(--semanas),minmax(0,1fr))]"
+                style={
+                  {
+                    '--semanas': Math.max(1, Math.ceil(celdas.length / 7)),
+                  } as CSSProperties
+                }
+              >
                 {celdas.map((dia, indice) => {
                   if (dia == null) {
                     return (
                       <div
                         key={`hueco-${indice}`}
-                        className="min-h-[6.25rem] bg-slate-50/80"
+                        className="min-h-0 bg-slate-50/80"
                       />
                     )
                   }
@@ -622,52 +635,39 @@ export function CalendarioJefesPage() {
                   return (
                     <div
                       key={dia}
-                      className={`group flex min-h-[6.25rem] flex-col gap-1.5 p-2 transition-opacity ${FOCUS_RING} ${
+                      className={`group flex min-h-0 flex-col gap-0.5 overflow-hidden p-1 transition-opacity ${FOCUS_RING} ${
                         esDescansoCelda
                           ? TRAMA_DESCANSO
                           : especial && (turno === 'V' || turno === 'P')
                             ? 'bg-amber-50/70'
                             : 'bg-white'
-                      } ${atenuada ? 'opacity-30' : 'opacity-100'} ${
-                        esServicio
-                          ? 'hover:bg-slate-50/90'
-                          : 'hover:bg-slate-100/60'
-                      }`}
+                      } ${atenuada ? 'opacity-30' : 'opacity-100'}`}
                       title={`${dia}/${mes}/${anio} · ${etiqueta}${detalle ? ` · ${detalle}` : ''}`}
                     >
-                      <div className="flex items-center justify-between gap-1">
+                      <div className="flex shrink-0 items-center justify-between gap-0.5">
                         <span
-                          className={`text-xs font-extrabold tabular-nums ${
+                          className={`text-[10px] font-extrabold tabular-nums leading-none ${
                             especial ? 'text-red-600' : 'text-slate-700'
                           }`}
                         >
                           {dia}
                         </span>
                         {especial ? (
-                          <span
-                            className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500"
-                            title={
-                              festivo
-                                ? 'Festivo'
-                                : finde
-                                  ? 'Fin de semana'
-                                  : undefined
-                            }
-                          />
+                          <span className="h-1 w-1 shrink-0 rounded-full bg-red-500" />
                         ) : null}
                       </div>
 
-                      <div className="mt-auto flex flex-col items-start gap-1">
+                      <div className="mt-auto flex min-h-0 flex-col items-start gap-0.5 overflow-hidden">
                         <PillTurno turno={turno} />
                         {detalle ? (
                           <span
-                            className="line-clamp-2 max-w-full rounded-md border border-slate-200 bg-white/90 px-1.5 py-0.5 text-[10px] font-semibold leading-snug text-slate-700 shadow-sm"
+                            className="line-clamp-2 max-w-full text-[9px] font-semibold leading-tight text-slate-700"
                             title={detalle}
                           >
                             {detalle}
                           </span>
                         ) : esServicio ? (
-                          <span className="rounded-md border border-dashed border-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-400">
+                          <span className="text-[9px] font-medium text-slate-400">
                             Sin puesto
                           </span>
                         ) : null}
@@ -677,42 +677,38 @@ export function CalendarioJefesPage() {
                 })}
               </div>
             </div>
-          </DashboardMainScroll>
+          </div>
         </DashboardMain>
 
-        <DashboardSidebar className="xl:w-64 2xl:w-72">
-          <div className={BLOQUE}>
-            <p className={TITULO_BLOQUE}>Leyenda</p>
-            <p className="mb-2 text-[11px] leading-snug text-slate-500">
-              Pulsa un turno para filtrar el mes.
-            </p>
-            <ul className="flex flex-col gap-1">
+        <DashboardSidebar className="!overflow-hidden gap-1.5 xl:w-52 2xl:w-56">
+          <div className="shrink-0 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+            <p className={`${TITULO_BLOQUE} mb-1`}>Leyenda</p>
+            <div className="flex flex-wrap gap-1">
               {LEYENDA.map(({ turno, label }) => {
                 const activo =
                   filtroLeyenda === 'TODOS' || filtroLeyenda === turno
                 return (
-                  <li key={turno}>
-                    <button
-                      type="button"
-                      className={`flex w-full items-center gap-2 rounded-lg px-1.5 py-1 text-left text-xs transition-colors ${FOCUS_RING} ${
-                        filtroLeyenda === turno
-                          ? 'bg-brand-50 ring-1 ring-brand-200'
-                          : 'hover:bg-slate-50'
-                      } ${activo ? '' : 'opacity-40'}`}
-                      onClick={() => alternarFiltro(turno)}
-                      aria-pressed={filtroLeyenda === turno}
-                    >
-                      <PillTurno turno={turno} className="min-w-[2.5rem]" />
-                      <span className="font-medium text-slate-700">{label}</span>
-                    </button>
-                  </li>
+                  <button
+                    key={turno}
+                    type="button"
+                    className={`inline-flex items-center gap-1 rounded-md px-1 py-0.5 transition-colors ${FOCUS_RING} ${
+                      filtroLeyenda === turno
+                        ? 'bg-brand-50 ring-1 ring-brand-200'
+                        : 'hover:bg-slate-50'
+                    } ${activo ? '' : 'opacity-35'}`}
+                    title={label}
+                    onClick={() => alternarFiltro(turno)}
+                    aria-pressed={filtroLeyenda === turno}
+                  >
+                    <PillTurno turno={turno} />
+                  </button>
                 )
               })}
-            </ul>
+            </div>
             {filtroLeyenda !== 'TODOS' ? (
               <button
                 type="button"
-                className="mt-2 text-[11px] font-semibold text-brand-700 hover:underline"
+                className="mt-1 text-[10px] font-semibold text-brand-700 hover:underline"
                 onClick={() => setFiltroLeyenda('TODOS')}
               >
                 Quitar filtro
@@ -720,72 +716,73 @@ export function CalendarioJefesPage() {
             ) : null}
           </div>
 
-          <KpiSection icon={Briefcase} title="Carga del mes">
-            <div className="space-y-2.5">
-              <KpiBarRow
+          <div className="min-h-0 shrink rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+            <p className={`${TITULO_BLOQUE} mb-1.5`}>Carga del mes</p>
+            <div className="space-y-1">
+              <BarraCompacta
                 label="Mañanas"
                 value={desglose.M}
                 max={maxBarra}
                 color={BARRA_TURNO.M}
               />
-              <KpiBarRow
+              <BarraCompacta
                 label="Tardes"
                 value={desglose.T}
                 max={maxBarra}
                 color={BARRA_TURNO.T}
               />
-              <KpiBarRow
+              <BarraCompacta
                 label="Noches"
                 value={desglose.N}
                 max={maxBarra}
                 color={BARRA_TURNO.N}
               />
-              <KpiBarRow
-                label="M-T finde"
+              <BarraCompacta
+                label="M-T"
                 value={desglose.MT}
                 max={maxBarra}
                 color={BARRA_TURNO.MT}
               />
-              <KpiBarRow
-                label="Finde en servicio"
+              <BarraCompacta
+                label="Finde"
                 value={desglose.findeTrabajados}
                 max={maxBarra}
                 color={BARRA_TURNO.finde}
               />
             </div>
-            <p className="mt-3 text-[11px] leading-snug text-slate-500">
-              Σ ponderada: <strong className="text-ink">{totalTrabajados}d</strong>{' '}
-              (M-T = 2) · Vacaciones {desglose.V} · Descansos {desglose.D}
+            <p className="mt-1.5 text-[10px] leading-snug text-slate-500">
+              Σ <strong className="text-ink">{totalTrabajados}d</strong> · V{' '}
+              {desglose.V} · D {desglose.D}
             </p>
-          </KpiSection>
+          </div>
 
-          <div className={BLOQUE}>
-            <p className={TITULO_BLOQUE}>Acciones</p>
-            <div className="flex flex-col gap-1.5">
+          <div className="mt-auto shrink-0 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+            <p className={`${TITULO_BLOQUE} mb-1.5`}>Acciones</p>
+            <div className="flex flex-col gap-1">
               <button
                 type="button"
-                className={`${BTN_PRIMARY} w-full justify-center`}
+                className={`${BTN_PRIMARY} h-8 w-full justify-center px-2 text-xs`}
                 disabled={!agenteSeleccionado || loading}
                 onClick={exportarPdf}
               >
-                <FileDown className="h-4 w-4" />
+                <FileDown className="h-3.5 w-3.5" />
                 Exportar PDF
               </button>
               <button
                 type="button"
-                className={`${BTN_SECONDARY} w-full justify-center`}
+                className={`${BTN_SECONDARY} h-8 w-full justify-center px-2 text-xs`}
                 disabled={!agenteSeleccionado || loading}
                 onClick={exportarPdf}
               >
-                <Printer className="h-4 w-4" />
-                Imprimir calendario
+                <Printer className="h-3.5 w-3.5" />
+                Imprimir
               </button>
               <Link
                 to="/admin/cuadrante-jefes"
-                className={`${BTN_GHOST} w-full justify-center`}
+                className={`${BTN_GHOST} h-8 w-full justify-center px-2 text-xs`}
               >
-                <Table2 className="h-4 w-4" />
-                Ver cuadrante completo
+                <Table2 className="h-3.5 w-3.5" />
+                Cuadrante
               </Link>
             </div>
           </div>

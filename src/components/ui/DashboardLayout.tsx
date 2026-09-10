@@ -1,8 +1,16 @@
 import type { ReactNode } from 'react'
 
-export function DashboardBody({ children }: { children: ReactNode }) {
+export function DashboardBody({
+  children,
+  className = '',
+}: {
+  children: ReactNode
+  className?: string
+}) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden xl:flex-row">
+    <div
+      className={`flex min-h-0 flex-1 flex-col gap-3 overflow-hidden xl:flex-row ${className}`.trim()}
+    >
       {children}
     </div>
   )

@@ -181,7 +181,6 @@ export function exportarCuadranteJefesPdf(
 
   const filas = agentes
     .map((agente) => {
-      const nombre = `${agente.nombre} ${agente.apellidos}`
       const fila = cuadrante[agente.id] ?? []
       const celdas = diasVisibles
         .map((dia) => {
@@ -210,7 +209,6 @@ export function exportarCuadranteJefesPdf(
       return `<tr>
         <th class="agente">
           <span class="placa">${escapeHtml(agente.numeroPlaca)}</span>
-          <span class="nombre">${escapeHtml(nombre)}</span>
         </th>
         ${celdas}
         <td class="suma">${total}d</td>
@@ -340,21 +338,21 @@ export function exportarCuadranteJefesPdf(
     }
 
     th.agente-h {
-      width: 150px;
-      min-width: 150px;
-      text-align: left !important;
-      padding: 3px 5px !important;
+      width: 42px;
+      min-width: 42px;
+      text-align: center !important;
+      padding: 3px 2px !important;
       background: #ffffff;
       font-size: 10px;
       font-weight: 800;
     }
     th.agente {
-      width: 150px;
-      min-width: 150px;
-      text-align: left !important;
-      padding: 2px 5px !important;
+      width: 42px;
+      min-width: 42px;
+      text-align: center !important;
+      padding: 2px 1px !important;
       background: #ffffff;
-      font-weight: 600;
+      font-weight: 800;
       white-space: nowrap;
       overflow: hidden;
     }
@@ -362,11 +360,6 @@ export function exportarCuadranteJefesPdf(
       font-family: ui-monospace, Menlo, Consolas, monospace;
       font-weight: 800;
       font-size: 10px;
-      margin-right: 5px;
-    }
-    .agente .nombre {
-      font-weight: 550;
-      font-size: 9.5px;
     }
 
     th.dia {
@@ -420,8 +413,8 @@ export function exportarCuadranteJefesPdf(
     }
 
     tfoot th.pie-l {
-      text-align: left !important;
-      padding: 3px 5px !important;
+      text-align: center !important;
+      padding: 3px 2px !important;
       background: #f1f5f9;
       font-weight: 800;
       font-size: 10px;
@@ -539,7 +532,7 @@ export function exportarCuadranteJefesPdf(
   <table class="matriz">
     <thead>
       <tr>
-        <th class="agente-h">Agente</th>
+        <th class="agente-h">N.º</th>
         ${cabecerasDias}
         <th class="suma-h">Σ</th>
       </tr>

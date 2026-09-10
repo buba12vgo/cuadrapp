@@ -73,15 +73,15 @@ const MESES = [
 const DIA_SEMANA = ['D', 'L', 'M', 'X', 'J', 'V', 'S'] as const
 const ANIO_ACTUAL = 2026
 /** Columna fija de agente; los días se reparten el resto del ancho. */
-const ANCHO_AGENTE = 200
-const ANCHO_SUMA = 48
+const ANCHO_AGENTE = 168
+const ANCHO_SUMA = 44
 
 const CELDA =
-  'h-[30px] max-h-[30px] overflow-hidden border border-line px-0 py-0 text-[12px] leading-none'
+  'h-[36px] max-h-[36px] overflow-hidden border border-line px-0 py-0 text-[11px] leading-none'
 const CELDA_DIA =
-  'h-[36px] max-h-[36px] overflow-hidden border border-line px-0 py-0 text-[12px] leading-none'
+  'h-[36px] max-h-[36px] overflow-hidden border border-line px-0 py-0 text-[11px] leading-none'
 const CELDA_PIE =
-  'h-[30px] max-h-[30px] overflow-hidden border border-line border-t-2 border-t-slate-300 bg-slate-100 px-0 py-0 text-[12px] leading-none font-bold'
+  'h-[30px] max-h-[30px] overflow-hidden border border-line border-t-2 border-t-slate-300 bg-slate-100 px-0 py-0 text-[11px] leading-none font-bold'
 const CAMPO_TOOLBAR =
   'h-7 rounded-md border border-line bg-white px-1.5 text-xs text-ink outline-none focus:border-brand-400 focus-visible:ring-2 focus-visible:ring-brand-500/40'
 
@@ -835,11 +835,20 @@ export function CuadranteJefesPage() {
                                   )
                             }
                           >
-                            <span className="block truncate px-0.5 text-[12px] leading-none">
-                              {abrevPuesto
-                                ? `${etiquetaTurno(turno)}·${abrevPuesto}`
-                                : etiquetaTurno(turno)}
-                            </span>
+                            {abrevPuesto ? (
+                              <span className="flex h-full flex-col items-center justify-center gap-0.5 px-0.5">
+                                <span className="text-[10px] font-bold leading-none">
+                                  {etiquetaTurno(turno)}
+                                </span>
+                                <span className="max-w-full truncate font-mono text-[10px] font-extrabold leading-none tracking-tight">
+                                  {abrevPuesto}
+                                </span>
+                              </span>
+                            ) : (
+                              <span className="flex h-full items-center justify-center px-0.5 text-[12px] font-bold leading-none">
+                                {etiquetaTurno(turno)}
+                              </span>
+                            )}
                           </td>
                         )
                       })}

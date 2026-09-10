@@ -1,5 +1,4 @@
 import {
-  abreviaturaPuesto,
   esTurnoAsignable,
   esTurnoPermiso,
   etiquetaTurno,
@@ -8,10 +7,7 @@ import type { AsignacionesDiarias, PuestoConfig } from '@/lib/calendarioPuestos'
 import { diasDelMes, esFinDeSemana, totalDiasTrabajadosJefes } from '@/lib/convenio'
 import { esFestivo } from '@/lib/festivos'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
-import {
-  abreviaturaDesdePermisos,
-  type PermisoConfig,
-} from '@/lib/permisos'
+import type { PermisoConfig } from '@/lib/permisos'
 import { getTiposPermiso } from '@/lib/permisosStore'
 import { ROL_LABEL } from '@/lib/rolesCuadrante'
 import type { FichaPolicia, Turno } from '@/types'
@@ -84,31 +80,19 @@ export function detalleDiaCalendarioJefe(
   fecha: string,
   agenteId: string,
   asignaciones: AsignacionesDiarias,
-  puestos: PuestoConfig[],
-  permisos: PermisoConfig[],
+  _puestos: PuestoConfig[],
+  _permisos: PermisoConfig[],
 ) {
   if (!esTurnoAsignable(turno)) {
     return {
       etiqueta: etiquetaTurno(turno),
-      abrev: null as string | null,
+      detalle: null as string | null,
     }
   }
-  if (esTurnoPermiso(turno)) {
-    const nombre = asignaciones[fecha]?.[turno]?.[agenteId]
-    return {
-      etiqueta: 'P',
-      abrev: nombre ? abreviaturaDesdePermisos(permisos, nombre) : null,
-    }
-  }
+  const nombre = asignaciones[fecha]?.[turno]?.[agenteId] ?? null
   return {
-    etiqueta: etiquetaTurno(turno),
-    abrev: abreviaturaPuesto(
-      asignaciones,
-      fecha,
-      agenteId,
-      turno,
-      puestos,
-    ),
+    etiqueta: esTurnoPermiso(turno) ? 'P' : etiquetaTurno(turno),
+    detalle: nombre,
   }
 }
 
@@ -152,7 +136,7 @@ export function exportarCalendarioJefesPdf(
         if (dia == null) return `<td class="hueco"></td>`
         const turno = (fila[dia - 1] ?? 'D') as Turno
         const fecha = isoFecha(anio, mes, dia)
-        const { etiqueta, abrev } = detalleDiaCalendarioJefe(
+        const { etiqueta, detalle } = detalleDiaCalendarioJefe(
           turno,
           fecha,
           agente.id,
@@ -171,7 +155,7 @@ export function exportarCalendarioJefesPdf(
         return `<td class="dia" style="background:${fondo};color:${color.texto};">
           <span class="num" style="color:${numColor};">${dia}</span>
           <span class="turno">${escapeHtml(etiqueta)}</span>
-          ${abrev ? `<span class="abrev">${escapeHtml(abrev)}</span>` : ''}
+          ${detalle ? `<span class="detalle">${escapeHtml(detalle)}</span>` : ''}
         </td>`
       })
       .join('')
@@ -251,13 +235,14 @@ export function exportarCalendarioJefesPdf(
       font-weight: 800;
       line-height: 1.05;
     }
-    td.dia .abrev {
+    td.dia .detalle {
       display: block;
       margin-top: 3px;
-      font-family: ui-monospace, Menlo, Consolas, monospace;
-      font-size: 13px;
-      font-weight: 800;
-      letter-spacing: -0.02em;
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1.15;
+      letter-spacing: -0.01em;
+      word-break: break-word;
     }
     .leyenda {
       margin-top: 14px;

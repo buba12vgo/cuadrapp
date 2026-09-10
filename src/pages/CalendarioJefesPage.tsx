@@ -601,7 +601,7 @@ export function CalendarioJefesPage() {
 
                   const turno = (fila[dia - 1] ?? 'D') as Turno
                   const fecha = isoFecha(anio, mes, dia)
-                  const { etiqueta, abrev } = agenteSeleccionado
+                  const { etiqueta, detalle } = agenteSeleccionado
                     ? detalleDiaCalendarioJefe(
                         turno,
                         fecha,
@@ -610,18 +610,7 @@ export function CalendarioJefesPage() {
                         puestos,
                         tiposPermiso,
                       )
-                    : { etiqueta: etiquetaTurno(turno), abrev: null }
-                  const asignado =
-                    agenteSeleccionado &&
-                    (turno === 'M' ||
-                      turno === 'T' ||
-                      turno === 'N' ||
-                      turno === 'MT' ||
-                      turno === 'P')
-                      ? (asignacionesDiarias[fecha]?.[turno]?.[
-                          agenteSeleccionado.id
-                        ] ?? null)
-                      : null
+                    : { etiqueta: etiquetaTurno(turno), detalle: null }
                   const finde = esFinDeSemana(anio, mes, dia)
                   const festivo = esFestivo(anio, mes, dia)
                   const especial = finde || festivo
@@ -644,7 +633,7 @@ export function CalendarioJefesPage() {
                           ? 'hover:bg-slate-50/90'
                           : 'hover:bg-slate-100/60'
                       }`}
-                      title={`${dia}/${mes}/${anio} · ${etiqueta}${asignado ? ` · ${asignado}` : abrev ? ` · ${abrev}` : ''}`}
+                      title={`${dia}/${mes}/${anio} · ${etiqueta}${detalle ? ` · ${detalle}` : ''}`}
                     >
                       <div className="flex items-center justify-between gap-1">
                         <span
@@ -670,12 +659,12 @@ export function CalendarioJefesPage() {
 
                       <div className="mt-auto flex flex-col items-start gap-1">
                         <PillTurno turno={turno} />
-                        {abrev ? (
+                        {detalle ? (
                           <span
-                            className="max-w-full truncate rounded-md border border-slate-200 bg-white/90 px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-tight text-slate-700 shadow-sm"
-                            title={asignado ?? abrev}
+                            className="line-clamp-2 max-w-full rounded-md border border-slate-200 bg-white/90 px-1.5 py-0.5 text-[10px] font-semibold leading-snug text-slate-700 shadow-sm"
+                            title={detalle}
                           >
-                            {abrev}
+                            {detalle}
                           </span>
                         ) : esServicio ? (
                           <span className="rounded-md border border-dashed border-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-400">

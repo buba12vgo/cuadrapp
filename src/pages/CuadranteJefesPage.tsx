@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { BolsaPuestosPanel, filtroTurnoInicial } from '@/components/BolsaPuestosPanel'
+import { BolsaPermisosPanel } from '@/components/BolsaPermisosPanel'
 import {
   DashboardBody,
   DashboardMain,
@@ -26,8 +27,10 @@ import {
   asignarPuestoEnCelda,
   asignarPuestoMesAgente,
   esTurnoAsignable,
+  esTurnoPermiso,
   etiquetaTurno,
   fechasOperativasAgenteMes,
+  leerPermisoArrastrado,
   leerPuestoArrastrado,
   permitirSoltarPuesto,
   puestosPermitidosParaAgente,
@@ -51,6 +54,8 @@ import { ensureFirebase, isFirebaseReady } from '@/lib/firebase'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
 import type { FiltroTurnoBolsa } from '@/lib/bolsaPuestosPreferencias'
 import { usePuestosData } from '@/lib/puestosStore'
+import { abreviaturaDesdePermisos } from '@/lib/permisos'
+import { useTiposPermiso } from '@/lib/permisosStore'
 import { agentesCuadranteJefes, ROL_LABEL } from '@/lib/rolesCuadrante'
 import { exportarCuadranteJefesPdf } from '@/lib/exportarCuadranteJefesPdf'
 import type { Turno } from '@/types'
@@ -73,15 +78,15 @@ const MESES = [
 const DIA_SEMANA = ['D', 'L', 'M', 'X', 'J', 'V', 'S'] as const
 const ANIO_ACTUAL = 2026
 /** Columna fija de agente; los días se reparten el resto del ancho. */
-const ANCHO_AGENTE = 200
-const ANCHO_SUMA = 48
+const ANCHO_AGENTE = 168
+const ANCHO_SUMA = 44
 
 const CELDA =
-  'h-[30px] max-h-[30px] overflow-hidden border border-line px-0 py-0 text-[12px] leading-none'
+  'h-[36px] max-h-[36px] overflow-hidden border border-line px-0 py-0 text-[11px] leading-none'
 const CELDA_DIA =
-  'h-[36px] max-h-[36px] overflow-hidden border border-line px-0 py-0 text-[12px] leading-none'
+  'h-[36px] max-h-[36px] overflow-hidden border border-line px-0 py-0 text-[11px] leading-none'
 const CELDA_PIE =
-  'h-[30px] max-h-[30px] overflow-hidden border border-line border-t-2 border-t-slate-300 bg-slate-100 px-0 py-0 text-[12px] leading-none font-bold'
+  'h-[30px] max-h-[30px] overflow-hidden border border-line border-t-2 border-t-slate-300 bg-slate-100 px-0 py-0 text-[11px] leading-none font-bold'
 const CAMPO_TOOLBAR =
   'h-7 rounded-md border border-line bg-white px-1.5 text-xs text-ink outline-none focus:border-brand-400 focus-visible:ring-2 focus-visible:ring-brand-500/40'
 
@@ -90,14 +95,15 @@ const CLASE_TURNO: Record<Turno, string> = {
   T: CLASE_TURNO_CELDA.T,
   N: CLASE_TURNO_CELDA.N,
   MT: CLASE_TURNO_CELDA.MT,
-  L: 'bg-emerald-50 text-emerald-900',
+  L: 'bg-rose-50 text-rose-800',
+  P: 'bg-rose-50 text-rose-800',
   D: 'bg-white text-slate-500',
   V: CLASE_TURNO_CELDA.V,
 }
 
-/** Laboral: D → M → T → N → L → V. Finde: incluye M-T (Mañana Tarde). */
-const CICLO_SEMANA: Turno[] = ['D', 'M', 'T', 'N', 'L', 'V']
-const CICLO_FINDE: Turno[] = ['D', 'M', 'T', 'N', 'MT', 'L', 'V']
+/** Laboral: D → M → T → N → P → V. Finde: incluye M-T (Mañana Tarde). */
+const CICLO_SEMANA: Turno[] = ['D', 'M', 'T', 'N', 'P', 'V']
+const CICLO_FINDE: Turno[] = ['D', 'M', 'T', 'N', 'MT', 'P', 'V']
 
 function pad(n: number) {
   return String(n).padStart(2, '0')
@@ -114,10 +120,16 @@ function leerFecha(valor: string) {
 }
 
 function desgloseTurnosJefes(fila: Turno[], dias: readonly number[]) {
-  const c = { M: 0, T: 0, N: 0, MT: 0, L: 0 }
+  const c = { M: 0, T: 0, N: 0, MT: 0, P: 0 }
   for (const dia of dias) {
     const turno = fila[dia - 1]
-    if (turno === 'M' || turno === 'T' || turno === 'N' || turno === 'MT' || turno === 'L') {
+    if (
+      turno === 'M' ||
+      turno === 'T' ||
+      turno === 'N' ||
+      turno === 'MT' ||
+      turno === 'P'
+    ) {
       c[turno] += 1
     }
   }
@@ -127,14 +139,14 @@ function desgloseTurnosJefes(fila: Turno[], dias: readonly number[]) {
 function tituloSumatorioJefe(fila: Turno[], dias: readonly number[]) {
   const d = desgloseTurnosJefes(fila, dias)
   const total = totalDiasTrabajadosJefes(fila, dias)
-  return `Trabajados ${total}d (M-T vale 2) · M ${d.M} · T ${d.T} · N ${d.N} · M-T ${d.MT} · L ${d.L}`
+  return `Trabajados ${total}d (M-T vale 2) · M ${d.M} · T ${d.T} · N ${d.N} · M-T ${d.MT} · P ${d.P}`
 }
 
 function siguienteTurno(actual: Turno, finde: boolean): Turno {
   const ciclo = finde ? CICLO_FINDE : CICLO_SEMANA
   const indice = ciclo.indexOf(actual)
   if (indice >= 0) return ciclo[(indice + 1) % ciclo.length]!
-  if (actual === 'MT') return 'L'
+  if (actual === 'MT') return 'P'
   return 'D'
 }
 
@@ -168,6 +180,7 @@ export function CuadranteJefesPage() {
   const { alert } = useAppDialog()
   const [agentesData, setAgentesData] = useAgentesData()
   const [puestos] = usePuestosData()
+  const [tiposPermiso] = useTiposPermiso()
   const [anio, setAnio] = useState(ANIO_ACTUAL)
   const [mes, setMes] = useState(new Date().getMonth() + 1)
   const [diaDesde, setDiaDesde] = useState(1)
@@ -190,6 +203,9 @@ export function CuadranteJefesPage() {
   const [puestoSeleccionado, setPuestoSeleccionado] = useState<string | null>(
     null,
   )
+  const [permisoSeleccionado, setPermisoSeleccionado] = useState<string | null>(
+    null,
+  )
   const [popoverCelda, setPopoverCelda] = useState<{
     agenteId: string
     fecha: string
@@ -205,6 +221,10 @@ export function CuadranteJefesPage() {
   const puestosJefes = useMemo(
     () => puestos.filter((puesto) => puesto.ambito === 'JEFE_SERVICIO'),
     [puestos],
+  )
+  const nombresPermiso = useMemo(
+    () => tiposPermiso.map((permiso) => permiso.nombre),
+    [tiposPermiso],
   )
   const agentesPorId = useMemo(
     () => new Map(jefes.map((agente) => [agente.id, agente])),
@@ -291,7 +311,11 @@ export function CuadranteJefesPage() {
               anio,
               mes,
               nDias,
-              puestos,
+              {
+                puestos,
+                permisos: tiposPermiso,
+                migrarLibranzaAPermiso: true,
+              },
             )
             setCuadrante(cargado)
             setAsignacionesDiarias(asignaciones)
@@ -326,7 +350,7 @@ export function CuadranteJefesPage() {
     return () => {
       cancelado = true
     }
-  }, [mes, anio, nDias, jefesIdsKey, agentesCargados, jefes, puestos])
+  }, [mes, anio, nDias, jefesIdsKey, agentesCargados, jefes, puestos, tiposPermiso])
 
   function aplicarMes(siguienteAnio: number, siguienteMes: number) {
     const dias = diasDelMes(siguienteAnio, siguienteMes)
@@ -369,6 +393,21 @@ export function CuadranteJefesPage() {
   ) {
     const agente = agentesPorId.get(agenteId)
     if (!agente) return
+    if (esTurnoPermiso(turno)) {
+      const copia: AsignacionesDiarias = {
+        ...asignacionesDiarias,
+        [fecha]: {
+          ...(asignacionesDiarias[fecha] ?? {}),
+          [turno]: {
+            ...(asignacionesDiarias[fecha]?.[turno] ?? {}),
+            [agenteId]: puesto,
+          },
+        },
+      }
+      setAsignacionesDiarias(copia)
+      marcarEditado()
+      return
+    }
     const resultado = asignarPuestoEnCelda(
       asignacionesDiarias,
       agente,
@@ -393,6 +432,12 @@ export function CuadranteJefesPage() {
   ) {
     event.preventDefault()
     event.stopPropagation()
+    if (esTurnoPermiso(turno)) {
+      const permiso = leerPermisoArrastrado(event.dataTransfer, nombresPermiso)
+      if (!permiso) return
+      aplicarAsignacionCelda(agenteId, fecha, turno, permiso)
+      return
+    }
     const puesto = leerPuestoArrastrado(event.dataTransfer, puestosJefes)
     if (!puesto) return
     if (!turnoCoincideFiltro(turno, filtroTurno)) return
@@ -410,7 +455,10 @@ export function CuadranteJefesPage() {
       nDias,
       isoFecha,
     )
-      .filter(({ turno }) => turnoCoincideFiltro(turno, filtroTurno))
+      .filter(
+        ({ turno }) =>
+          !esTurnoPermiso(turno) && turnoCoincideFiltro(turno, filtroTurno),
+      )
       .map(({ fecha, turno }) => ({ fecha, turno }))
     if (fechasTurno.length === 0) {
       void alert(
@@ -436,11 +484,58 @@ export function CuadranteJefesPage() {
     marcarEditado()
   }
 
+  function aplicarPermisoMesAgente(agenteId: string, permiso: string) {
+    const fechasPermiso = fechasOperativasAgenteMes(
+      cuadrante,
+      agenteId,
+      anio,
+      mes,
+      nDias,
+      isoFecha,
+    ).filter(({ turno }) => esTurnoPermiso(turno))
+    if (fechasPermiso.length === 0) {
+      void alert(
+        'Este jefe no tiene días de permiso (P) este mes.',
+        'Sin días de permiso',
+      )
+      return
+    }
+    setAsignacionesDiarias((actual) => {
+      const copia: AsignacionesDiarias = { ...actual }
+      for (const { fecha, turno } of fechasPermiso) {
+        copia[fecha] = {
+          ...(copia[fecha] ?? {}),
+          [turno]: {
+            ...(copia[fecha]?.[turno] ?? {}),
+            [agenteId]: permiso,
+          },
+        }
+      }
+      return copia
+    })
+    marcarEditado()
+  }
+
   function soltarEnCabeceraJefe(event: React.DragEvent, agenteId: string) {
     event.preventDefault()
+    const permiso = leerPermisoArrastrado(event.dataTransfer, nombresPermiso)
+    if (permiso) {
+      aplicarPermisoMesAgente(agenteId, permiso)
+      return
+    }
     const puesto = leerPuestoArrastrado(event.dataTransfer, puestosJefes)
     if (!puesto) return
     aplicarAsignacionMesAgente(agenteId, puesto)
+  }
+
+  function seleccionarPuesto(puesto: string | null) {
+    setPuestoSeleccionado(puesto)
+    if (puesto) setPermisoSeleccionado(null)
+  }
+
+  function seleccionarPermiso(permiso: string | null) {
+    setPermisoSeleccionado(permiso)
+    if (permiso) setPuestoSeleccionado(null)
   }
 
   function clicCelda(
@@ -453,7 +548,12 @@ export function CuadranteJefesPage() {
     event.stopPropagation()
     const operativo = esTurnoAsignable(turno)
 
-    if (puestoSeleccionado && operativo) {
+    if (permisoSeleccionado && esTurnoPermiso(turno)) {
+      aplicarAsignacionCelda(agenteId, fecha, turno, permisoSeleccionado)
+      return
+    }
+
+    if (puestoSeleccionado && operativo && !esTurnoPermiso(turno)) {
       aplicarAsignacionCelda(agenteId, fecha, turno, puestoSeleccionado)
       return
     }
@@ -507,7 +607,11 @@ export function CuadranteJefesPage() {
         anio,
         mes,
         nDias,
-        puestos,
+        {
+          puestos,
+          permisos: tiposPermiso,
+          migrarLibranzaAPermiso: true,
+        },
       )
       await saveCuadranteJefes(mes, anio, payload)
       cuadranteEditadoLocalRef.current = false
@@ -531,7 +635,7 @@ export function CuadranteJefesPage() {
     <section className={PAGE_SECTION}>
       <PageHeader
         title="Cuadrante jefes de servicio"
-        subtitle={`Jefes y responsables · mensual · clic cicla turno · finde incluye M-T · Shift+clic o arrastre asigna puesto · arrastre al nombre = todos los días con turno${loadingCuadrante ? ' · Cargando…' : ''}${mesGuardadoEnFirestore ? '' : ' · Sin guardar'}`}
+        subtitle={`Jefes y responsables · mensual · clic cicla turno (P = permiso) · finde incluye M-T · Shift+clic o arrastre asigna puesto/permiso · arrastre al nombre = todos los días${loadingCuadrante ? ' · Cargando…' : ''}${mesGuardadoEnFirestore ? '' : ' · Sin guardar'}`}
         status={
           <SaveStatus
             guardando={guardandoCuadrante}
@@ -617,6 +721,7 @@ export function CuadranteJefesPage() {
                     cuadrante,
                     asignacionesDiarias,
                     puestos,
+                    permisos: tiposPermiso,
                     diasVisibles,
                   })
                 } catch (err) {
@@ -668,6 +773,12 @@ export function CuadranteJefesPage() {
         <p className={ALERT_INFO}>
           Puesto seleccionado: <strong>{puestoSeleccionado}</strong>. Pulsa una
           celda con turno (M/T/N/M-T) para asignarlo (o cicla el turno con clic).
+        </p>
+      ) : null}
+      {permisoSeleccionado ? (
+        <p className={ALERT_INFO}>
+          Permiso seleccionado: <strong>{permisoSeleccionado}</strong>. Pulsa
+          una celda P para asignarlo.
         </p>
       ) : null}
 
@@ -758,16 +869,29 @@ export function CuadranteJefesPage() {
                       {diasVisibles.map((dia) => {
                         const turno = fila[dia - 1] ?? 'D'
                         const fecha = isoFecha(anio, mes, dia)
-                        const operativo = esTurnoAsignable(turno)
-                        const abrevPuesto = operativo
-                          ? abreviaturaPuesto(
-                              asignacionesDiarias,
-                              fecha,
-                              agente.id,
-                              turno,
-                              puestos,
-                            )
+                        const turnoAsignable = esTurnoAsignable(turno)
+                          ? turno
                           : null
+                        const asignado = turnoAsignable
+                          ? asignacionesDiarias[fecha]?.[turnoAsignable]?.[
+                              agente.id
+                            ]
+                          : undefined
+                        const abrevAsignacion =
+                          asignado && turnoAsignable
+                            ? esTurnoPermiso(turnoAsignable)
+                              ? abreviaturaDesdePermisos(
+                                  tiposPermiso,
+                                  asignado,
+                                )
+                              : abreviaturaPuesto(
+                                  asignacionesDiarias,
+                                  fecha,
+                                  agente.id,
+                                  turnoAsignable,
+                                  puestos,
+                                )
+                            : null
                         const atenuada = !turnoCoincideFiltro(turno, filtroTurno)
                         const especial =
                           esFinDeSemana(anio, mes, dia) ||
@@ -787,38 +911,38 @@ export function CuadranteJefesPage() {
                                 : ''
                             }`}
                             title={
-                              operativo
-                                ? `${agente.numeroPlaca} · día ${dia} · ${etiquetaTurno(turno)}${turno === 'MT' ? ' (Mañana Tarde)' : ''}${abrevPuesto ? ` · ${abrevPuesto}` : ''} · clic=ciclo · Shift+clic=puesto · arrastrar`
+                              turnoAsignable
+                                ? `${agente.numeroPlaca} · día ${dia} · ${etiquetaTurno(turno)}${turno === 'MT' ? ' (Mañana Tarde)' : ''}${abrevAsignacion ? ` · ${abrevAsignacion}` : ''} · clic=ciclo · Shift+clic=${esTurnoPermiso(turnoAsignable) ? 'permiso' : 'puesto'} · arrastrar`
                                 : `${agente.numeroPlaca} · día ${dia} · ${etiquetaTurno(turno)} · clic cicla turno`
                             }
                             onDragOver={
-                              operativo && !atenuada
+                              turnoAsignable && !atenuada
                                 ? permitirSoltarPuesto
                                 : undefined
                             }
                             onDragEnter={
-                              operativo && !atenuada
+                              turnoAsignable && !atenuada
                                 ? (event) => {
                                     event.currentTarget.dataset.over = 'true'
                                   }
                                 : undefined
                             }
                             onDragLeave={
-                              operativo && !atenuada
+                              turnoAsignable && !atenuada
                                 ? (event) => {
                                     event.currentTarget.dataset.over = 'false'
                                   }
                                 : undefined
                             }
                             onDrop={
-                              operativo && !atenuada
+                              turnoAsignable && !atenuada
                                 ? (event) => {
                                     event.currentTarget.dataset.over = 'false'
                                     soltarEnCelda(
                                       event,
                                       agente.id,
                                       fecha,
-                                      turno,
+                                      turnoAsignable,
                                     )
                                   }
                                 : undefined
@@ -835,11 +959,20 @@ export function CuadranteJefesPage() {
                                   )
                             }
                           >
-                            <span className="block truncate px-0.5 text-[12px] leading-none">
-                              {abrevPuesto
-                                ? `${etiquetaTurno(turno)}·${abrevPuesto}`
-                                : etiquetaTurno(turno)}
-                            </span>
+                            {abrevAsignacion ? (
+                              <span className="flex h-full flex-col items-center justify-center gap-0.5 px-0.5">
+                                <span className="text-[10px] font-bold leading-none">
+                                  {etiquetaTurno(turno)}
+                                </span>
+                                <span className="max-w-full truncate font-mono text-[10px] font-extrabold leading-none tracking-tight">
+                                  {abrevAsignacion}
+                                </span>
+                              </span>
+                            ) : (
+                              <span className="flex h-full items-center justify-center px-0.5 text-[12px] font-bold leading-none">
+                                {etiquetaTurno(turno)}
+                              </span>
+                            )}
                           </td>
                         )
                       })}
@@ -907,16 +1040,19 @@ export function CuadranteJefesPage() {
             </p>
             <ol className="list-decimal space-y-1 pl-4 text-xs leading-snug">
               <li>
-                Clic en celda: cicla D → M → T → N → L → V. En fin de semana
-                también M-T (Mañana Tarde).
+                Clic en celda: cicla D → M → T → N → P → V. En fin de semana
+                también M-T (Mañana Tarde). P = permiso.
               </li>
               <li>Con turno (M/T/N/M-T), arrastra un puesto desde la bolsa.</li>
+              <li>
+                En celda P, arrastra o selecciona un tipo de permiso (AP, IT…).
+              </li>
               <li>
                 Arrastra un puesto al número o nombre del jefe: lo pone en
                 todos sus días con turno.
               </li>
-              <li>O selecciona el puesto y pulsa la celda.</li>
-              <li>Shift+clic en celda con turno: menú de puestos.</li>
+              <li>O selecciona el puesto/permiso y pulsa la celda.</li>
+              <li>Shift+clic: menú de puestos o permisos según la celda.</li>
               <li>
                 Σ a la derecha: días trabajados del agente (M-T cuenta 2). Pie:
                 agentes de servicio ese día.
@@ -934,7 +1070,11 @@ export function CuadranteJefesPage() {
             onFiltroTurno={setFiltroTurno}
             ambito="JEFE_SERVICIO"
             puestoSeleccionado={puestoSeleccionado}
-            onSeleccionarPuesto={setPuestoSeleccionado}
+            onSeleccionarPuesto={seleccionarPuesto}
+          />
+          <BolsaPermisosPanel
+            permisoSeleccionado={permisoSeleccionado}
+            onSeleccionarPermiso={seleccionarPermiso}
           />
         </DashboardSidebar>
       </DashboardBody>
@@ -942,14 +1082,31 @@ export function CuadranteJefesPage() {
       {popoverCelda ? (
         <PopoverPuestosCelda
           rect={popoverCelda.rect}
+          titulo={
+            esTurnoPermiso(popoverCelda.turno)
+              ? 'Asignar permiso'
+              : 'Asignar puesto'
+          }
+          vacio={
+            esTurnoPermiso(popoverCelda.turno)
+              ? 'Sin tipos de permiso'
+              : 'Sin puestos permitidos'
+          }
+          abreviaturaDe={
+            esTurnoPermiso(popoverCelda.turno)
+              ? (nombre) => abreviaturaDesdePermisos(tiposPermiso, nombre)
+              : undefined
+          }
           puestos={
-            agentesPorId.get(popoverCelda.agenteId)
-              ? puestosPermitidosParaAgente(
-                  agentesPorId.get(popoverCelda.agenteId)!,
-                  puestosJefes,
-                  'JEFE_SERVICIO',
-                )
-              : []
+            esTurnoPermiso(popoverCelda.turno)
+              ? nombresPermiso
+              : agentesPorId.get(popoverCelda.agenteId)
+                ? puestosPermitidosParaAgente(
+                    agentesPorId.get(popoverCelda.agenteId)!,
+                    puestosJefes,
+                    'JEFE_SERVICIO',
+                  )
+                : []
           }
           onElegir={(puesto) =>
             aplicarAsignacionCelda(

@@ -1,8 +1,8 @@
 import type { EventoOperativo } from '@/types'
 
 export type TurnoOperativo = 'M' | 'T' | 'N'
-/** Turnos que admiten puesto: operativos + M-T (jefes, finde). */
-export type TurnoAsignable = TurnoOperativo | 'MT'
+/** Turnos que admiten asignación: operativos, M-T (finde) o permiso. */
+export type TurnoAsignable = TurnoOperativo | 'MT' | 'P'
 export type MinimosPuesto = { M: number; T: number; N: number }
 /** Nombre del puesto (clave usada en asignaciones y eventos). */
 export type PuestoBase = string

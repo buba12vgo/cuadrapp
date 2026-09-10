@@ -6,10 +6,16 @@ import {
   abreviaturaDesdePuestos,
 } from '@/lib/calendarioPuestos'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
+import {
+  abreviaturaDesdePermisos,
+  permisoDesdeAbrev,
+  type PermisoConfig,
+} from '@/lib/permisos'
+import { getTiposPermiso } from '@/lib/permisosStore'
 import { getPuestos } from '@/lib/puestosStore'
 import type { FichaPolicia, Turno } from '@/types'
 
-const TURNOS: Turno[] = ['M', 'T', 'N', 'MT', 'L', 'D', 'V']
+const TURNOS: Turno[] = ['M', 'T', 'N', 'MT', 'L', 'P', 'D', 'V']
 
 export type CeldaCuadranteFirestore = {
   t: Turno
@@ -21,6 +27,13 @@ export type CuadranteMensualFirestore = {
   mes: number
   agentes: Record<string, CeldaCuadranteFirestore[]>
   actualizadoEn?: string
+}
+
+export type OpcionesCuadranteFirestore = {
+  puestos?: PuestoConfig[]
+  permisos?: PermisoConfig[]
+  /** En cuadrante de jefes, L legacy se lee como P. */
+  migrarLibranzaAPermiso?: boolean
 }
 
 function pad(n: number) {
@@ -36,7 +49,13 @@ function esTurno(valor: unknown): valor is Turno {
 }
 
 function esTurnoAsignable(turno: Turno): turno is TurnoAsignable {
-  return turno === 'M' || turno === 'T' || turno === 'N' || turno === 'MT'
+  return (
+    turno === 'M' ||
+    turno === 'T' ||
+    turno === 'N' ||
+    turno === 'MT' ||
+    turno === 'P'
+  )
 }
 
 function isoFecha(anio: number, mes: number, dia: number) {
@@ -57,6 +76,14 @@ function puestoDesdeAbrev(
   return mapaAbrevAPuesto(puestos)[abrev] ?? null
 }
 
+function normalizarTurnoJefes(
+  turno: Turno,
+  migrarLibranzaAPermiso: boolean,
+): Turno {
+  if (migrarLibranzaAPermiso && turno === 'L') return 'P'
+  return turno
+}
+
 export function cuadranteVacio(
   agentes: FichaPolicia[],
   nDias: number,
@@ -75,8 +102,13 @@ export function cuadranteParaFirestore(
   anio: number,
   mes: number,
   nDias: number,
-  puestos: PuestoConfig[] = getPuestos(),
+  opciones: OpcionesCuadranteFirestore | PuestoConfig[] = {},
 ): CuadranteMensualFirestore {
+  const opts: OpcionesCuadranteFirestore = Array.isArray(opciones)
+    ? { puestos: opciones }
+    : opciones
+  const puestos = opts.puestos ?? getPuestos()
+  const permisos = opts.permisos ?? getTiposPermiso()
   const agentesFirestore: Record<string, CeldaCuadranteFirestore[]> = {}
 
   for (const agente of agentes) {
@@ -84,12 +116,18 @@ export function cuadranteParaFirestore(
     const dias: CeldaCuadranteFirestore[] = []
 
     for (let dia = 1; dia <= nDias; dia++) {
-      const turno = fila[dia - 1] ?? 'D'
+      let turno = fila[dia - 1] ?? 'D'
+      if (opts.migrarLibranzaAPermiso && turno === 'L') turno = 'P'
       const celda: CeldaCuadranteFirestore = { t: turno }
       if (esTurnoAsignable(turno)) {
         const fecha = isoFecha(anio, mes, dia)
-        const puesto = asignaciones[fecha]?.[turno]?.[agente.id]
-        if (puesto) celda.p = abreviaturaDesdePuestos(puestos, puesto)
+        const asignado = asignaciones[fecha]?.[turno]?.[agente.id]
+        if (asignado) {
+          celda.p =
+            turno === 'P'
+              ? abreviaturaDesdePermisos(permisos, asignado)
+              : abreviaturaDesdePuestos(puestos, asignado)
+        }
       }
       dias.push(celda)
     }
@@ -111,8 +149,15 @@ export function cuadranteDesdeFirestore(
   anio: number,
   mes: number,
   nDias: number,
-  puestos: PuestoConfig[] = getPuestos(),
+  opciones: OpcionesCuadranteFirestore | PuestoConfig[] = {},
 ): { cuadrante: CuadranteMensual; asignaciones: AsignacionesDiarias } {
+  const opts: OpcionesCuadranteFirestore = Array.isArray(opciones)
+    ? { puestos: opciones }
+    : opciones
+  const puestos = opts.puestos ?? getPuestos()
+  const permisos = opts.permisos ?? getTiposPermiso()
+  const migrar = Boolean(opts.migrarLibranzaAPermiso)
+
   const placaAId = new Map(
     agentes.map((agente) => [agente.numeroPlaca, agente.id]),
   )
@@ -126,19 +171,21 @@ export function cuadranteDesdeFirestore(
     for (let indice = 0; indice < Math.min(nDias, dias.length); indice++) {
       const raw = dias[indice]
       if (!raw || typeof raw !== 'object') continue
-      const turno = esTurno(raw.t) ? raw.t : 'D'
+      const turnoRaw = esTurno(raw.t) ? raw.t : 'D'
+      const turno = normalizarTurnoJefes(turnoRaw, migrar)
       cuadrante[agenteId][indice] = turno
 
       const dia = indice + 1
-      const puesto = puestoDesdeAbrev(
-        typeof raw.p === 'string' ? raw.p : undefined,
-        puestos,
-      )
-      if (puesto && esTurnoAsignable(turno)) {
+      const abrev = typeof raw.p === 'string' ? raw.p : undefined
+      const asignado =
+        turno === 'P'
+          ? permisoDesdeAbrev(permisos, abrev)
+          : puestoDesdeAbrev(abrev, puestos)
+      if (asignado && esTurnoAsignable(turno)) {
         const fecha = isoFecha(anio, mes, dia)
         if (!asignaciones[fecha]) asignaciones[fecha] = {}
         if (!asignaciones[fecha][turno]) asignaciones[fecha][turno] = {}
-        asignaciones[fecha][turno]![agenteId] = puesto
+        asignaciones[fecha][turno]![agenteId] = asignado
       }
     }
   }

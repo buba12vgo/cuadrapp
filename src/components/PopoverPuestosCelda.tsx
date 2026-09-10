@@ -10,11 +10,17 @@ export function PopoverPuestosCelda({
   puestos,
   onElegir,
   onCerrar,
+  titulo = 'Asignar puesto',
+  vacio = 'Sin puestos permitidos',
+  abreviaturaDe,
 }: {
   rect: DOMRect
   puestos: PuestoBase[]
   onElegir: (puesto: PuestoBase) => void
   onCerrar: () => void
+  titulo?: string
+  vacio?: string
+  abreviaturaDe?: (nombre: string) => string
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const catalogo = getPuestos()
@@ -47,12 +53,10 @@ export function PopoverPuestosCelda({
       role="menu"
     >
       <p className="border-b border-slate-200 px-2 py-1 text-sm font-semibold text-slate-500">
-        Asignar puesto
+        {titulo}
       </p>
       {puestos.length === 0 ? (
-        <p className="px-2 py-2 text-sm text-slate-500">
-          Sin puestos permitidos
-        </p>
+        <p className="px-2 py-2 text-sm text-slate-500">{vacio}</p>
       ) : (
         puestos.map((puesto) => (
           <button
@@ -66,7 +70,9 @@ export function PopoverPuestosCelda({
             }}
           >
             <span className="font-mono">
-              {abreviaturaDesdePuestos(catalogo, puesto)}
+              {abreviaturaDe
+                ? abreviaturaDe(puesto)
+                : abreviaturaDesdePuestos(catalogo, puesto)}
             </span>{' '}
             · {puesto}
           </button>

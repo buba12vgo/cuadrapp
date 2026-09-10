@@ -7,6 +7,7 @@ import { CuadranteJefesPage } from '@/pages/CuadranteJefesPage'
 import { CuadranteMensualPage } from '@/pages/CuadranteMensualPage'
 import { MinimosPage } from '@/pages/MinimosPage'
 import { PlanAnualPage } from '@/pages/PlanAnualPage'
+import { PermisosPage } from '@/pages/PermisosPage'
 import { PuestosPage } from '@/pages/PuestosPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { ListadosPage } from '@/pages/ListadosPage'
@@ -21,6 +22,7 @@ export default function App() {
           <Route path="/" element={<Navigate to="/admin/agentes" replace />} />
           <Route path="/admin/agentes" element={<AgentesPage />} />
           <Route path="/admin/puestos" element={<PuestosPage />} />
+          <Route path="/admin/permisos" element={<PermisosPage />} />
           <Route path="/admin/minimos" element={<MinimosPage />} />
           <Route path="/admin/plan-anual" element={<PlanAnualPage />} />
           <Route

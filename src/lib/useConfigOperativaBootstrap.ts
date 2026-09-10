@@ -12,6 +12,7 @@ import {
   marcarErrorCargaPlan,
 } from '@/lib/planAnualStore'
 import { hydratePuestosYMinimos } from '@/lib/puestosStore'
+import { hydrateTiposPermiso } from '@/lib/permisosStore'
 import { bootstrapDesignPreview } from '@/lib/designPreviewBootstrap'
 import { isDesignPreview } from '@/lib/designPreview'
 
@@ -70,6 +71,7 @@ export function useConfigOperativaBootstrap() {
         hydratePuestosYMinimos(config.puestos, config.minimosSemana)
         hydrateEventos(config.eventos)
         hydrateAgentes(agentes)
+        hydrateTiposPermiso(config.tiposPermiso)
 
         try {
           const planes = await getPlanesAnuales(agentes)

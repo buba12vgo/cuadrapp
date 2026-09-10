@@ -1,6 +1,7 @@
 import {
   abreviaturaPuesto,
   esTurnoAsignable,
+  esTurnoPermiso,
   etiquetaTurno,
 } from '@/lib/asignacionPuestos'
 import {
@@ -15,6 +16,11 @@ import {
 } from '@/lib/convenio'
 import { esFestivo } from '@/lib/festivos'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
+import {
+  abreviaturaDesdePermisos,
+  type PermisoConfig,
+} from '@/lib/permisos'
+import { getTiposPermiso } from '@/lib/permisosStore'
 import type { FichaPolicia, Turno } from '@/types'
 
 const MESES = [
@@ -43,7 +49,8 @@ const COLOR_TURNO: Record<Turno, { fondo: string; texto: string }> = {
   T: { fondo: '#ffedd5', texto: '#c2410c' }, // bg-orange-100 text-orange-700
   N: { fondo: '#ede9fe', texto: '#6d28d9' }, // bg-violet-100 text-violet-700
   MT: { fondo: '#ccfbf1', texto: '#115e59' }, // bg-teal-100 text-teal-800
-  L: { fondo: '#ecfdf5', texto: '#064e3b' }, // bg-emerald-50 text-emerald-900
+  L: { fondo: '#fff1f2', texto: '#9f1239' }, // legacy
+  P: { fondo: '#fff1f2', texto: '#9f1239' }, // bg-rose-50 text-rose-800
   D: { fondo: '#ffffff', texto: '#64748b' }, // bg-white text-slate-500
   V: { fondo: '#d1fae5', texto: '#047857' }, // bg-emerald-100 text-emerald-700
 }
@@ -53,7 +60,7 @@ const LEYENDA_TURNOS: Array<{ turno: Turno; label: string }> = [
   { turno: 'T', label: 'Tarde' },
   { turno: 'N', label: 'Noche' },
   { turno: 'MT', label: 'M-T finde' },
-  { turno: 'L', label: 'Libranza' },
+  { turno: 'P', label: 'Permiso' },
   { turno: 'D', label: 'Descanso' },
   { turno: 'V', label: 'Vacaciones' },
 ]
@@ -80,8 +87,17 @@ function textoCelda(
   agenteId: string,
   asignaciones: AsignacionesDiarias,
   puestos: PuestoConfig[],
+  permisos: PermisoConfig[],
 ) {
-  if (!esTurnoAsignable(turno)) return etiquetaTurno(turno)
+  if (!esTurnoAsignable(turno)) return escapeHtml(etiquetaTurno(turno))
+  if (esTurnoPermiso(turno)) {
+    const nombre = asignaciones[fecha]?.[turno]?.[agenteId]
+    const abrev = nombre
+      ? abreviaturaDesdePermisos(permisos, nombre)
+      : null
+    if (!abrev) return escapeHtml('P')
+    return `<span class="turno">P</span><span class="abrev">${escapeHtml(abrev)}</span>`
+  }
   const abrev = abreviaturaPuesto(
     asignaciones,
     fecha,
@@ -89,7 +105,8 @@ function textoCelda(
     turno,
     puestos,
   )
-  return abrev ? `${etiquetaTurno(turno)}·${abrev}` : etiquetaTurno(turno)
+  if (!abrev) return escapeHtml(etiquetaTurno(turno))
+  return `<span class="turno">${escapeHtml(etiquetaTurno(turno))}</span><span class="abrev">${escapeHtml(abrev)}</span>`
 }
 
 function contarAsignacionesPuesto(
@@ -127,6 +144,7 @@ export type ExportarCuadranteJefesPdfOpciones = {
   cuadrante: CuadranteMensual
   asignacionesDiarias: AsignacionesDiarias
   puestos: PuestoConfig[]
+  permisos?: PermisoConfig[]
   diasVisibles: number[]
 }
 
@@ -142,6 +160,7 @@ export function exportarCuadranteJefesPdf(
     puestos,
     diasVisibles,
   } = opciones
+  const permisos = opciones.permisos ?? getTiposPermiso()
 
   const titulo = `Cuadrante jefes de servicio · ${MESES[mes - 1]} ${anio}`
 
@@ -174,6 +193,7 @@ export function exportarCuadranteJefesPdf(
             agente.id,
             asignacionesDiarias,
             puestos,
+            permisos,
           )
           const especial =
             esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia)
@@ -183,7 +203,7 @@ export function exportarCuadranteJefesPdf(
             especial && (turno === 'D' || turno === 'V')
               ? '#fffbeb'
               : color.fondo
-          return `<td class="celda" style="background:${fondo};color:${color.texto};">${escapeHtml(texto)}</td>`
+          return `<td class="celda" style="background:${fondo};color:${color.texto};">${texto}</td>`
         })
         .join('')
       const total = totalDiasTrabajadosJefes(fila, diasVisibles)
@@ -245,6 +265,30 @@ export function exportarCuadranteJefesPdf(
               <div class="puesto-meta">
                 <p class="puesto-nombre">${escapeHtml(puesto.nombre)}</p>
                 <p class="puesto-count"><strong>${asignados}</strong> asignación${asignados === 1 ? '' : 'es'}</p>
+              </div>
+            </article>`
+          })
+          .join('')
+
+  const tarjetasPermisos =
+    permisos.length === 0
+      ? '<p class="dash-vacio">No hay tipos de permiso configurados.</p>'
+      : permisos
+          .map((permiso) => {
+            const asignados = contarAsignacionesPuesto(
+              permiso.nombre,
+              asignacionesDiarias,
+              agentes,
+              diasVisibles,
+              anio,
+              mes,
+              cuadrante,
+            )
+            return `<article class="puesto-card">
+              <div class="puesto-abrev" style="background:#fff1f2;color:#9f1239;">${escapeHtml(permiso.abreviatura)}</div>
+              <div class="puesto-meta">
+                <p class="puesto-nombre">${escapeHtml(permiso.nombre)}</p>
+                <p class="puesto-count"><strong>${asignados}</strong> día${asignados === 1 ? '' : 's'}</p>
               </div>
             </article>`
           })
@@ -345,9 +389,24 @@ export function exportarCuadranteJefesPdf(
     td.celda {
       font-size: 9.5px;
       font-weight: 800;
-      padding: 3px 0 !important;
+      padding: 2px 0 !important;
       white-space: nowrap;
       overflow: hidden;
+      line-height: 1.05;
+    }
+    td.celda .turno {
+      display: block;
+      font-size: 8.5px;
+      font-weight: 800;
+      line-height: 1.05;
+    }
+    td.celda .abrev {
+      display: block;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 8.5px;
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: -0.02em;
     }
 
     th.suma-h, td.suma {
@@ -503,6 +562,10 @@ export function exportarCuadranteJefesPdf(
     <div class="panel">
       <h2>Puestos · ${puestosLeyenda.length}</h2>
       <div class="puestos-grid">${tarjetasPuestos}</div>
+    </div>
+    <div class="panel">
+      <h2>Permisos · ${permisos.length}</h2>
+      <div class="puestos-grid">${tarjetasPermisos}</div>
     </div>
   </section>
 </body>

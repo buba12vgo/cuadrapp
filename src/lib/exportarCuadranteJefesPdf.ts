@@ -15,7 +15,6 @@ import {
 } from '@/lib/convenio'
 import { esFestivo } from '@/lib/festivos'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
-import { ROL_LABEL } from '@/lib/rolesCuadrante'
 import type { FichaPolicia, Turno } from '@/types'
 
 const MESES = [
@@ -35,17 +34,19 @@ const MESES = [
 
 const DIA_SEMANA = ['D', 'L', 'M', 'X', 'J', 'V', 'S'] as const
 
-/** Colores alineados con CLASE_TURNO_CELDA de la UI. */
-const COLOR_TURNO: Record<Turno, { fondo: string; texto: string; borde: string }> =
-  {
-    M: { fondo: '#dbeafe', texto: '#1d4ed8', borde: '#93c5fd' },
-    T: { fondo: '#ffedd5', texto: '#c2410c', borde: '#fdba74' },
-    N: { fondo: '#ede9fe', texto: '#6d28d9', borde: '#c4b5fd' },
-    MT: { fondo: '#ccfbf1', texto: '#115e59', borde: '#5eead4' },
-    L: { fondo: '#ecfdf5', texto: '#065f46', borde: '#6ee7b7' },
-    D: { fondo: '#ffffff', texto: '#64748b', borde: '#e2e8f0' },
-    V: { fondo: '#d1fae5', texto: '#047857', borde: '#6ee7b7' },
-  }
+/**
+ * Colores de celda alineados con CLASE_TURNO_CELDA / Tailwind de la UI:
+ * blue-100/700, orange-100/700, violet-100/700, teal-100/800, emerald, white/slate.
+ */
+const COLOR_TURNO: Record<Turno, { fondo: string; texto: string }> = {
+  M: { fondo: '#dbeafe', texto: '#1d4ed8' }, // bg-blue-100 text-blue-700
+  T: { fondo: '#ffedd5', texto: '#c2410c' }, // bg-orange-100 text-orange-700
+  N: { fondo: '#ede9fe', texto: '#6d28d9' }, // bg-violet-100 text-violet-700
+  MT: { fondo: '#ccfbf1', texto: '#115e59' }, // bg-teal-100 text-teal-800
+  L: { fondo: '#ecfdf5', texto: '#064e3b' }, // bg-emerald-50 text-emerald-900
+  D: { fondo: '#ffffff', texto: '#64748b' }, // bg-white text-slate-500
+  V: { fondo: '#d1fae5', texto: '#047857' }, // bg-emerald-100 text-emerald-700
+}
 
 const LEYENDA_TURNOS: Array<{ turno: Turno; label: string }> = [
   { turno: 'M', label: 'Mañana' },
@@ -143,16 +144,18 @@ export function exportarCuadranteJefesPdf(
   } = opciones
 
   const titulo = `Cuadrante jefes de servicio · ${MESES[mes - 1]} ${anio}`
+
   const cabecerasDias = diasVisibles
     .map((dia) => {
       const weekday = new Date(anio, mes - 1, dia).getDay()
       const especial =
         esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia)
-      const color = especial ? '#b91c1c' : '#0f172a'
-      const fondo = especial ? '#fef3c7' : '#f1f5f9'
-      return `<th class="dia" style="background:${fondo};color:${color};">
-        <span class="num">${dia}</span>
-        <span class="dow">${DIA_SEMANA[weekday]}</span>
+      const fondo = especial ? '#fffbeb' : '#ffffff' // amber-50 / white
+      const color = especial ? '#dc2626' : '#0f172a' // red-600 / ink
+      const colorDow = especial ? '#dc2626' : '#64748b' // red-600 / slate-500
+      return `<th class="dia" style="background:${fondo};">
+        <span class="num" style="color:${color};">${dia}</span>
+        <span class="dow" style="color:${colorDow};">${DIA_SEMANA[weekday]}</span>
       </th>`
     })
     .join('')
@@ -160,10 +163,10 @@ export function exportarCuadranteJefesPdf(
   const filas = agentes
     .map((agente) => {
       const nombre = `${agente.nombre} ${agente.apellidos}`
-      const rol = ROL_LABEL[agente.rolBase]
+      const fila = cuadrante[agente.id] ?? []
       const celdas = diasVisibles
         .map((dia) => {
-          const turno = (cuadrante[agente.id]?.[dia - 1] ?? 'D') as Turno
+          const turno = (fila[dia - 1] ?? 'D') as Turno
           const fecha = isoFecha(anio, mes, dia)
           const texto = textoCelda(
             turno,
@@ -175,25 +178,22 @@ export function exportarCuadranteJefesPdf(
           const especial =
             esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia)
           const color = COLOR_TURNO[turno] ?? COLOR_TURNO.D
+          // Misma lógica que la UI: finde + D/V → amber-50
           const fondo =
             especial && (turno === 'D' || turno === 'V')
-              ? '#fef3c7'
+              ? '#fffbeb'
               : color.fondo
-          return `<td class="celda" style="background:${fondo};color:${color.texto};border-color:${color.borde};">${escapeHtml(texto)}</td>`
+          return `<td class="celda" style="background:${fondo};color:${color.texto};">${escapeHtml(texto)}</td>`
         })
         .join('')
-      const total = totalDiasTrabajadosJefes(
-        cuadrante[agente.id] ?? [],
-        diasVisibles,
-      )
+      const total = totalDiasTrabajadosJefes(fila, diasVisibles)
       return `<tr>
         <th class="agente">
           <span class="placa">${escapeHtml(agente.numeroPlaca)}</span>
           <span class="nombre">${escapeHtml(nombre)}</span>
-          <span class="rol">${escapeHtml(rol)}</span>
         </th>
         ${celdas}
-        <td class="suma">${total}</td>
+        <td class="suma">${total}d</td>
       </tr>`
     })
     .join('')
@@ -204,9 +204,13 @@ export function exportarCuadranteJefesPdf(
         (agente) =>
           pesoJornadaJefes((cuadrante[agente.id] ?? [])[dia - 1]) > 0,
       ).length
-      return `<td class="suma">${n}</td>`
+      const especial =
+        esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia)
+      const fondo = especial ? '#fef3c7' : '#f1f5f9' // amber-100 / slate-100
+      return `<td class="pie" style="background:${fondo};">${n}</td>`
     })
     .join('')
+
   const totalGeneral = agentes.reduce(
     (n, agente) =>
       n + totalDiasTrabajadosJefes(cuadrante[agente.id] ?? [], diasVisibles),
@@ -214,10 +218,11 @@ export function exportarCuadranteJefesPdf(
   )
 
   const puestosLeyenda = puestosDeAmbito(puestos, 'JEFE_SERVICIO')
+
   const chipsTurno = LEYENDA_TURNOS.map(({ turno, label }) => {
     const c = COLOR_TURNO[turno]
-    return `<span class="chip" style="background:${c.fondo};color:${c.texto};border-color:${c.borde};">
-      <strong>${escapeHtml(etiquetaTurno(turno))}</strong> ${escapeHtml(label)}
+    return `<span class="chip" style="background:${c.fondo};color:${c.texto};">
+      <strong>${escapeHtml(etiquetaTurno(turno))}</strong>${escapeHtml(label)}
     </span>`
   }).join('')
 
@@ -251,210 +256,217 @@ export function exportarCuadranteJefesPdf(
   <meta charset="utf-8" />
   <title>${escapeHtml(titulo)}</title>
   <style>
-    @page { size: A4 landscape; margin: 8mm; }
+    @page { size: A4 landscape; margin: 7mm; }
     * { box-sizing: border-box; }
     body {
-      font-family: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+      margin: 0;
+      padding: 0;
       color: #0f172a;
-      margin: 0;
-      padding: 6px 4px;
+      font-family: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
-    .cabecera {
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 10px;
-      border-bottom: 2px solid #0f172a;
-      padding-bottom: 6px;
-    }
-    h1 {
-      font-size: 20px;
+
+    .titulo {
+      margin: 0 0 6px;
+      font-size: 14px;
       font-weight: 800;
-      letter-spacing: -0.02em;
-      margin: 0;
+      letter-spacing: -0.01em;
     }
     .sub {
-      font-size: 12px;
-      color: #475569;
-      margin: 0;
-      text-align: right;
-      line-height: 1.35;
+      margin: 0 0 8px;
+      font-size: 10px;
+      color: #64748b;
     }
+
+    /* Misma densidad visual que la tabla de pantalla */
     table.matriz {
-      border-collapse: collapse;
       width: 100%;
+      border-collapse: collapse;
       table-layout: fixed;
+      font-size: 10px;
+      line-height: 1.05;
     }
     table.matriz th,
     table.matriz td {
-      border: 0.7pt solid #94a3b8;
+      border: 0.5pt solid #e2e8f0; /* border-line */
       text-align: center;
       vertical-align: middle;
+      padding: 0;
     }
-    table.matriz thead th.dia {
-      padding: 4px 1px;
-      min-width: 26px;
-    }
-    table.matriz thead th.dia .num {
-      display: block;
-      font-size: 11px;
-      font-weight: 800;
-      line-height: 1.15;
-    }
-    table.matriz thead th.dia .dow {
-      display: block;
-      font-size: 9px;
-      font-weight: 700;
-      line-height: 1.1;
-      opacity: 0.9;
-    }
-    table.matriz td.celda {
-      font-size: 11px;
-      font-weight: 800;
-      line-height: 1.15;
-      padding: 5px 1px;
-      white-space: nowrap;
-    }
-    th.agente, td.agente {
+
+    th.agente-h {
+      width: 150px;
+      min-width: 150px;
       text-align: left !important;
-      width: 168px;
-      min-width: 168px;
-      max-width: 168px;
-      padding: 5px 7px !important;
-      background: #f8fafc;
+      padding: 3px 5px !important;
+      background: #ffffff;
+      font-size: 10px;
+      font-weight: 800;
+    }
+    th.agente {
+      width: 150px;
+      min-width: 150px;
+      text-align: left !important;
+      padding: 2px 5px !important;
+      background: #ffffff;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
     }
     .agente .placa {
       font-family: ui-monospace, Menlo, Consolas, monospace;
-      display: block;
-      font-size: 12px;
       font-weight: 800;
-      letter-spacing: 0.02em;
+      font-size: 10px;
+      margin-right: 5px;
     }
     .agente .nombre {
-      display: block;
-      font-weight: 650;
-      font-size: 10.5px;
-      line-height: 1.2;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      margin-top: 1px;
-    }
-    .agente .rol {
-      display: block;
-      font-weight: 600;
-      font-size: 9px;
-      color: #64748b;
-      margin-top: 1px;
-    }
-    td.suma, th.suma {
-      background: #e2e8f0;
-      width: 34px;
-      min-width: 34px;
-      border-left: 1.5pt solid #334155 !important;
-      font-size: 11px;
-      font-weight: 800;
-      padding: 4px 2px;
-    }
-    tfoot th.agente, tfoot td.suma {
-      background: #cbd5e1;
-      font-size: 11px;
+      font-weight: 550;
+      font-size: 9.5px;
     }
 
+    th.dia {
+      padding: 2px 0 !important;
+      min-width: 0;
+    }
+    th.dia .num {
+      display: block;
+      font-size: 10px;
+      font-weight: 800;
+      line-height: 1.1;
+    }
+    th.dia .dow {
+      display: block;
+      font-size: 8px;
+      font-weight: 700;
+      line-height: 1.05;
+    }
+
+    td.celda {
+      font-size: 9.5px;
+      font-weight: 800;
+      padding: 3px 0 !important;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    th.suma-h, td.suma {
+      width: 32px;
+      min-width: 32px;
+      border-left: 1.5pt solid #475569 !important;
+      background: #f1f5f9; /* slate-100 */
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 1px !important;
+    }
+
+    tfoot th.pie-l {
+      text-align: left !important;
+      padding: 3px 5px !important;
+      background: #f1f5f9;
+      font-weight: 800;
+      font-size: 10px;
+      border-top: 1.5pt solid #94a3b8 !important;
+    }
+    tfoot td.pie {
+      font-size: 9.5px;
+      font-weight: 700;
+      padding: 3px 0 !important;
+      border-top: 1.5pt solid #94a3b8 !important;
+    }
+    tfoot td.suma {
+      border-top: 1.5pt solid #94a3b8 !important;
+      background: #e2e8f0;
+    }
+
+    /* Dashboard inferior: leyenda + puestos (como pediste) */
     .dashboard {
-      margin-top: 12px;
+      margin-top: 8px;
       display: grid;
-      grid-template-columns: 1.1fr 1.9fr;
-      gap: 10px;
+      grid-template-columns: 1fr 1.6fr;
+      gap: 8px;
       page-break-inside: avoid;
     }
     .panel {
-      border: 1.2pt solid #cbd5e1;
+      border: 0.8pt solid #e2e8f0;
       border-radius: 8px;
-      background: #f8fafc;
-      padding: 8px 10px;
+      background: #ffffff;
+      padding: 6px 8px;
     }
     .panel h2 {
-      margin: 0 0 8px;
-      font-size: 11px;
+      margin: 0 0 6px;
+      font-size: 9px;
       font-weight: 800;
       text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: #334155;
+      letter-spacing: 0.05em;
+      color: #64748b;
     }
     .chips {
       display: flex;
       flex-wrap: wrap;
-      gap: 5px;
+      gap: 4px;
     }
     .chip {
       display: inline-flex;
       align-items: center;
-      gap: 4px;
-      border: 1px solid;
-      border-radius: 999px;
-      padding: 3px 9px;
-      font-size: 10px;
+      gap: 3px;
+      border-radius: 6px;
+      padding: 2px 7px;
+      font-size: 9px;
       font-weight: 600;
       white-space: nowrap;
     }
     .chip strong {
       font-family: ui-monospace, Menlo, Consolas, monospace;
-      font-size: 11px;
+      font-weight: 800;
+      margin-right: 2px;
     }
     .puestos-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-      gap: 6px;
+      grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+      gap: 5px;
     }
     .puesto-card {
       display: flex;
       align-items: center;
-      gap: 8px;
-      background: #ffffff;
-      border: 1px solid #cbd5e1;
-      border-radius: 8px;
-      padding: 6px 8px;
-      min-height: 44px;
+      gap: 6px;
+      border: 0.7pt solid #e2e8f0;
+      border-radius: 7px;
+      background: #f8fafc;
+      padding: 4px 6px;
+      min-height: 34px;
     }
     .puesto-abrev {
       flex: 0 0 auto;
-      min-width: 42px;
-      height: 32px;
+      min-width: 34px;
+      height: 24px;
       display: flex;
       align-items: center;
       justify-content: center;
-      border-radius: 6px;
-      background: #1e293b;
+      border-radius: 5px;
+      background: #0f172a;
       color: #f8fafc;
       font-family: ui-monospace, Menlo, Consolas, monospace;
-      font-size: 12px;
+      font-size: 10px;
       font-weight: 800;
-      letter-spacing: 0.02em;
     }
     .puesto-meta { min-width: 0; }
     .puesto-nombre {
       margin: 0;
-      font-size: 11px;
+      font-size: 9.5px;
       font-weight: 700;
-      line-height: 1.2;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
     .puesto-count {
-      margin: 2px 0 0;
-      font-size: 10px;
+      margin: 1px 0 0;
+      font-size: 8.5px;
       color: #64748b;
-      font-weight: 500;
     }
     .puesto-count strong { color: #0f172a; font-weight: 800; }
-    .dash-vacio {
-      margin: 0;
-      font-size: 11px;
-      color: #64748b;
-    }
+    .dash-vacio { margin: 0; font-size: 10px; color: #64748b; }
+
     @media print {
       body { padding: 0; }
       .dashboard { break-inside: avoid; }
@@ -462,28 +474,23 @@ export function exportarCuadranteJefesPdf(
   </style>
 </head>
 <body>
-  <header class="cabecera">
-    <h1>${escapeHtml(titulo)}</h1>
-    <p class="sub">
-      Jefes de servicio y responsables<br />
-      ${agentes.length} agente${agentes.length === 1 ? '' : 's'} · ${diasVisibles.length} días
-    </p>
-  </header>
+  <h1 class="titulo">${escapeHtml(titulo)}</h1>
+  <p class="sub">${agentes.length} agente${agentes.length === 1 ? '' : 's'} · ${diasVisibles.length} días · jefes de servicio y responsables</p>
 
   <table class="matriz">
     <thead>
       <tr>
-        <th class="agente">Agente</th>
+        <th class="agente-h">Agente</th>
         ${cabecerasDias}
-        <th class="suma">Σ</th>
+        <th class="suma-h">Σ</th>
       </tr>
     </thead>
     <tbody>${filas}</tbody>
     <tfoot>
       <tr>
-        <th class="agente">Personal / día</th>
+        <th class="pie-l">Σ</th>
         ${pieDias}
-        <td class="suma">${totalGeneral}</td>
+        <td class="suma">${totalGeneral}d</td>
       </tr>
     </tfoot>
   </table>

@@ -12,6 +12,16 @@ npm run dev
 
 ## Acceso
 
-Solo entra la cuenta de Google configurada en `VITE_ADMIN_EMAIL` (por defecto `buba12@gmail.com`). Cualquier otra cuenta se cierra al instante.
+Pueden entrar las cuentas de Google listadas en `VITE_ADMIN_EMAILS` (separadas
+por comas). Si no está definida, se usa `VITE_ADMIN_EMAIL` (por defecto
+`buba12@gmail.com`). Cualquier otra cuenta se cierra al instante.
 
-Despliega también `firestore.rules` en Firebase para que el backend rechace lecturas y escrituras que no sean de esa cuenta.
+Ejemplo:
+
+```bash
+VITE_ADMIN_EMAILS=buba12@gmail.com,jony.mivi@gmail.com
+```
+
+También hay que actualizar `firestore.rules` con los mismos correos y
+desplegar las reglas en Firebase; si no, la UI deja entrar pero Firestore
+rechaza lecturas/escrituras.

@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { to: '/admin/plan-anual', label: 'Plan anual' },
   { to: '/admin/cuadrante-mensual', label: 'Cuadrante mensual' },
   { to: '/admin/cuadrante-jefes', label: 'Cuadrante jefes' },
+  { to: '/admin/calendario-jefes', label: 'Calendario jefes' },
   { to: '/admin/calendario', label: 'Calendario' },
   { to: '/admin/listados', label: 'Listados' },
   { to: '/admin/reglas', label: 'Reglas' },

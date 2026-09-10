@@ -19,7 +19,7 @@ por comas). Si no está definida, se usa `VITE_ADMIN_EMAIL` (por defecto
 Ejemplo:
 
 ```bash
-VITE_ADMIN_EMAILS=buba12@gmail.com,otro.admin@gmail.com
+VITE_ADMIN_EMAILS=buba12@gmail.com,jony.mivi@gmail.com
 ```
 
 También hay que actualizar `firestore.rules` con los mismos correos y

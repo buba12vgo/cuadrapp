@@ -72,16 +72,16 @@ const MESES = [
 
 const DIA_SEMANA = ['D', 'L', 'M', 'X', 'J', 'V', 'S'] as const
 const ANIO_ACTUAL = 2026
-const ANCHO_DIA = 28
-const ANCHO_AGENTE = 168
-const ANCHO_SUMA = 40
+/** Columna fija de agente; los días se reparten el resto del ancho. */
+const ANCHO_AGENTE = 200
+const ANCHO_SUMA = 48
 
 const CELDA =
-  'h-[26px] max-h-[26px] overflow-hidden border border-line px-0 py-0 text-[10px] leading-none'
+  'h-[30px] max-h-[30px] overflow-hidden border border-line px-0 py-0 text-[12px] leading-none'
 const CELDA_DIA =
-  'h-[32px] max-h-[32px] overflow-hidden border border-line px-0 py-0 text-[10px] leading-none'
+  'h-[36px] max-h-[36px] overflow-hidden border border-line px-0 py-0 text-[12px] leading-none'
 const CELDA_PIE =
-  'h-[26px] max-h-[26px] overflow-hidden border border-line border-t-2 border-t-slate-300 bg-slate-100 px-0 py-0 text-[10px] leading-none font-bold'
+  'h-[30px] max-h-[30px] overflow-hidden border border-line border-t-2 border-t-slate-300 bg-slate-100 px-0 py-0 text-[12px] leading-none font-bold'
 const CAMPO_TOOLBAR =
   'h-7 rounded-md border border-line bg-white px-1.5 text-xs text-ink outline-none focus:border-brand-400 focus-visible:ring-2 focus-visible:ring-brand-500/40'
 
@@ -674,12 +674,18 @@ export function CuadranteJefesPage() {
       <DashboardBody>
         <DashboardMain>
           <DashboardMainScroll>
-            <table className="w-max border-separate border-spacing-0 text-[11px] leading-none">
+            <table className="w-full table-fixed border-separate border-spacing-0 text-[12px] leading-none">
+              <colgroup>
+                <col style={{ width: ANCHO_AGENTE }} />
+                {diasVisibles.map((dia) => (
+                  <col key={dia} />
+                ))}
+                <col style={{ width: ANCHO_SUMA }} />
+              </colgroup>
               <thead>
                 <tr>
                   <th
                     className={`${CELDA_DIA} sticky top-0 left-0 z-40 bg-white px-1.5 text-left font-bold`}
-                    style={{ width: ANCHO_AGENTE, minWidth: ANCHO_AGENTE }}
                   >
                     Agente
                   </th>
@@ -693,7 +699,6 @@ export function CuadranteJefesPage() {
                         className={`${CELDA_DIA} sticky top-0 z-20 text-center ${
                           especial ? 'bg-amber-50' : 'bg-white'
                         }`}
-                        style={{ width: ANCHO_DIA, minWidth: ANCHO_DIA }}
                       >
                         <span
                           className={`block font-bold ${especial ? 'text-red-600' : ''}`}
@@ -701,7 +706,7 @@ export function CuadranteJefesPage() {
                           {dia}
                         </span>
                         <span
-                          className={`block text-[9px] font-bold ${
+                          className={`block text-[10px] font-bold ${
                             especial ? 'text-red-600' : 'text-slate-500'
                           }`}
                         >
@@ -712,7 +717,6 @@ export function CuadranteJefesPage() {
                   })}
                   <th
                     className={`${CELDA_DIA} sticky top-0 right-0 z-30 border-l-2 border-l-slate-600 bg-slate-100 text-center font-bold`}
-                    style={{ width: ANCHO_SUMA, minWidth: ANCHO_SUMA }}
                     title="Días trabajados · M-T cuenta como 2"
                   >
                     Σ
@@ -729,7 +733,6 @@ export function CuadranteJefesPage() {
                     <tr key={agente.id}>
                       <th
                         className={`${CELDA} sticky left-0 z-30 bg-white px-1.5 text-left font-sans font-semibold hover:bg-blue-50 data-[over=true]:bg-blue-100 data-[over=true]:ring-2 data-[over=true]:ring-inset data-[over=true]:ring-blue-500`}
-                        style={{ width: ANCHO_AGENTE, minWidth: ANCHO_AGENTE }}
                         title={`${nombre} · ${rol} · soltar puesto = todos los días con turno`}
                         onDragOver={permitirSoltarPuesto}
                         onDragEnter={(event) => {
@@ -832,7 +835,7 @@ export function CuadranteJefesPage() {
                                   )
                             }
                           >
-                            <span className="block truncate px-0.5 text-[10px] leading-none">
+                            <span className="block truncate px-0.5 text-[12px] leading-none">
                               {abrevPuesto
                                 ? `${etiquetaTurno(turno)}·${abrevPuesto}`
                                 : etiquetaTurno(turno)}
@@ -842,10 +845,6 @@ export function CuadranteJefesPage() {
                       })}
                       <td
                         className={`${CELDA} sticky right-0 z-20 border-l-2 border-l-slate-600 bg-slate-100 text-center font-bold tabular-nums`}
-                        style={{
-                          width: ANCHO_SUMA,
-                          minWidth: ANCHO_SUMA,
-                        }}
                         title={tituloSumatorioJefe(fila, diasVisibles)}
                       >
                         {totalAgente}d
@@ -858,7 +857,6 @@ export function CuadranteJefesPage() {
                 <tr>
                   <th
                     className={`${CELDA_PIE} sticky bottom-0 left-0 z-40 px-1.5 text-left`}
-                    style={{ width: ANCHO_AGENTE, minWidth: ANCHO_AGENTE }}
                     title="Agentes de servicio ese día · M-T cuenta 1 persona y 2 jornadas en Σ"
                   >
                     Σ
@@ -884,7 +882,6 @@ export function CuadranteJefesPage() {
                   })}
                   <td
                     className={`${CELDA_PIE} sticky bottom-0 right-0 z-40 border-l-2 border-l-slate-600 text-center tabular-nums`}
-                    style={{ width: ANCHO_SUMA, minWidth: ANCHO_SUMA }}
                     title="Suma de días trabajados (M-T = 2)"
                   >
                     {jefes.reduce(

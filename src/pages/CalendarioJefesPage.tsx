@@ -262,9 +262,10 @@ export function CalendarioJefesPage() {
     () => Array.from({ length: nDias }, (_, i) => i + 1),
     [nDias],
   )
-  const fila = agenteSeleccionado
-    ? (cuadrante[agenteSeleccionado.id] ?? [])
-    : []
+  const fila = useMemo(() => {
+    if (!agenteSeleccionado) return [] as Turno[]
+    return cuadrante[agenteSeleccionado.id] ?? []
+  }, [agenteSeleccionado, cuadrante])
 
   const totalTrabajados = agenteSeleccionado
     ? totalDiasTrabajadosJefes(fila, diasMes)

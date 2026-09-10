@@ -9,6 +9,7 @@ import { useConfigOperativaBootstrap } from '@/lib/useConfigOperativaBootstrap'
 const NAV_ITEMS = [
   { to: '/admin/agentes', label: 'Agentes', end: true },
   { to: '/admin/puestos', label: 'Puestos' },
+  { to: '/admin/permisos', label: 'Permisos' },
   { to: '/admin/minimos', label: 'Mínimos' },
   { to: '/admin/plan-anual', label: 'Plan anual' },
   { to: '/admin/cuadrante-mensual', label: 'Cuadrante mensual' },

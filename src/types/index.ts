@@ -5,8 +5,10 @@ export type RolPolicia =
   | 'POLICIA'
   | 'POLICIA_BOLSA'
 
-/** `MT` = Mañana+Tarde, solo fines de semana en cuadrante de jefes. */
-export type Turno = 'M' | 'T' | 'N' | 'MT' | 'L' | 'D' | 'V'
+/** `MT` = Mañana+Tarde, solo fines de semana en cuadrante de jefes.
+ *  `P` = Permiso (tipos configurables: AP, EF, IT…).
+ *  `L` = Libranza (cuadrante operativo legacy; en jefes se usa `P`). */
+export type Turno = 'M' | 'T' | 'N' | 'MT' | 'L' | 'P' | 'D' | 'V'
 
 export type TipoEvento =
   | 'FESTIVO'

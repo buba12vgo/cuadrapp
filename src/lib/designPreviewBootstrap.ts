@@ -7,12 +7,15 @@ import {
   OBJETIVOS_PLAN_DEFECTO,
 } from '@/lib/generarPlanAnual'
 import { hydratePlanesAnuales } from '@/lib/planAnualStore'
+import { PERMISOS_INICIALES } from '@/lib/permisos'
+import { hydrateTiposPermiso } from '@/lib/permisosStore'
 import { ANIO_REFERENCIA_VACACIONES_DEFECTO } from '@/lib/vacaciones'
 
 /** Datos locales para auditar la UI sin Firestore. */
 export function bootstrapDesignPreview() {
   hydrateAgentes(mockAgentes)
   hydrateEventos(mockEventosCalendario)
+  hydrateTiposPermiso(PERMISOS_INICIALES)
 
   const anio = ANIO_REFERENCIA_VACACIONES_DEFECTO
   const resultado = generarPlanAnual(

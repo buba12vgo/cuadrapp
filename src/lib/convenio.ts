@@ -29,11 +29,17 @@ export function diasOperativosConvenio(_anio: number, mes: number) {
 }
 
 export function esDiaTrabajado(turno: Turno | undefined) {
-  return turno != null && turno !== 'D' && turno !== 'V'
+  return (
+    turno != null &&
+    turno !== 'D' &&
+    turno !== 'V' &&
+    turno !== 'P' &&
+    turno !== 'L'
+  )
 }
 
 export function esDescanso(turno: Turno | undefined) {
-  return turno === 'D' || turno === 'V'
+  return turno === 'D' || turno === 'V' || turno === 'P' || turno === 'L'
 }
 
 /** Jornada aislada M/T/N entre descansos (sin mirar borde de mes). */

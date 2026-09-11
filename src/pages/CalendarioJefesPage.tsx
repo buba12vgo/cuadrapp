@@ -119,6 +119,14 @@ const BORDE_CELDA: Record<Turno, string> = {
   V: 'border-l-emerald-500',
 }
 
+const BARRA_TURNO: Record<'M' | 'T' | 'N' | 'MT' | 'finde', string> = {
+  M: 'bg-blue-500',
+  T: 'bg-orange-500',
+  N: 'bg-violet-500',
+  MT: 'bg-teal-500',
+  finde: 'bg-amber-500',
+}
+
 /** Select compacto alineado con la toolbar (evita el look raro de CAMPO h-9). */
 const SELECT_TOOLBAR =
   `h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-ink shadow-none ${FOCUS_RING} focus:border-brand-400`

@@ -119,12 +119,13 @@ const BORDE_CELDA: Record<Turno, string> = {
   V: 'border-l-emerald-500',
 }
 
-const BARRA_TURNO: Record<'M' | 'T' | 'N' | 'MT' | 'finde', string> = {
+const BARRA_TURNO: Record<'M' | 'T' | 'N' | 'MT' | 'finde' | 'P', string> = {
   M: 'bg-blue-500',
   T: 'bg-orange-500',
   N: 'bg-violet-500',
   MT: 'bg-teal-500',
   finde: 'bg-amber-500',
+  P: 'bg-rose-500',
 }
 
 /** Select compacto alineado con la toolbar (evita el look raro de CAMPO h-9). */
@@ -316,6 +317,7 @@ export function CalendarioJefesPage() {
     desglose.N,
     desglose.MT,
     desglose.findeTrabajados,
+    desglose.P,
   )
 
   useEffect(() => {
@@ -652,7 +654,7 @@ export function CalendarioJefesPage() {
                   const esDescansoCelda = turno === 'D'
                   const esServicio = esDiaTrabajado(turno)
                   const fondoCelda =
-                    especial && (turno === 'D' || turno === 'V')
+                    especial && turno === 'V'
                       ? 'bg-amber-50'
                       : FONDO_CELDA[turno]
 
@@ -777,10 +779,16 @@ export function CalendarioJefesPage() {
                 max={maxBarra}
                 color={BARRA_TURNO.finde}
               />
+              <BarraCompacta
+                label="Permisos"
+                value={desglose.P}
+                max={maxBarra}
+                color={BARRA_TURNO.P}
+              />
             </div>
             <p className="mt-1.5 text-[10px] leading-snug text-slate-500">
-              Σ <strong className="text-ink">{totalTrabajados}d</strong> · V{' '}
-              {desglose.V} · D {desglose.D}
+              Σ <strong className="text-ink">{totalTrabajados}d</strong> · P{' '}
+              {desglose.P} · V {desglose.V} · D {desglose.D}
             </p>
           </div>
 

@@ -92,8 +92,31 @@ const PILDORA_TURNO: Record<Turno, string> = {
   MT: 'bg-teal-100 text-teal-800 ring-1 ring-inset ring-teal-200/80',
   L: 'bg-rose-100 text-rose-800 ring-1 ring-inset ring-rose-200/80',
   P: 'bg-rose-100 text-rose-800 ring-1 ring-inset ring-rose-200/80',
-  D: 'bg-slate-100 text-slate-500 ring-1 ring-inset ring-slate-200/80',
+  D: 'bg-slate-200/80 text-slate-600 ring-1 ring-inset ring-slate-300/80',
   V: 'bg-emerald-100 text-emerald-800 ring-1 ring-inset ring-emerald-200/80',
+}
+
+/** Fondo de celda: servicio tintado vs descanso atenuado. */
+const FONDO_CELDA: Record<Turno, string> = {
+  M: 'bg-blue-50',
+  T: 'bg-orange-50',
+  N: 'bg-violet-50',
+  MT: 'bg-teal-50',
+  L: 'bg-rose-50',
+  P: 'bg-rose-50',
+  D: 'bg-slate-100/90 bg-[radial-gradient(circle,_#94a3b8_0.55px,_transparent_0.65px)] bg-[length:6px_6px]',
+  V: 'bg-emerald-50',
+}
+
+const BORDE_CELDA: Record<Turno, string> = {
+  M: 'border-l-blue-500',
+  T: 'border-l-orange-500',
+  N: 'border-l-violet-500',
+  MT: 'border-l-teal-500',
+  L: 'border-l-rose-400',
+  P: 'border-l-rose-500',
+  D: 'border-l-slate-300',
+  V: 'border-l-emerald-500',
 }
 
 const BARRA_TURNO: Record<'M' | 'T' | 'N' | 'MT' | 'finde', string> = {
@@ -103,9 +126,6 @@ const BARRA_TURNO: Record<'M' | 'T' | 'N' | 'MT' | 'finde', string> = {
   MT: 'bg-teal-500',
   finde: 'bg-amber-500',
 }
-
-const TRAMA_DESCANSO =
-  'bg-slate-50 bg-[radial-gradient(circle,_#cbd5e1_0.65px,_transparent_0.7px)] bg-[length:7px_7px]'
 
 /** Select compacto alineado con la toolbar (evita el look raro de CAMPO h-9). */
 const SELECT_TOOLBAR =
@@ -176,7 +196,7 @@ function PillTurno({
 }) {
   return (
     <span
-      className={`inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-extrabold leading-none tracking-tight ${PILDORA_TURNO[turno]} ${className}`}
+      className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-extrabold leading-none tracking-tight ${PILDORA_TURNO[turno]} ${className}`}
     >
       {etiquetaTurno(turno)}
     </span>
@@ -542,9 +562,9 @@ export function CalendarioJefesPage() {
                   <Shield className="h-3 w-3 text-slate-500" />
                   {agenteSeleccionado.numeroPlaca}
                 </span>
-                <p className="min-w-0 truncate text-xs font-bold text-ink">
+                <p className="min-w-0 truncate text-sm font-bold text-ink">
                   {agenteSeleccionado.nombre} {agenteSeleccionado.apellidos}
-                  <span className="ml-1.5 font-medium text-slate-500">
+                  <span className="ml-1.5 text-xs font-semibold text-slate-600">
                     {ROL_LABEL[agenteSeleccionado.rolBase]}
                   </span>
                 </p>
@@ -631,44 +651,52 @@ export function CalendarioJefesPage() {
                     filtroLeyenda !== 'TODOS' && filtroLeyenda !== turno
                   const esDescansoCelda = turno === 'D'
                   const esServicio = esDiaTrabajado(turno)
+                  const fondoCelda =
+                    especial && (turno === 'D' || turno === 'V')
+                      ? 'bg-amber-50'
+                      : FONDO_CELDA[turno]
 
                   return (
                     <div
                       key={dia}
-                      className={`group flex min-h-0 flex-col gap-0.5 overflow-hidden p-1 transition-opacity ${FOCUS_RING} ${
-                        esDescansoCelda
-                          ? TRAMA_DESCANSO
-                          : especial && (turno === 'V' || turno === 'P')
-                            ? 'bg-amber-50/70'
-                            : 'bg-white'
-                      } ${atenuada ? 'opacity-30' : 'opacity-100'}`}
+                      className={`group flex min-h-0 flex-col gap-1 overflow-hidden border-l-[3px] p-1.5 transition-opacity ${FOCUS_RING} ${fondoCelda} ${BORDE_CELDA[turno]} ${
+                        esDescansoCelda ? 'opacity-[0.88]' : ''
+                      } ${atenuada ? '!opacity-25' : ''}`}
                       title={`${dia}/${mes}/${anio} · ${etiqueta}${detalle ? ` · ${detalle}` : ''}`}
                     >
                       <div className="flex shrink-0 items-center justify-between gap-0.5">
                         <span
-                          className={`text-[10px] font-extrabold tabular-nums leading-none ${
-                            especial ? 'text-red-600' : 'text-slate-700'
+                          className={`text-xs font-extrabold tabular-nums leading-none ${
+                            especial ? 'text-red-600' : 'text-slate-800'
                           }`}
                         >
                           {dia}
                         </span>
                         {especial ? (
-                          <span className="h-1 w-1 shrink-0 rounded-full bg-red-500" />
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
                         ) : null}
                       </div>
 
-                      <div className="mt-auto flex min-h-0 flex-col items-start gap-0.5 overflow-hidden">
+                      <div className="mt-auto flex min-h-0 flex-col items-start gap-1 overflow-hidden">
                         <PillTurno turno={turno} />
                         {detalle ? (
                           <span
-                            className="line-clamp-2 max-w-full text-[9px] font-semibold leading-tight text-slate-700"
+                            className="line-clamp-2 max-w-full text-[11px] font-bold leading-snug text-slate-900"
                             title={detalle}
                           >
                             {detalle}
                           </span>
                         ) : esServicio ? (
-                          <span className="text-[9px] font-medium text-slate-400">
+                          <span className="text-[11px] font-semibold text-slate-500">
                             Sin puesto
+                          </span>
+                        ) : esDescansoCelda ? (
+                          <span className="text-[11px] font-semibold text-slate-500">
+                            Descanso
+                          </span>
+                        ) : turno === 'V' ? (
+                          <span className="text-[11px] font-semibold text-emerald-800">
+                            Vacaciones
                           </span>
                         ) : null}
                       </div>

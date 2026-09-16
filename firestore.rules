@@ -1,10 +1,14 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Misma lista que VITE_ADMIN_EMAILS en Vercel (correos en minúsculas).
     function isAdmin() {
       return request.auth != null
         && request.auth.token.email_verified == true
-        && request.auth.token.email == 'buba12@gmail.com';
+        && request.auth.token.email in [
+          'buba12@gmail.com',
+          'jony.mivi@gmail.com'
+        ];
     }
 
     match /{document=**} {

@@ -162,7 +162,7 @@ export function equilibrarFindesConsecutivos(
   fila: Turno[],
   anio: number,
   mes: number,
-  turnoTrabajo: Exclude<Turno, 'V' | 'D' | 'L'>,
+  turnoTrabajo: Exclude<Turno, 'V' | 'D' | 'L' | 'P'>,
   esValida?: (prueba: Turno[], original: Turno[]) => boolean,
 ): Turno[] {
   const copia = [...fila]
@@ -252,7 +252,7 @@ export function equilibrarFindesLaboradosMes(
   fila: Turno[],
   anio: number,
   mes: number,
-  turnoTrabajo: Exclude<Turno, 'V' | 'D' | 'L'>,
+  turnoTrabajo: Exclude<Turno, 'V' | 'D' | 'L' | 'P'>,
   esValida?: (prueba: Turno[], original: Turno[]) => boolean,
 ): Turno[] {
   const copia = [...fila]
@@ -339,7 +339,7 @@ export function equilibrarFindesUnicoMes(
   fila: Turno[],
   anio: number,
   mes: number,
-  turnoTrabajo: Exclude<Turno, 'V' | 'D' | 'L'>,
+  turnoTrabajo: Exclude<Turno, 'V' | 'D' | 'L' | 'P'>,
   esValida?: (prueba: Turno[], original: Turno[]) => boolean,
 ): Turno[] {
   const copia = [...fila]

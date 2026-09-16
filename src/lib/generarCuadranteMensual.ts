@@ -265,7 +265,7 @@ function construirFila(
 
 function turnoTrabajoDeFila(
   fila: Turno[],
-): Exclude<Turno, 'V' | 'D' | 'L'> | null {
+): Exclude<Turno, 'V' | 'D' | 'L' | 'P'> | null {
   for (const turno of fila) {
     if (turno === 'M' || turno === 'T' || turno === 'N') return turno
   }
@@ -449,7 +449,7 @@ function elegirCombinacion(
  */
 function unificarFindesPartidos(
   fila: Turno[],
-  turno: Exclude<Turno, 'V' | 'D' | 'L'>,
+  turno: Exclude<Turno, 'V' | 'D' | 'L' | 'P'>,
   anio: number,
   mes: number,
 ): Turno[] {
@@ -598,7 +598,7 @@ function intentarTraslado(
   fila: Turno[],
   alto: number,
   bajo: number,
-  turno: Exclude<Turno, 'V' | 'D' | 'L'>,
+  turno: Exclude<Turno, 'V' | 'D' | 'L' | 'P'>,
   anio: number,
   mes: number,
   permitirFindes: boolean,
@@ -636,7 +636,7 @@ function intentarTrasladoParaMinimos(
   fila: Turno[],
   alto: number,
   bajo: number,
-  turno: Exclude<Turno, 'V' | 'D' | 'L'>,
+  turno: Exclude<Turno, 'V' | 'D' | 'L' | 'P'>,
   anio: number,
   mes: number,
 ): Turno[] | null {
@@ -672,7 +672,7 @@ function intentarTrasladoParaMinimos(
 function intentarRotarAgenteParaMinimos(
   fila: Turno[],
   diaObjetivo: number,
-  turno: Exclude<Turno, 'V' | 'D' | 'L'>,
+  turno: Exclude<Turno, 'V' | 'D' | 'L' | 'P'>,
   anio: number,
   mes: number,
 ): Turno[] | null {
@@ -690,7 +690,7 @@ function intentarIntercambioDiaEntreAgentes(
   filaA: Turno[],
   filaB: Turno[],
   dia: number,
-  turno: Exclude<Turno, 'V' | 'D' | 'L'>,
+  turno: Exclude<Turno, 'V' | 'D' | 'L' | 'P'>,
   anio: number,
   mes: number,
 ): [Turno[], Turno[]] | null {

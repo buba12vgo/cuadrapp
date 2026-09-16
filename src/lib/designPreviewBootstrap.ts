@@ -12,6 +12,8 @@ import {
   OBJETIVOS_PLAN_DEFECTO,
 } from '@/lib/generarPlanAnual'
 import { hydratePlanesAnuales } from '@/lib/planAnualStore'
+import { PERMISOS_INICIALES } from '@/lib/permisos'
+import { hydrateTiposPermiso } from '@/lib/permisosStore'
 import { hydratePuestosYMinimos } from '@/lib/puestosStore'
 import { ANIO_REFERENCIA_VACACIONES_DEFECTO } from '@/lib/vacaciones'
 
@@ -30,6 +32,7 @@ export function bootstrapDesignPreview() {
   hydrateAgentes(mockAgentes)
   hydrateEventos(mockEventosCalendario)
   hydratePuestosYMinimos(PUESTOS_AGENTE, crearMinimosSemana(PUESTOS_AGENTE))
+  hydrateTiposPermiso(PERMISOS_INICIALES)
 
   const anio = ANIO_REFERENCIA_VACACIONES_DEFECTO
   const resultado = generarPlanAnual(

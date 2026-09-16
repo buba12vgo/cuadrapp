@@ -27,11 +27,17 @@ export function esTurnoOperativo(
 export function esTurnoAsignable(
   turno: string | undefined,
 ): turno is TurnoAsignable {
-  return esTurnoOperativo(turno) || turno === 'MT'
+  return esTurnoOperativo(turno) || turno === 'MT' || turno === 'P'
+}
+
+export function esTurnoPermiso(turno: string | undefined): turno is 'P' {
+  return turno === 'P'
 }
 
 export function etiquetaTurno(turno: string): string {
-  return turno === 'MT' ? 'M-T' : turno
+  if (turno === 'MT') return 'M-T'
+  if (turno === 'P') return 'P'
+  return turno
 }
 
 /** M-T (finde jefes) cuenta como mañana y como tarde. */
@@ -80,6 +86,15 @@ export function leerPuestoArrastrado(
 ): PuestoBase | null {
   const raw = dataTransfer.getData(MIME_PUESTO)
   if (puestos.some((puesto) => puesto.nombre === raw)) return raw
+  return null
+}
+
+export function leerPermisoArrastrado(
+  dataTransfer: DataTransfer,
+  nombresPermiso: readonly string[],
+): string | null {
+  const raw = dataTransfer.getData(MIME_PUESTO)
+  if (nombresPermiso.includes(raw)) return raw
   return null
 }
 
@@ -249,9 +264,10 @@ export function asignarPuestoMesAgente(
     if (!copia[fecha]) copia[fecha] = {}
     if (!copia[fecha][turno]) copia[fecha][turno] = {}
 
-    const minimos = turno === 'MT' ? undefined : minimosDeFecha?.(fecha)
+    const minimos =
+      esTurnoOperativo(turno) ? minimosDeFecha?.(fecha) : undefined
     const elegido =
-      minimos && turno !== 'MT'
+      minimos && esTurnoOperativo(turno)
         ? elegirPuestoParaDia({
             preferido: puesto,
             agente,

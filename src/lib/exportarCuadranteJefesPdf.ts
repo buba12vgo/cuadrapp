@@ -1,6 +1,7 @@
 import {
   abreviaturaPuesto,
   esTurnoAsignable,
+  esTurnoPermiso,
   etiquetaTurno,
 } from '@/lib/asignacionPuestos'
 import {
@@ -8,10 +9,18 @@ import {
   type AsignacionesDiarias,
   type PuestoConfig,
 } from '@/lib/calendarioPuestos'
-import { esFinDeSemana, pesoJornadaJefes, totalDiasTrabajadosJefes } from '@/lib/convenio'
+import {
+  esFinDeSemana,
+  pesoJornadaJefes,
+  totalDiasTrabajadosJefes,
+} from '@/lib/convenio'
 import { esFestivo } from '@/lib/festivos'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
-import { ROL_LABEL } from '@/lib/rolesCuadrante'
+import {
+  abreviaturaDesdePermisos,
+  type PermisoConfig,
+} from '@/lib/permisos'
+import { getTiposPermiso } from '@/lib/permisosStore'
 import type { FichaPolicia, Turno } from '@/types'
 
 const MESES = [
@@ -31,15 +40,30 @@ const MESES = [
 
 const DIA_SEMANA = ['D', 'L', 'M', 'X', 'J', 'V', 'S'] as const
 
+/**
+ * Colores de celda alineados con CLASE_TURNO_CELDA / Tailwind de la UI:
+ * blue-100/700, orange-100/700, violet-100/700, teal-100/800, emerald, white/slate.
+ */
 const COLOR_TURNO: Record<Turno, { fondo: string; texto: string }> = {
-  M: { fondo: '#dbeafe', texto: '#1d4ed8' },
-  T: { fondo: '#ffedd5', texto: '#c2410c' },
-  N: { fondo: '#ede9fe', texto: '#6d28d9' },
-  MT: { fondo: '#ccfbf1', texto: '#115e59' },
-  L: { fondo: '#ecfdf5', texto: '#065f46' },
-  D: { fondo: '#ffffff', texto: '#64748b' },
-  V: { fondo: '#d1fae5', texto: '#047857' },
+  M: { fondo: '#dbeafe', texto: '#1d4ed8' }, // bg-blue-100 text-blue-700
+  T: { fondo: '#ffedd5', texto: '#c2410c' }, // bg-orange-100 text-orange-700
+  N: { fondo: '#ede9fe', texto: '#6d28d9' }, // bg-violet-100 text-violet-700
+  MT: { fondo: '#ccfbf1', texto: '#115e59' }, // bg-teal-100 text-teal-800
+  L: { fondo: '#fff1f2', texto: '#9f1239' }, // legacy
+  P: { fondo: '#fff1f2', texto: '#9f1239' }, // bg-rose-50 text-rose-800
+  D: { fondo: '#ffffff', texto: '#64748b' }, // bg-white text-slate-500
+  V: { fondo: '#d1fae5', texto: '#047857' }, // bg-emerald-100 text-emerald-700
 }
+
+const LEYENDA_TURNOS: Array<{ turno: Turno; label: string }> = [
+  { turno: 'M', label: 'Mañana' },
+  { turno: 'T', label: 'Tarde' },
+  { turno: 'N', label: 'Noche' },
+  { turno: 'MT', label: 'M-T finde' },
+  { turno: 'P', label: 'Permiso' },
+  { turno: 'D', label: 'Descanso' },
+  { turno: 'V', label: 'Vacaciones' },
+]
 
 function pad(n: number) {
   return String(n).padStart(2, '0')
@@ -63,8 +87,17 @@ function textoCelda(
   agenteId: string,
   asignaciones: AsignacionesDiarias,
   puestos: PuestoConfig[],
+  permisos: PermisoConfig[],
 ) {
-  if (!esTurnoAsignable(turno)) return etiquetaTurno(turno)
+  if (!esTurnoAsignable(turno)) return escapeHtml(etiquetaTurno(turno))
+  if (esTurnoPermiso(turno)) {
+    const nombre = asignaciones[fecha]?.[turno]?.[agenteId]
+    const abrev = nombre
+      ? abreviaturaDesdePermisos(permisos, nombre)
+      : null
+    if (!abrev) return escapeHtml('P')
+    return `<span class="turno">P</span><span class="abrev">${escapeHtml(abrev)}</span>`
+  }
   const abrev = abreviaturaPuesto(
     asignaciones,
     fecha,
@@ -72,7 +105,36 @@ function textoCelda(
     turno,
     puestos,
   )
-  return abrev ? `${etiquetaTurno(turno)}·${abrev}` : etiquetaTurno(turno)
+  if (!abrev) return escapeHtml(etiquetaTurno(turno))
+  return `<span class="turno">${escapeHtml(etiquetaTurno(turno))}</span><span class="abrev">${escapeHtml(abrev)}</span>`
+}
+
+function contarAsignacionesPuesto(
+  puestoNombre: string,
+  asignaciones: AsignacionesDiarias,
+  agentes: FichaPolicia[],
+  diasVisibles: number[],
+  anio: number,
+  mes: number,
+  cuadrante: CuadranteMensual,
+) {
+  const ids = new Set(agentes.map((a) => a.id))
+  let total = 0
+  for (const dia of diasVisibles) {
+    const fecha = isoFecha(anio, mes, dia)
+    const porTurno = asignaciones[fecha]
+    if (!porTurno) continue
+    for (const [turno, porAgente] of Object.entries(porTurno)) {
+      for (const [agenteId, puesto] of Object.entries(porAgente ?? {})) {
+        if (!ids.has(agenteId)) continue
+        if (puesto !== puestoNombre) continue
+        const celda = (cuadrante[agenteId] ?? [])[dia - 1]
+        if (celda !== turno) continue
+        total += 1
+      }
+    }
+  }
+  return total
 }
 
 export type ExportarCuadranteJefesPdfOpciones = {
@@ -82,6 +144,7 @@ export type ExportarCuadranteJefesPdfOpciones = {
   cuadrante: CuadranteMensual
   asignacionesDiarias: AsignacionesDiarias
   puestos: PuestoConfig[]
+  permisos?: PermisoConfig[]
   diasVisibles: number[]
 }
 
@@ -97,29 +160,31 @@ export function exportarCuadranteJefesPdf(
     puestos,
     diasVisibles,
   } = opciones
+  const permisos = opciones.permisos ?? getTiposPermiso()
 
   const titulo = `Cuadrante jefes de servicio · ${MESES[mes - 1]} ${anio}`
+
   const cabecerasDias = diasVisibles
     .map((dia) => {
       const weekday = new Date(anio, mes - 1, dia).getDay()
       const especial =
         esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia)
-      const color = especial ? '#dc2626' : '#334155'
-      const fondo = especial ? '#fffbeb' : '#f8fafc'
-      return `<th style="background:${fondo};color:${color};min-width:22px;">
-        <span class="num">${dia}</span>
-        <span class="dow">${DIA_SEMANA[weekday]}</span>
+      const fondo = especial ? '#fffbeb' : '#ffffff' // amber-50 / white
+      const color = especial ? '#dc2626' : '#0f172a' // red-600 / ink
+      const colorDow = especial ? '#dc2626' : '#64748b' // red-600 / slate-500
+      return `<th class="dia" style="background:${fondo};">
+        <span class="num" style="color:${color};">${dia}</span>
+        <span class="dow" style="color:${colorDow};">${DIA_SEMANA[weekday]}</span>
       </th>`
     })
     .join('')
 
   const filas = agentes
     .map((agente) => {
-      const nombre = `${agente.nombre} ${agente.apellidos}`
-      const rol = ROL_LABEL[agente.rolBase]
+      const fila = cuadrante[agente.id] ?? []
       const celdas = diasVisibles
         .map((dia) => {
-          const turno = (cuadrante[agente.id]?.[dia - 1] ?? 'D') as Turno
+          const turno = (fila[dia - 1] ?? 'D') as Turno
           const fecha = isoFecha(anio, mes, dia)
           const texto = textoCelda(
             turno,
@@ -127,26 +192,23 @@ export function exportarCuadranteJefesPdf(
             agente.id,
             asignacionesDiarias,
             puestos,
+            permisos,
           )
           const especial =
             esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia)
-          const color = COLOR_TURNO[turno]
+          const color = COLOR_TURNO[turno] ?? COLOR_TURNO.D
+          // Misma lógica que la UI: finde + D/V → amber-50
           const fondo =
             especial && (turno === 'D' || turno === 'V')
               ? '#fffbeb'
               : color.fondo
-          return `<td style="background:${fondo};color:${color.texto};">${escapeHtml(texto)}</td>`
+          return `<td class="celda" style="background:${fondo};color:${color.texto};">${texto}</td>`
         })
         .join('')
-      const total = totalDiasTrabajadosJefes(
-        cuadrante[agente.id] ?? [],
-        diasVisibles,
-      )
+      const total = totalDiasTrabajadosJefes(fila, diasVisibles)
       return `<tr>
         <th class="agente">
           <span class="placa">${escapeHtml(agente.numeroPlaca)}</span>
-          <span class="nombre">${escapeHtml(nombre)}</span>
-          <span class="rol">${escapeHtml(rol)}</span>
         </th>
         ${celdas}
         <td class="suma">${total}d</td>
@@ -156,12 +218,17 @@ export function exportarCuadranteJefesPdf(
 
   const pieDias = diasVisibles
     .map((dia) => {
-      const n = agentes.filter((agente) =>
-        pesoJornadaJefes((cuadrante[agente.id] ?? [])[dia - 1]) > 0,
+      const n = agentes.filter(
+        (agente) =>
+          pesoJornadaJefes((cuadrante[agente.id] ?? [])[dia - 1]) > 0,
       ).length
-      return `<td class="suma">${n}</td>`
+      const especial =
+        esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia)
+      const fondo = especial ? '#fef3c7' : '#f1f5f9' // amber-100 / slate-100
+      return `<td class="pie" style="background:${fondo};">${n}</td>`
     })
     .join('')
+
   const totalGeneral = agentes.reduce(
     (n, agente) =>
       n + totalDiasTrabajadosJefes(cuadrante[agente.id] ?? [], diasVisibles),
@@ -169,20 +236,61 @@ export function exportarCuadranteJefesPdf(
   )
 
   const puestosLeyenda = puestosDeAmbito(puestos, 'JEFE_SERVICIO')
-  const nomenclatura =
+
+  const chipsTurno = LEYENDA_TURNOS.map(({ turno, label }) => {
+    const c = COLOR_TURNO[turno]
+    return `<span class="chip" style="background:${c.fondo};color:${c.texto};">
+      <strong>${escapeHtml(etiquetaTurno(turno))}</strong>${escapeHtml(label)}
+    </span>`
+  }).join('')
+
+  const tarjetasPuestos =
     puestosLeyenda.length === 0
-      ? '<p class="nomenclatura vacia">No hay puestos de jefes y responsables configurados.</p>'
-      : `<div class="nomenclatura">
-        <p class="nomenclatura-titulo">Puestos</p>
-        <ul>
-          ${puestosLeyenda
-            .map(
-              (puesto) =>
-                `<li><span class="abrev">${escapeHtml(puesto.abreviatura)}</span><span class="sep">·</span><span class="nom">${escapeHtml(puesto.nombre)}</span></li>`,
+      ? '<p class="dash-vacio">No hay puestos de jefes y responsables configurados.</p>'
+      : puestosLeyenda
+          .map((puesto) => {
+            const asignados = contarAsignacionesPuesto(
+              puesto.nombre,
+              asignacionesDiarias,
+              agentes,
+              diasVisibles,
+              anio,
+              mes,
+              cuadrante,
             )
-            .join('')}
-        </ul>
-      </div>`
+            return `<article class="puesto-card">
+              <div class="puesto-abrev">${escapeHtml(puesto.abreviatura)}</div>
+              <div class="puesto-meta">
+                <p class="puesto-nombre">${escapeHtml(puesto.nombre)}</p>
+                <p class="puesto-count"><strong>${asignados}</strong> asignación${asignados === 1 ? '' : 'es'}</p>
+              </div>
+            </article>`
+          })
+          .join('')
+
+  const tarjetasPermisos =
+    permisos.length === 0
+      ? '<p class="dash-vacio">No hay tipos de permiso configurados.</p>'
+      : permisos
+          .map((permiso) => {
+            const asignados = contarAsignacionesPuesto(
+              permiso.nombre,
+              asignacionesDiarias,
+              agentes,
+              diasVisibles,
+              anio,
+              mes,
+              cuadrante,
+            )
+            return `<article class="puesto-card">
+              <div class="puesto-abrev" style="background:#fff1f2;color:#9f1239;">${escapeHtml(permiso.abreviatura)}</div>
+              <div class="puesto-meta">
+                <p class="puesto-nombre">${escapeHtml(permiso.nombre)}</p>
+                <p class="puesto-count"><strong>${asignados}</strong> día${asignados === 1 ? '' : 's'}</p>
+              </div>
+            </article>`
+          })
+          .join('')
 
   const html = `<!doctype html>
 <html lang="es">
@@ -190,97 +298,269 @@ export function exportarCuadranteJefesPdf(
   <meta charset="utf-8" />
   <title>${escapeHtml(titulo)}</title>
   <style>
-    @page { size: A4 landscape; margin: 10mm; }
+    @page { size: A4 landscape; margin: 7mm; }
     * { box-sizing: border-box; }
     body {
-      font-family: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
-      color: #0e1c24;
-      margin: 0;
-      padding: 8px;
-    }
-    h1 { font-size: 16px; margin: 0 0 4px; }
-    .sub { font-size: 11px; color: #64748b; margin: 0 0 10px; }
-    table { border-collapse: collapse; width: 100%; table-layout: fixed; }
-    th, td {
-      border: 0.4pt solid #dce3e8;
-      font-size: 8px;
-      line-height: 1.1;
-      text-align: center;
-      padding: 2px 1px;
-      font-weight: 700;
-    }
-    th.agente, td.agente {
-      text-align: left;
-      width: 140px;
-      min-width: 140px;
-      padding: 3px 5px;
-      background: #f2f5f7;
-    }
-    .agente .placa { font-family: ui-monospace, Menlo, monospace; display: block; }
-    .agente .nombre { display: block; font-weight: 600; font-size: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .agente .rol { display: block; font-weight: 500; font-size: 7px; color: #64748b; }
-    thead th .num { display: block; font-size: 8px; }
-    thead th .dow { display: block; font-size: 7px; font-weight: 600; }
-    td.suma, th.suma {
-      background: #f1f5f9;
-      width: 28px;
-      min-width: 28px;
-      border-left: 1pt solid #475569;
-    }
-    tfoot td, tfoot th { background: #f1f5f9; }
-    .leyenda { margin-top: 8px; font-size: 9px; color: #475569; }
-    .nomenclatura { margin-top: 8px; }
-    .nomenclatura.vacia { font-size: 9px; color: #64748b; }
-    .nomenclatura-titulo {
-      font-size: 9px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      color: #475569;
-      margin: 0 0 4px;
-    }
-    .nomenclatura ul {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px 14px;
       margin: 0;
       padding: 0;
-      list-style: none;
+      color: #0f172a;
+      font-family: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
-    .nomenclatura li { font-size: 9px; color: #0f172a; }
-    .nomenclatura .abrev {
-      font-family: ui-monospace, Menlo, monospace;
+
+    .titulo {
+      margin: 0 0 6px;
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+    }
+    .sub {
+      margin: 0 0 8px;
+      font-size: 10px;
+      color: #64748b;
+    }
+
+    /* Misma densidad visual que la tabla de pantalla */
+    table.matriz {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 10px;
+      line-height: 1.05;
+    }
+    table.matriz th,
+    table.matriz td {
+      border: 0.5pt solid #e2e8f0; /* border-line */
+      text-align: center;
+      vertical-align: middle;
+      padding: 0;
+    }
+
+    th.agente-h {
+      width: 42px;
+      min-width: 42px;
+      text-align: center !important;
+      padding: 3px 2px !important;
+      background: #ffffff;
+      font-size: 10px;
+      font-weight: 800;
+    }
+    th.agente {
+      width: 42px;
+      min-width: 42px;
+      text-align: center !important;
+      padding: 2px 1px !important;
+      background: #ffffff;
+      font-weight: 800;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    .agente .placa {
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-weight: 800;
+      font-size: 10px;
+    }
+
+    th.dia {
+      padding: 2px 0 !important;
+      min-width: 0;
+    }
+    th.dia .num {
+      display: block;
+      font-size: 10px;
+      font-weight: 800;
+      line-height: 1.1;
+    }
+    th.dia .dow {
+      display: block;
+      font-size: 8px;
       font-weight: 700;
+      line-height: 1.05;
     }
-    .nomenclatura .sep { margin: 0 4px; color: #94a3b8; }
-    .nomenclatura .nom { font-weight: 500; }
+
+    td.celda {
+      font-size: 9.5px;
+      font-weight: 800;
+      padding: 2px 0 !important;
+      white-space: nowrap;
+      overflow: hidden;
+      line-height: 1.05;
+    }
+    td.celda .turno {
+      display: block;
+      font-size: 8.5px;
+      font-weight: 800;
+      line-height: 1.05;
+    }
+    td.celda .abrev {
+      display: block;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 8.5px;
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: -0.02em;
+    }
+
+    th.suma-h, td.suma {
+      width: 32px;
+      min-width: 32px;
+      border-left: 1.5pt solid #475569 !important;
+      background: #f1f5f9; /* slate-100 */
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 1px !important;
+    }
+
+    tfoot th.pie-l {
+      text-align: center !important;
+      padding: 3px 2px !important;
+      background: #f1f5f9;
+      font-weight: 800;
+      font-size: 10px;
+      border-top: 1.5pt solid #94a3b8 !important;
+    }
+    tfoot td.pie {
+      font-size: 9.5px;
+      font-weight: 700;
+      padding: 3px 0 !important;
+      border-top: 1.5pt solid #94a3b8 !important;
+    }
+    tfoot td.suma {
+      border-top: 1.5pt solid #94a3b8 !important;
+      background: #e2e8f0;
+    }
+
+    /* Dashboard inferior: leyenda + puestos (como pediste) */
+    .dashboard {
+      margin-top: 8px;
+      display: grid;
+      grid-template-columns: 1fr 1.6fr;
+      gap: 8px;
+      page-break-inside: avoid;
+    }
+    .panel {
+      border: 0.8pt solid #e2e8f0;
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 6px 8px;
+    }
+    .panel h2 {
+      margin: 0 0 6px;
+      font-size: 9px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #64748b;
+    }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      border-radius: 6px;
+      padding: 2px 7px;
+      font-size: 9px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .chip strong {
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-weight: 800;
+      margin-right: 2px;
+    }
+    .puestos-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+      gap: 5px;
+    }
+    .puesto-card {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border: 0.7pt solid #e2e8f0;
+      border-radius: 7px;
+      background: #f8fafc;
+      padding: 4px 6px;
+      min-height: 34px;
+    }
+    .puesto-abrev {
+      flex: 0 0 auto;
+      min-width: 34px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 5px;
+      background: #0f172a;
+      color: #f8fafc;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 10px;
+      font-weight: 800;
+    }
+    .puesto-meta { min-width: 0; }
+    .puesto-nombre {
+      margin: 0;
+      font-size: 9.5px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .puesto-count {
+      margin: 1px 0 0;
+      font-size: 8.5px;
+      color: #64748b;
+    }
+    .puesto-count strong { color: #0f172a; font-weight: 800; }
+    .dash-vacio { margin: 0; font-size: 10px; color: #64748b; }
+
     @media print {
       body { padding: 0; }
+      .dashboard { break-inside: avoid; }
     }
   </style>
 </head>
 <body>
-  <h1>${escapeHtml(titulo)}</h1>
-  <p class="sub">Jefes de servicio y responsables · ${agentes.length} agente${agentes.length === 1 ? '' : 's'}</p>
-  <table>
+  <h1 class="titulo">${escapeHtml(titulo)}</h1>
+  <p class="sub">${agentes.length} agente${agentes.length === 1 ? '' : 's'} · ${diasVisibles.length} días · jefes de servicio y responsables</p>
+
+  <table class="matriz">
     <thead>
       <tr>
-        <th class="agente">Agente</th>
+        <th class="agente-h">N.º</th>
         ${cabecerasDias}
-        <th class="suma">Σ</th>
+        <th class="suma-h">Σ</th>
       </tr>
     </thead>
     <tbody>${filas}</tbody>
     <tfoot>
       <tr>
-        <th class="agente">Σ</th>
+        <th class="pie-l">Σ</th>
         ${pieDias}
         <td class="suma">${totalGeneral}d</td>
       </tr>
     </tfoot>
   </table>
-  <p class="leyenda">M mañana · T tarde · N noche · M-T mañana-tarde (finde, vale 2 días) · L libranza · D descanso · V vacaciones · Σ días trabajados</p>
-  ${nomenclatura}
+
+  <section class="dashboard">
+    <div class="panel">
+      <h2>Turnos</h2>
+      <div class="chips">${chipsTurno}</div>
+    </div>
+    <div class="panel">
+      <h2>Puestos · ${puestosLeyenda.length}</h2>
+      <div class="puestos-grid">${tarjetasPuestos}</div>
+    </div>
+    <div class="panel">
+      <h2>Permisos · ${permisos.length}</h2>
+      <div class="puestos-grid">${tarjetasPermisos}</div>
+    </div>
+  </section>
 </body>
 </html>`
 

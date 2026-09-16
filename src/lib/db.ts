@@ -20,6 +20,10 @@ import {
   type PuestoConfig,
 } from '@/lib/calendarioPuestos'
 import {
+  PERMISOS_INICIALES,
+  type PermisoConfig,
+} from '@/lib/permisos'
+import {
   idDocumentoCuadrante,
   parseCuadranteFirestore,
   type CuadranteMensualFirestore,
@@ -50,6 +54,7 @@ const COLECCION_CUADRANTES = 'cuadrantes'
 const COLECCION_CUADRANTES_JEFES = 'cuadrantesJefes'
 const COLECCION_EVENTOS = 'eventos'
 const COLECCION_PUESTOS = 'puestos'
+const COLECCION_TIPOS_PERMISO = 'tiposPermiso'
 const COLECCION_CONFIG = 'config'
 const COLECCION_PLANES_ANUALES = 'planesAnuales'
 const DOC_MINIMOS_SEMANA = 'minimosSemana'
@@ -551,6 +556,89 @@ export async function seedPuestosSiVacios(
   return lista
 }
 
+function permisoDesdeFirestore(
+  docId: string,
+  data: Record<string, unknown>,
+): PermisoConfig | null {
+  const codigo =
+    typeof data.codigo === 'string' && data.codigo.trim()
+      ? data.codigo.trim().toUpperCase()
+      : docId.trim().toUpperCase()
+  const nombre =
+    typeof data.nombre === 'string' ? data.nombre.trim() : ''
+  const abreviatura =
+    typeof data.abreviatura === 'string'
+      ? data.abreviatura.trim().toUpperCase()
+      : ''
+  if (!codigo || !nombre || !abreviatura) return null
+  return { codigo, nombre, abreviatura }
+}
+
+function permisoParaFirestore(permiso: PermisoConfig): PermisoConfig {
+  const codigo = permiso.codigo.trim().toUpperCase()
+  const nombre = permiso.nombre.trim()
+  const abreviatura = permiso.abreviatura.trim().toUpperCase()
+  if (!codigo) throw new Error('El código del permiso es obligatorio')
+  if (!nombre) throw new Error('El nombre del permiso es obligatorio')
+  if (!abreviatura) throw new Error('La abreviatura del permiso es obligatoria')
+  return { codigo, nombre, abreviatura }
+}
+
+export async function getTiposPermiso(): Promise<PermisoConfig[]> {
+  const firestore = await requireDb()
+  const snapshot = await getDocs(collection(firestore, COLECCION_TIPOS_PERMISO))
+  const permisos: PermisoConfig[] = []
+  for (const documento of snapshot.docs) {
+    const permiso = permisoDesdeFirestore(documento.id, documento.data())
+    if (permiso) permisos.push(permiso)
+  }
+  return permisos.sort((a, b) =>
+    a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }),
+  )
+}
+
+export async function saveTipoPermiso(
+  permiso: PermisoConfig,
+): Promise<PermisoConfig> {
+  const firestore = await requireDb()
+  const payload = permisoParaFirestore(permiso)
+  await conTiempoLimite(
+    setDoc(doc(firestore, COLECCION_TIPOS_PERMISO, payload.codigo), payload, {
+      merge: true,
+    }),
+  )
+  return payload
+}
+
+export async function deleteTipoPermiso(codigo: string): Promise<void> {
+  const firestore = await requireDb()
+  const id = codigo.trim().toUpperCase()
+  if (!id) throw new Error('Código de permiso vacío')
+  await conTiempoLimite(
+    deleteDoc(doc(firestore, COLECCION_TIPOS_PERMISO, id)),
+  )
+}
+
+export async function seedTiposPermisoSiVacios(
+  permisos: PermisoConfig[] = PERMISOS_INICIALES,
+): Promise<PermisoConfig[]> {
+  const existentes = await getTiposPermiso()
+  if (existentes.length > 0) return existentes
+
+  const firestore = await requireDb()
+  const batch = writeBatch(firestore)
+  const lista = permisos.map(permisoParaFirestore)
+  for (const permiso of lista) {
+    batch.set(
+      doc(firestore, COLECCION_TIPOS_PERMISO, permiso.codigo),
+      permiso,
+      { merge: true },
+    )
+  }
+  await conTiempoLimite(batch.commit())
+  return lista
+}
+
 /** Firestore guarda mínimos indexados por código de puesto. */
 function minimosSemanaAFirestore(
   semana: MinimosSemana,
@@ -635,18 +723,22 @@ export async function seedMinimosSiVacios(
   return semana
 }
 
-/** Carga puestos + mínimos + eventos; siembra puestos/mínimos si están vacíos. */
+/** Carga puestos + mínimos + eventos + tipos de permiso; siembra si vacíos. */
 export async function cargarConfigOperativa(): Promise<{
   puestos: PuestoConfig[]
   minimosSemana: MinimosSemana
   eventos: EventoOperativo[]
+  tiposPermiso: PermisoConfig[]
 }> {
-  const puestos = await seedPuestosSiVacios()
+  const [puestos, tiposPermiso] = await Promise.all([
+    seedPuestosSiVacios(),
+    seedTiposPermisoSiVacios(),
+  ])
   const [minimosSemana, eventos] = await Promise.all([
     seedMinimosSiVacios(puestos),
     getEventos(),
   ])
-  return { puestos, minimosSemana, eventos }
+  return { puestos, minimosSemana, eventos, tiposPermiso }
 }
 
 export type { CuadranteMensualFirestore } from '@/lib/cuadranteFirestore'

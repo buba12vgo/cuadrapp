@@ -1,8 +1,10 @@
 import {
   BookOpen,
   Briefcase,
+  CalendarClock,
   CalendarDays,
   CalendarRange,
+  ClipboardList,
   Gauge,
   List,
   Shield,
@@ -25,6 +27,7 @@ const NAV_GROUPS = [
     items: [
       { to: '/admin/agentes', label: 'Agentes', icon: Users, end: true as const },
       { to: '/admin/puestos', label: 'Puestos', icon: Briefcase },
+      { to: '/admin/permisos', label: 'Permisos', icon: ClipboardList },
       { to: '/admin/minimos', label: 'Mínimos', icon: Gauge },
       { to: '/admin/plan-anual', label: 'Plan anual', icon: CalendarRange },
     ],
@@ -42,6 +45,11 @@ const NAV_GROUPS = [
         to: '/admin/cuadrante-jefes',
         label: 'Cuadrante jefes',
         icon: Shield,
+      },
+      {
+        to: '/admin/calendario-jefes',
+        label: 'Calendario jefes',
+        icon: CalendarClock,
       },
       { to: '/admin/calendario', label: 'Calendario', icon: CalendarDays },
       { to: '/admin/listados', label: 'Listados', icon: List },
@@ -197,8 +205,8 @@ export function AdminLayout() {
 
             {isDesignPreview ? (
               <p className="border-t border-brand-200 bg-brand-50 px-4 py-1.5 text-sm font-medium text-brand-800">
-              Sesión Cursor (cursor@cuadrapp.local) — datos locales, sin Firestore
-            </p>
+                Sesión Cursor (cursor@cuadrapp.local) — datos locales, sin Firestore
+              </p>
             ) : null}
             {estado === 'loading' ? (
               <p className="border-t border-line px-4 py-1.5 text-sm text-muted">

@@ -32,7 +32,7 @@ Turnos (semántica, no marca): M cielo, T ámbar, N violeta noche, MT teal, V es
 
 ## Layout
 
-- Cabecera sticky con marca + navegación agrupada (Plantilla · Operación · Normativa).
+- Escritorio: sidebar izquierda con navegación agrupada (Plantilla · Operación · Normativa). Móvil: tira horizontal. El cuadrante usa el resto del viewport.
 - Contenido a pantalla completa: el cuadrante es el objeto, no una tarjeta flotante.
 - Radio 8px. Sombras mínimas (`shadow-card`). Sin degradados de marketing en el workspace.
 - Tablas densas (celdas ~22px). Números siempre `tabular-nums`.

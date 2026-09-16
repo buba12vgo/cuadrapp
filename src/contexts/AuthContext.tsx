@@ -13,16 +13,16 @@ import {
   type User,
 } from 'firebase/auth'
 import { ensureFirebase, getAuthClient } from '@/lib/firebase'
-import { ADMIN_EMAIL, isAllowedAdmin, mensajeNoAutorizado } from '@/lib/authAllowlist'
+import { AGENT_DISPLAY_NAME, AGENT_EMAIL, AGENT_UID, isAllowedAdmin, mensajeNoAutorizado } from '@/lib/authAllowlist'
 import { isDesignPreview } from '@/lib/designPreview'
 
 const AUTH_INIT_TIMEOUT_MS = 8_000
 
 const previewUser = {
-  uid: 'design-preview',
-  email: ADMIN_EMAIL,
+  uid: AGENT_UID,
+  email: AGENT_EMAIL,
   emailVerified: true,
-  displayName: 'Vista previa',
+  displayName: AGENT_DISPLAY_NAME,
   photoURL: null,
 } as User
 

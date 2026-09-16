@@ -1,5 +1,10 @@
 import { hydrateAgentes } from '@/lib/agentesStore'
-import { mockEventosCalendario } from '@/lib/calendarioPuestos'
+import {
+  crearMinimosSemana,
+  mockEventosCalendario,
+  PUESTOS_INICIALES,
+  type PuestoConfig,
+} from '@/lib/calendarioPuestos'
 import { hydrateEventos } from '@/lib/eventosStore'
 import { mockAgentes } from '@/lib/mockData'
 import {
@@ -7,12 +12,24 @@ import {
   OBJETIVOS_PLAN_DEFECTO,
 } from '@/lib/generarPlanAnual'
 import { hydratePlanesAnuales } from '@/lib/planAnualStore'
+import { hydratePuestosYMinimos } from '@/lib/puestosStore'
 import { ANIO_REFERENCIA_VACACIONES_DEFECTO } from '@/lib/vacaciones'
 
-/** Datos locales para auditar la UI sin Firestore. */
+const PUESTOS_AGENTE: PuestoConfig[] = [
+  ...PUESTOS_INICIALES,
+  {
+    codigo: 'JEFE_SERVICIO',
+    nombre: 'Jefe de servicio',
+    abreviatura: 'JS',
+    ambito: 'JEFE_SERVICIO',
+  },
+]
+
+/** Datos locales para el usuario Cursor, sin Firestore. */
 export function bootstrapDesignPreview() {
   hydrateAgentes(mockAgentes)
   hydrateEventos(mockEventosCalendario)
+  hydratePuestosYMinimos(PUESTOS_AGENTE, crearMinimosSemana(PUESTOS_AGENTE))
 
   const anio = ANIO_REFERENCIA_VACACIONES_DEFECTO
   const resultado = generarPlanAnual(

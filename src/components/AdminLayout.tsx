@@ -13,6 +13,7 @@ import { Fragment } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { AppDialogProvider } from '@/components/ui/ConfirmDialog'
 import { useAuth } from '@/contexts/AuthContext'
+import { isAgentUser } from '@/lib/authAllowlist'
 import { isDesignPreview } from '@/lib/designPreview'
 import { FOCUS_RING } from '@/lib/uiStyles'
 import { useConfigOperativaBootstrap } from '@/lib/useConfigOperativaBootstrap'
@@ -174,7 +175,9 @@ export function AdminLayout() {
                   <p className="max-w-[140px] truncate text-sm font-semibold text-ink">
                     {user?.displayName ?? user?.email ?? 'Usuario'}
                   </p>
-                  <p className="text-xs text-muted">Administrador</p>
+                  <p className="text-xs text-muted">
+                    {isAgentUser(user) ? 'Agente' : 'Administrador'}
+                  </p>
                 </div>
                 <button
                   type="button"
@@ -194,8 +197,8 @@ export function AdminLayout() {
 
             {isDesignPreview ? (
               <p className="border-t border-brand-200 bg-brand-50 px-4 py-1.5 text-sm font-medium text-brand-800">
-                Modo vista previa (sin Firebase) — solo para diseño y QA local
-              </p>
+              Sesión Cursor (cursor@cuadrapp.local) — datos locales, sin Firestore
+            </p>
             ) : null}
             {estado === 'loading' ? (
               <p className="border-t border-line px-4 py-1.5 text-sm text-muted">

@@ -401,6 +401,14 @@ export function CuadranteMensualPage() {
       setFirebaseOk(ready)
 
       if (!ready) {
+        setMesGuardadoEnFirestore(false)
+        if (
+          agentesOperativos.length > 0 &&
+          !cuadranteEditadoLocalRef.current
+        ) {
+          setCuadrante(cuadranteVacio(agentesOperativos, nDias))
+          setAsignacionesDiarias({})
+        }
         if (cargaId === cargaCuadranteRef.current) {
           setLoadingCuadrante(false)
         }

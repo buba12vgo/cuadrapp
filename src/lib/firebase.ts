@@ -2,6 +2,7 @@ import { initializeApp, type FirebaseApp } from 'firebase/app'
 import { getAuth, type Auth } from 'firebase/auth'
 import { getFirestore, type Firestore } from 'firebase/firestore'
 import { isFirebaseConfigured as isBuildTimeConfigured } from './firebaseEnv'
+import { isDesignPreview } from './designPreview'
 
 export type FirebaseWebConfig = {
   apiKey: string
@@ -33,7 +34,7 @@ const state: FirebaseState = {
   db: null,
 }
 
-if (isBuildTimeConfigured) {
+if (isBuildTimeConfigured && !isDesignPreview) {
   try {
     state.app = initializeApp(buildTimeConfig)
     state.auth = getAuth(state.app)
@@ -78,10 +79,12 @@ export function getDb() {
 export const isFirebaseConfigured = isBuildTimeConfigured
 
 export function isFirebaseReady() {
+  if (isDesignPreview) return false
   return Boolean(state.db)
 }
 
 export async function ensureFirebase(): Promise<boolean> {
+  if (isDesignPreview) return false
   if (state.db) return true
   if (initPromise) return initPromise
 

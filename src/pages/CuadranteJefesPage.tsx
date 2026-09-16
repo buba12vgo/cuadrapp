@@ -274,6 +274,11 @@ export function CuadranteJefesPage() {
       setFirebaseOk(ready)
 
       if (!ready) {
+        setMesGuardadoEnFirestore(false)
+        if (jefes.length > 0 && !cuadranteEditadoLocalRef.current) {
+          setCuadrante(cuadranteVacio(jefes, nDias))
+          setAsignacionesDiarias({})
+        }
         if (cargaId === cargaCuadranteRef.current) setLoadingCuadrante(false)
         return
       }

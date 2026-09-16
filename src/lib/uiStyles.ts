@@ -1,4 +1,4 @@
-/** Tokens visuales compartidos — estilo SaaS dashboard. */
+/** Tokens visuales compartidos — sistema Puerto (Stitch). */
 
 export const FOCUS_RING =
   'outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-1'
@@ -19,7 +19,7 @@ export const PAGE_HEADER =
 
 export const PAGE_TITLE = 'font-display text-base font-bold tracking-tight text-ink'
 
-export const PAGE_SUBTITLE = 'text-[11px] text-muted'
+export const PAGE_SUBTITLE = 'text-xs text-muted'
 
 export const PAGE_TOOLBAR =
   'mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5 overflow-x-auto overscroll-x-contain border-t border-line pt-1.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'

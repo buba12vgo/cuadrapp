@@ -16,20 +16,23 @@ export function LoginPage() {
   return (
     <div className="relative flex h-svh flex-col items-center justify-center overflow-hidden bg-canvas px-4">
       <div
-        className="pointer-events-none absolute inset-0 opacity-70"
+        className="pointer-events-none absolute inset-0 opacity-80"
         aria-hidden
         style={{
           background:
-            'radial-gradient(ellipse 80% 50% at 50% -20%, color-mix(in srgb, var(--color-brand-500) 22%, transparent), transparent), radial-gradient(ellipse 60% 40% at 100% 100%, color-mix(in srgb, #3b82f6 12%, transparent), transparent)',
+            'radial-gradient(ellipse 80% 50% at 50% -20%, color-mix(in srgb, var(--color-brand-500) 18%, transparent), transparent), radial-gradient(ellipse 50% 36% at 100% 100%, color-mix(in srgb, var(--color-brand-600) 10%, transparent), transparent)',
         }}
       />
       <div className={`relative w-full max-w-sm ${BLOQUE} p-6 shadow-card-lg`}>
         <div className="mb-4 flex flex-col items-center gap-2">
-          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-600 text-white shadow-sm">
+          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-600 text-white">
             <CalendarDays className="h-6 w-6" aria-hidden />
           </span>
-          <h1 className={`${PAGE_TITLE} text-center`}>Cuadrapp</h1>
+          <h1 className={`${PAGE_TITLE} text-center text-lg`}>Cuadrapp</h1>
           <p className={`${PAGE_SUBTITLE} text-center`}>
+            Cuadrantes de la Policía Portuaria
+          </p>
+          <p className="text-center text-xs text-muted">
             Acceso restringido · cuenta Google
           </p>
         </div>

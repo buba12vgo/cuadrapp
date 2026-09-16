@@ -18,6 +18,9 @@ dist-ssr
 !.env.example
 !.env.design-preview
 
+# Google Stitch generated screens
+.stitch/screens/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

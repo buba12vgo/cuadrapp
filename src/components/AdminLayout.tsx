@@ -1,4 +1,5 @@
 import { CalendarDays } from 'lucide-react'
+import { Fragment } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { AppDialogProvider } from '@/components/ui/ConfirmDialog'
 import { useAuth } from '@/contexts/AuthContext'
@@ -6,16 +7,29 @@ import { isDesignPreview } from '@/lib/designPreview'
 import { FOCUS_RING } from '@/lib/uiStyles'
 import { useConfigOperativaBootstrap } from '@/lib/useConfigOperativaBootstrap'
 
-const NAV_ITEMS = [
-  { to: '/admin/agentes', label: 'Agentes', end: true },
-  { to: '/admin/puestos', label: 'Puestos' },
-  { to: '/admin/minimos', label: 'Mínimos' },
-  { to: '/admin/plan-anual', label: 'Plan anual' },
-  { to: '/admin/cuadrante-mensual', label: 'Cuadrante mensual' },
-  { to: '/admin/cuadrante-jefes', label: 'Cuadrante jefes' },
-  { to: '/admin/calendario', label: 'Calendario' },
-  { to: '/admin/listados', label: 'Listados' },
-  { to: '/admin/reglas', label: 'Reglas' },
+const NAV_GROUPS = [
+  {
+    id: 'plantilla',
+    items: [
+      { to: '/admin/agentes', label: 'Agentes', end: true as const },
+      { to: '/admin/puestos', label: 'Puestos' },
+      { to: '/admin/minimos', label: 'Mínimos' },
+      { to: '/admin/plan-anual', label: 'Plan anual' },
+    ],
+  },
+  {
+    id: 'operacion',
+    items: [
+      { to: '/admin/cuadrante-mensual', label: 'Cuadrante mensual' },
+      { to: '/admin/cuadrante-jefes', label: 'Cuadrante jefes' },
+      { to: '/admin/calendario', label: 'Calendario' },
+      { to: '/admin/listados', label: 'Listados' },
+    ],
+  },
+  {
+    id: 'normativa',
+    items: [{ to: '/admin/reglas', label: 'Reglas' }],
+  },
 ] as const
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
@@ -37,42 +51,42 @@ export function AdminLayout() {
         <header className="sticky top-0 z-50 shrink-0 border-b border-line bg-surface/95 backdrop-blur-sm">
           <div className="flex items-center gap-3 px-3 py-2.5 sm:px-4">
             <div className="flex shrink-0 items-center gap-2.5">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white">
                 <CalendarDays className="h-5 w-5" aria-hidden />
               </span>
               <div className="leading-tight">
                 <p className="font-display text-sm font-bold tracking-tight text-ink">
                   Cuadrapp
                 </p>
-                <span className="inline-flex rounded-full bg-blue-100 px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-blue-700">
-                  SaaS Pro
+                <span className="inline-flex rounded-full bg-brand-50 px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-brand-700">
+                  Portuaria
                 </span>
               </div>
             </div>
 
             <nav
-              className="flex min-w-0 flex-1 gap-0.5 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               aria-label="Secciones"
             >
-              {NAV_ITEMS.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  className={navClass}
-                  end={'end' in item ? item.end : false}
-                >
-                  {({ isActive }) => (
-                    <>
+              {NAV_GROUPS.map((group, groupIndex) => (
+                <Fragment key={group.id}>
+                  {groupIndex > 0 ? (
+                    <span
+                      className="mx-1.5 h-4 w-px shrink-0 bg-brand-200"
+                      aria-hidden
+                    />
+                  ) : null}
+                  {group.items.map((item) => (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      className={navClass}
+                      end={'end' in item ? item.end : false}
+                    >
                       {item.label}
-                      {isActive ? (
-                        <span
-                          className="absolute -top-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-brand-600"
-                          aria-hidden
-                        />
-                      ) : null}
-                    </>
-                  )}
-                </NavLink>
+                    </NavLink>
+                  ))}
+                </Fragment>
               ))}
             </nav>
 
@@ -107,7 +121,7 @@ export function AdminLayout() {
           </div>
 
           {isDesignPreview ? (
-            <p className="border-t border-violet-200 bg-violet-50 px-4 py-1.5 text-sm font-medium text-violet-900">
+            <p className="border-t border-brand-200 bg-brand-50 px-4 py-1.5 text-sm font-medium text-brand-800">
               Modo vista previa (sin Firebase) — solo para diseño y QA local
             </p>
           ) : null}
@@ -128,12 +142,9 @@ export function AdminLayout() {
           <Outlet />
         </main>
 
-        <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-line bg-surface px-3 py-1 text-[10px] text-muted">
-          <span className="flex items-center gap-1.5">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-            Motor de planificación activo
-          </span>
-          <span>Cuadrapp · v0.1</span>
+        <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-line bg-surface px-3 py-1.5 text-[11px] text-muted">
+          <span>Policía Portuaria</span>
+          <span>Cuadrapp</span>
         </footer>
       </div>
     </AppDialogProvider>

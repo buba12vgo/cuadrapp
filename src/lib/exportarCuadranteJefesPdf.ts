@@ -194,7 +194,7 @@ export function exportarCuadranteJefesPdf(
     * { box-sizing: border-box; }
     body {
       font-family: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
-      color: #0f172a;
+      color: #0e1c24;
       margin: 0;
       padding: 8px;
     }
@@ -202,7 +202,7 @@ export function exportarCuadranteJefesPdf(
     .sub { font-size: 11px; color: #64748b; margin: 0 0 10px; }
     table { border-collapse: collapse; width: 100%; table-layout: fixed; }
     th, td {
-      border: 0.4pt solid #cbd5e1;
+      border: 0.4pt solid #dce3e8;
       font-size: 8px;
       line-height: 1.1;
       text-align: center;
@@ -214,7 +214,7 @@ export function exportarCuadranteJefesPdf(
       width: 140px;
       min-width: 140px;
       padding: 3px 5px;
-      background: #f8fafc;
+      background: #f2f5f7;
     }
     .agente .placa { font-family: ui-monospace, Menlo, monospace; display: block; }
     .agente .nombre { display: block; font-weight: 600; font-size: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

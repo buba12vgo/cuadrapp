@@ -7,11 +7,13 @@ import {
   ClipboardList,
   Gauge,
   List,
+  PanelLeftClose,
+  PanelLeftOpen,
   Shield,
   Table2,
   Users,
 } from 'lucide-react'
-import { Fragment } from 'react'
+import { Fragment, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { AppDialogProvider } from '@/components/ui/ConfirmDialog'
 import { useAuth } from '@/contexts/AuthContext'
@@ -19,6 +21,8 @@ import { isAgentUser } from '@/lib/authAllowlist'
 import { isDesignPreview } from '@/lib/designPreview'
 import { FOCUS_RING } from '@/lib/uiStyles'
 import { useConfigOperativaBootstrap } from '@/lib/useConfigOperativaBootstrap'
+
+const SIDEBAR_KEY = 'cuadrapp.sidebar-collapsed'
 
 const NAV_GROUPS = [
   {
@@ -62,7 +66,23 @@ const NAV_GROUPS = [
   },
 ] as const
 
-function navClass(isActive: boolean, variant: 'side' | 'top') {
+function leerSidebarPlegado() {
+  try {
+    return localStorage.getItem(SIDEBAR_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function guardarSidebarPlegado(plegado: boolean) {
+  try {
+    localStorage.setItem(SIDEBAR_KEY, plegado ? '1' : '0')
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
+function navClass(isActive: boolean, variant: 'side' | 'top', collapsed: boolean) {
   const base = [
     'flex items-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-colors',
     FOCUS_RING,
@@ -71,19 +91,27 @@ function navClass(isActive: boolean, variant: 'side' | 'top') {
       : 'text-slate-600 hover:bg-slate-100 hover:text-ink',
   ]
   if (variant === 'side') {
-    base.push('w-full px-2.5 py-1.5')
+    base.push(
+      collapsed ? 'w-full justify-center px-0 py-1.5' : 'w-full px-2.5 py-1.5',
+    )
   } else {
     base.push('shrink-0 px-3 py-1.5')
   }
   return base.join(' ')
 }
 
-function NavItems({ variant }: { variant: 'side' | 'top' }) {
+function NavItems({
+  variant,
+  collapsed = false,
+}: {
+  variant: 'side' | 'top'
+  collapsed?: boolean
+}) {
   return (
     <>
       {NAV_GROUPS.map((group, groupIndex) => (
         <Fragment key={group.id}>
-          {variant === 'side' ? (
+          {variant === 'side' && !collapsed ? (
             <p
               className={`px-2.5 text-[10px] font-bold uppercase tracking-wider text-muted ${
                 groupIndex === 0 ? 'pt-1 pb-1' : 'pt-3 pb-1'
@@ -91,7 +119,9 @@ function NavItems({ variant }: { variant: 'side' | 'top' }) {
             >
               {group.label}
             </p>
-          ) : groupIndex > 0 ? (
+          ) : variant === 'side' && collapsed && groupIndex > 0 ? (
+            <span className="mx-auto my-1 h-px w-6 bg-line" aria-hidden />
+          ) : variant === 'top' && groupIndex > 0 ? (
             <span
               className="mx-1.5 h-4 w-px shrink-0 bg-brand-200"
               aria-hidden
@@ -103,13 +133,20 @@ function NavItems({ variant }: { variant: 'side' | 'top' }) {
               <NavLink
                 key={item.to}
                 to={item.to}
-                className={({ isActive }) => navClass(isActive, variant)}
+                title={collapsed ? item.label : undefined}
+                className={({ isActive }) =>
+                  navClass(isActive, variant, collapsed)
+                }
                 end={'end' in item ? item.end : false}
               >
                 {variant === 'side' ? (
                   <Icon className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
                 ) : null}
-                {item.label}
+                {variant === 'side' && collapsed ? (
+                  <span className="sr-only">{item.label}</span>
+                ) : (
+                  item.label
+                )}
               </NavLink>
             )
           })}
@@ -119,20 +156,28 @@ function NavItems({ variant }: { variant: 'side' | 'top' }) {
   )
 }
 
-function BrandMark() {
+function BrandMark({ compact = false }: { compact?: boolean }) {
   return (
-    <div className="flex shrink-0 items-center gap-2.5">
+    <div
+      className={`flex shrink-0 items-center ${
+        compact ? 'justify-center' : 'gap-2.5'
+      }`}
+    >
       <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white">
         <CalendarDays className="h-5 w-5" aria-hidden />
       </span>
-      <div className="leading-tight">
-        <p className="font-display text-sm font-bold tracking-tight text-ink">
-          Cuadrapp
-        </p>
-        <span className="inline-flex rounded-full bg-brand-50 px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-brand-700">
-          Portuaria
-        </span>
-      </div>
+      {compact ? (
+        <span className="sr-only">Cuadrapp</span>
+      ) : (
+        <div className="leading-tight">
+          <p className="font-display text-sm font-bold tracking-tight text-ink">
+            Cuadrapp
+          </p>
+          <span className="inline-flex rounded-full bg-brand-50 px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-brand-700">
+            Portuaria
+          </span>
+        </div>
+      )}
     </div>
   )
 }
@@ -140,23 +185,61 @@ function BrandMark() {
 export function AdminLayout() {
   const { user, signOut } = useAuth()
   const { estado, error, firebaseOk } = useConfigOperativaBootstrap()
+  const [collapsed, setCollapsed] = useState(leerSidebarPlegado)
+
+  function toggleSidebar() {
+    setCollapsed((actual) => {
+      const siguiente = !actual
+      guardarSidebarPlegado(siguiente)
+      return siguiente
+    })
+  }
 
   return (
     <AppDialogProvider>
       <div className="flex h-svh bg-canvas text-ink">
-        <aside className="hidden w-56 shrink-0 flex-col border-r border-line bg-surface lg:flex">
-          <div className="border-b border-line px-3 py-2.5">
-            <BrandMark />
+        <aside
+          className={`hidden shrink-0 flex-col overflow-hidden border-r border-line bg-surface transition-[width] duration-200 ease-out lg:flex ${
+            collapsed ? 'w-14' : 'w-56'
+          }`}
+        >
+          <div
+            className={`border-b border-line py-2.5 ${collapsed ? 'px-1.5' : 'px-3'}`}
+          >
+            <BrandMark compact={collapsed} />
           </div>
           <nav
-            className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 py-2"
+            id="admin-sidebar-nav"
+            className={`flex min-h-0 flex-1 flex-col overflow-y-auto py-2 ${
+              collapsed ? 'px-1.5' : 'px-2'
+            }`}
             aria-label="Secciones"
           >
-            <NavItems variant="side" />
+            <NavItems variant="side" collapsed={collapsed} />
           </nav>
-          <p className="border-t border-line px-3 py-2 text-[11px] text-muted">
-            Policía Portuaria
-          </p>
+          <div className="border-t border-line p-1.5">
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              aria-expanded={!collapsed}
+              aria-controls="admin-sidebar-nav"
+              title={collapsed ? 'Desplegar menú' : 'Plegar menú'}
+              className={`flex w-full items-center rounded-lg py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-ink ${FOCUS_RING} ${
+                collapsed ? 'justify-center px-0' : 'gap-2 px-2.5'
+              }`}
+            >
+              {collapsed ? (
+                <PanelLeftOpen className="h-4 w-4" aria-hidden />
+              ) : (
+                <PanelLeftClose className="h-4 w-4" aria-hidden />
+              )}
+              {collapsed ? (
+                <span className="sr-only">Desplegar menú</span>
+              ) : (
+                <span>Plegar</span>
+              )}
+            </button>
+          </div>
         </aside>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -205,7 +288,8 @@ export function AdminLayout() {
 
             {isDesignPreview ? (
               <p className="border-t border-brand-200 bg-brand-50 px-4 py-1.5 text-sm font-medium text-brand-800">
-                Sesión Cursor (cursor@cuadrapp.local) — datos locales, sin Firestore
+                Sesión Cursor (cursor@cuadrapp.local) — datos locales, sin
+                Firestore
               </p>
             ) : null}
             {estado === 'loading' ? (

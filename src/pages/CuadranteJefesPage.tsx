@@ -16,6 +16,8 @@ import {
   CLASE_TURNO_CELDA,
   FOCUS_RING,
   PAGE_SECTION,
+  SEMAFORO_KO,
+  SEMAFORO_OK,
 } from '@/lib/uiStyles'
 import { useAppDialog } from '@/components/ui/ConfirmDialog'
 import { PageHeader, ToolbarSection } from '@/components/ui/PageHeader'
@@ -36,7 +38,14 @@ import {
   puestosPermitidosParaAgente,
   turnoCoincideFiltro,
 } from '@/lib/asignacionPuestos'
-import type { AsignacionesDiarias, PuestoBase, TurnoAsignable } from '@/lib/calendarioPuestos'
+import {
+  minimosParaFecha,
+  totalMinimosTurno,
+  type AsignacionesDiarias,
+  type PuestoBase,
+  type TurnoAsignable,
+  type TurnoOperativo,
+} from '@/lib/calendarioPuestos'
 import {
   cuadranteDesdeFirestore,
   cuadranteParaFirestore,
@@ -50,10 +59,11 @@ import {
 } from '@/lib/convenio'
 import { getAgentes, getCuadranteJefes, saveCuadranteJefes } from '@/lib/db'
 import { esFestivo } from '@/lib/festivos'
+import { useEventosData } from '@/lib/eventosStore'
 import { ensureFirebase, isFirebaseReady } from '@/lib/firebase'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
 import type { FiltroTurnoBolsa } from '@/lib/bolsaPuestosPreferencias'
-import { usePuestosData } from '@/lib/puestosStore'
+import { useMinimosSemanaData, usePuestosData } from '@/lib/puestosStore'
 import { abreviaturaDesdePermisos } from '@/lib/permisos'
 import { useTiposPermiso } from '@/lib/permisosStore'
 import { agentesCuadranteJefes, ROL_LABEL } from '@/lib/rolesCuadrante'
@@ -85,10 +95,14 @@ const CELDA =
   'h-[36px] max-h-[36px] overflow-hidden border border-line px-0 py-0 text-[11px] leading-none'
 const CELDA_DIA =
   'h-[36px] max-h-[36px] overflow-hidden border border-line px-0 py-0 text-[11px] leading-none'
-const CELDA_PIE =
-  'h-[30px] max-h-[30px] overflow-hidden border border-line border-t-2 border-t-slate-300 bg-slate-100 px-0 py-0 text-[11px] leading-none font-bold'
+const ALTO_PIE = 30
+const CELDA_PIE_BASE =
+  'h-[30px] max-h-[30px] overflow-hidden border border-line border-t-2 border-t-slate-300 px-0 py-0 text-[11px] leading-none font-bold'
+const CELDA_PIE = `${CELDA_PIE_BASE} bg-slate-100`
 const CAMPO_TOOLBAR =
   'h-7 rounded-md border border-line bg-white px-1.5 text-xs text-ink outline-none focus:border-brand-400 focus-visible:ring-2 focus-visible:ring-brand-500/40'
+
+const TURNOS_OP = ['M', 'T', 'N'] as const
 
 const CLASE_TURNO: Record<Turno, string> = {
   M: CLASE_TURNO_CELDA.M,
@@ -142,6 +156,29 @@ function tituloSumatorioJefe(fila: Turno[], dias: readonly number[]) {
   return `Trabajados ${total}d (M-T vale 2) · M ${d.M} · T ${d.T} · N ${d.N} · M-T ${d.MT} · P ${d.P}`
 }
 
+function cuentaTurnoDiaJefes(
+  cuadrante: CuadranteMensual,
+  jefes: { id: string }[],
+  dia: number,
+  turno: TurnoOperativo,
+) {
+  let n = 0
+  for (const agente of jefes) {
+    const actual = (cuadrante[agente.id] ?? [])[dia - 1]
+    if (actual === turno) n += 1
+    else if (actual === 'MT' && (turno === 'M' || turno === 'T')) n += 1
+  }
+  return n
+}
+
+function claseCoberturaMinimo(real: number, minimo: number) {
+  return real < minimo ? SEMAFORO_KO : SEMAFORO_OK
+}
+
+function pieStickyBottom(filasDesdeElFinal: number) {
+  return { bottom: filasDesdeElFinal * ALTO_PIE }
+}
+
 function siguienteTurno(actual: Turno, finde: boolean): Turno {
   const ciclo = finde ? CICLO_FINDE : CICLO_SEMANA
   const indice = ciclo.indexOf(actual)
@@ -180,6 +217,8 @@ export function CuadranteJefesPage() {
   const { alert } = useAppDialog()
   const [agentesData, setAgentesData] = useAgentesData()
   const [puestos] = usePuestosData()
+  const [minimosSemana] = useMinimosSemanaData()
+  const [eventosData] = useEventosData()
   const [tiposPermiso] = useTiposPermiso()
   const [anio, setAnio] = useState(ANIO_ACTUAL)
   const [mes, setMes] = useState(new Date().getMonth() + 1)
@@ -247,6 +286,56 @@ export function CuadranteJefesPage() {
     }
     return dias
   }, [diaDesde, diaHasta, nDias])
+
+  const coberturaPorDia = useMemo(() => {
+    const mapa: Record<
+      number,
+      {
+        real: Record<TurnoOperativo, number>
+        minimo: Record<TurnoOperativo, number>
+        especial: boolean
+        enServicio: number
+      }
+    > = {}
+    for (const dia of diasVisibles) {
+      const fecha = isoFecha(anio, mes, dia)
+      const minimosDia = minimosParaFecha(
+        fecha,
+        eventosData,
+        minimosSemana,
+        puestosJefes,
+      )
+      const real = {
+        M: cuentaTurnoDiaJefes(cuadrante, jefes, dia, 'M'),
+        T: cuentaTurnoDiaJefes(cuadrante, jefes, dia, 'T'),
+        N: cuentaTurnoDiaJefes(cuadrante, jefes, dia, 'N'),
+      }
+      mapa[dia] = {
+        real,
+        minimo: {
+          M: totalMinimosTurno(minimosDia, 'M', puestosJefes),
+          T: totalMinimosTurno(minimosDia, 'T', puestosJefes),
+          N: totalMinimosTurno(minimosDia, 'N', puestosJefes),
+        },
+        especial:
+          esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia),
+        enServicio: jefes.filter(
+          (agente) =>
+            pesoJornadaJefes((cuadrante[agente.id] ?? [])[dia - 1]) > 0,
+        ).length,
+      }
+    }
+    return mapa
+  }, [
+    anio,
+    mes,
+    diasVisibles,
+    eventosData,
+    minimosSemana,
+    puestosJefes,
+    jefes,
+    cuadrante,
+  ])
 
   useEffect(() => {
     let cancelado = false
@@ -994,24 +1083,22 @@ export function CuadranteJefesPage() {
               <tfoot>
                 <tr>
                   <th
-                    className={`${CELDA_PIE} sticky bottom-0 left-0 z-40 px-1.5 text-left`}
+                    className={`${CELDA_PIE} sticky left-0 z-40 px-1.5 text-left`}
+                    style={pieStickyBottom(TURNOS_OP.length)}
                     title="Agentes de servicio ese día · M-T cuenta 1 persona y 2 jornadas en Σ"
                   >
                     Σ
                   </th>
                   {diasVisibles.map((dia) => {
-                    const enServicio = jefes.filter((agente) =>
-                      pesoJornadaJefes((cuadrante[agente.id] ?? [])[dia - 1]) >
-                      0,
-                    ).length
-                    const especial =
-                      esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia)
+                    const cobertura = coberturaPorDia[dia]
+                    const enServicio = cobertura?.enServicio ?? 0
                     return (
                       <td
                         key={dia}
-                        className={`${CELDA_PIE} sticky bottom-0 z-20 text-center tabular-nums ${
-                          especial ? 'bg-amber-100' : ''
+                        className={`${CELDA_PIE} sticky z-20 text-center tabular-nums ${
+                          cobertura?.especial ? 'bg-amber-100' : ''
                         }`}
+                        style={pieStickyBottom(TURNOS_OP.length)}
                         title={`${enServicio} agente${enServicio === 1 ? '' : 's'} de servicio`}
                       >
                         {enServicio}
@@ -1019,7 +1106,8 @@ export function CuadranteJefesPage() {
                     )
                   })}
                   <td
-                    className={`${CELDA_PIE} sticky bottom-0 right-0 z-40 border-l-2 border-l-slate-600 text-center tabular-nums`}
+                    className={`${CELDA_PIE} sticky right-0 z-40 border-l-2 border-l-slate-600 text-center tabular-nums`}
+                    style={pieStickyBottom(TURNOS_OP.length)}
                     title="Suma de días trabajados (M-T = 2)"
                   >
                     {jefes.reduce(
@@ -1034,6 +1122,49 @@ export function CuadranteJefesPage() {
                     d
                   </td>
                 </tr>
+                {TURNOS_OP.map((turno, indice) => (
+                  <tr key={turno}>
+                    <th
+                      className={`${CELDA_PIE_BASE} sticky left-0 z-40 bg-white px-1.5 text-left`}
+                      style={pieStickyBottom(TURNOS_OP.length - 1 - indice)}
+                      title={`${turno}: asignados / mínimo del día · verde cubierto · rojo si no llega`}
+                    >
+                      {turno}
+                    </th>
+                    {diasVisibles.map((dia) => {
+                      const cobertura = coberturaPorDia[dia]
+                      const real = cobertura?.real[turno] ?? 0
+                      const minimo = cobertura?.minimo[turno] ?? 0
+                      const bajoMinimo = real < minimo
+                      return (
+                        <td
+                          key={dia}
+                          className={`${CELDA_PIE_BASE} sticky z-20 text-center tabular-nums ${claseCoberturaMinimo(
+                            real,
+                            minimo,
+                          )}`}
+                          style={pieStickyBottom(TURNOS_OP.length - 1 - indice)}
+                          title={`${real} en ${turno} · mínimo ${minimo}`}
+                        >
+                          <div className="flex h-full items-center justify-center gap-px leading-none">
+                            <span>{real}</span>
+                            <span
+                              className={
+                                bajoMinimo ? '' : 'font-semibold opacity-70'
+                              }
+                            >
+                              /{minimo}
+                            </span>
+                          </div>
+                        </td>
+                      )
+                    })}
+                    <td
+                      className={`${CELDA_PIE_BASE} sticky right-0 z-40 border-l-2 border-l-slate-600 bg-white`}
+                      style={pieStickyBottom(TURNOS_OP.length - 1 - indice)}
+                    />
+                  </tr>
+                ))}
               </tfoot>
             </table>
           </DashboardMainScroll>
@@ -1060,7 +1191,8 @@ export function CuadranteJefesPage() {
               <li>Shift+clic: menú de puestos o permisos según la celda.</li>
               <li>
                 Σ a la derecha: días trabajados del agente (M-T cuenta 2). Pie:
-                agentes de servicio ese día.
+                agentes de servicio y M/T/N asignados / mínimo (verde cubierto,
+                rojo no).
               </li>
             </ol>
             <p className="mt-2 text-xs text-slate-500">

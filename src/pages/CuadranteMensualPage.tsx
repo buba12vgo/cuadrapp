@@ -178,23 +178,21 @@ function leerFecha(valor: string) {
   return { anio, mes, dia }
 }
 
-function claseMinimo(real: number, minimo: number, especial: boolean) {
-  if (real < minimo) return SEMAFORO_KO
-  return especial ? 'bg-amber-50' : 'bg-white'
+function claseMinimo(real: number, minimo: number) {
+  return real < minimo ? SEMAFORO_KO : SEMAFORO_OK
 }
 
 function CeldaSumatorioMinimo({
   real,
   minimo,
   turno,
-  especial,
   className = CELDA,
   style,
 }: {
   real: number
   minimo: number
   turno: TurnoOperativo
-  especial: boolean
+  especial?: boolean
   className?: string
   style?: CSSProperties
 }) {
@@ -204,7 +202,6 @@ function CeldaSumatorioMinimo({
       className={`${className} sticky z-10 text-center tabular-nums ${claseMinimo(
         real,
         minimo,
-        especial,
       )}`}
       style={style}
       title={`${real} en ${turno} · mínimo ${minimo}`}

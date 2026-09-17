@@ -5,9 +5,10 @@ import type { MinimosSemana, PuestoConfig } from '@/lib/calendarioPuestos'
 export function exportarMinimosExcel(
   puestos: PuestoConfig[],
   minimos: MinimosSemana,
+  opciones?: { titulo?: string; archivo?: string },
 ) {
   const filas: (string | number)[][] = [
-    ['Mínimos semanales por puesto'],
+    [opciones?.titulo ?? 'Mínimos semanales por puesto'],
     [],
     ['Puesto', 'Abrev.', ...DIAS_SEMANA_CONFIG.flatMap((d) => [`${d.label} M`, `${d.label} T`, `${d.label} N`])],
   ]
@@ -25,5 +26,5 @@ export function exportarMinimosExcel(
   hoja['!cols'] = [{ wch: 22 }, { wch: 8 }, ...Array(21).fill({ wch: 6 })]
   const libro = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(libro, hoja, 'Minimos')
-  XLSX.writeFile(libro, 'minimos-semanales.xlsx')
+  XLSX.writeFile(libro, opciones?.archivo ?? 'minimos-semanales.xlsx')
 }

@@ -12,13 +12,14 @@ import {
   DashboardMain,
   DashboardMainScroll,
 } from '@/components/ui/DashboardLayout'
-import { PageHeader } from '@/components/ui/PageHeader'
+import { PageHeader, ToolbarDivider, ToolbarSection } from '@/components/ui/PageHeader'
 import { SaveStatus } from '@/components/ui/SaveStatus'
 import { useAppDialog } from '@/components/ui/ConfirmDialog'
 import {
   ALERT_ERROR,
   BTN_PRIMARY,
   BTN_SECONDARY,
+  FOCUS_RING,
   PAGE_SECTION,
 } from '@/lib/uiStyles'
 import { MinimoCelda } from '@/components/minimos/MinimoCelda'
@@ -26,7 +27,10 @@ import { MinimosResumenPanel } from '@/components/minimos/MinimosResumenPanel'
 import { useAgentesData } from '@/lib/agentesStore'
 import {
   DIAS_SEMANA_CONFIG,
-  crearMinimosSemana,
+  clonarMinimosPuesto,
+  clonarMinimosSemana,
+  minimosBaseParaPuestos,
+  type AmbitoPuesto,
   type DiaSemana,
   type PuestoConfig,
   type TurnoOperativo,
@@ -39,11 +43,55 @@ import {
   sumatoriosDia,
 } from '@/lib/minimosEstadisticas'
 import {
+  agentesCuadranteJefes,
+  agentesOperativosCuadrante,
+} from '@/lib/rolesCuadrante'
+import {
   copiarMinimosDiaADias,
   copiarMinimosDiaATodaLaSemana,
   useMinimosSemanaData,
   usePuestosData,
 } from '@/lib/puestosStore'
+
+type VistaMinimos = 'POLICIAS' | 'JEFATURA'
+
+const VISTAS_MINIMOS: Array<{
+  valor: VistaMinimos
+  label: string
+  ambito: AmbitoPuesto
+  hint: string
+  subtitle: string
+  vacio: string
+  etiquetaPlantilla: string
+  tituloExport: string
+  archivoExport: string
+}> = [
+  {
+    valor: 'POLICIAS',
+    label: 'Policías',
+    ambito: 'OPERATIVO',
+    hint: 'Policías, jefes de equipo y bolsa',
+    subtitle:
+      'Dotación operativa · policías, jefes de equipo y bolsa · guardado automático',
+    vacio: 'Primero configura puestos operativos en el panel Puestos.',
+    etiquetaPlantilla: 'Policías',
+    tituloExport: 'Mínimos semanales · Policías',
+    archivoExport: 'minimos-semanales-policias.xlsx',
+  },
+  {
+    valor: 'JEFATURA',
+    label: 'Jefatura',
+    ambito: 'JEFE_SERVICIO',
+    hint: 'Jefes de servicio y responsables',
+    subtitle:
+      'Dotación de jefatura · jefes de servicio y responsables · guardado automático',
+    vacio:
+      'No hay puestos de jefatura. Créalos en Puestos con ámbito Jefes y responsables.',
+    etiquetaPlantilla: 'Jefatura',
+    tituloExport: 'Mínimos semanales · Jefatura',
+    archivoExport: 'minimos-semanales-jefatura.xlsx',
+  },
+]
 
 const TURNOS: TurnoOperativo[] = ['M', 'T', 'N']
 const DEBOUNCE_MS = 700
@@ -69,9 +117,13 @@ export function MinimosPage() {
   const { confirm: askConfirm } = useAppDialog()
   const [agentes] = useAgentesData()
   const [puestosTodos] = usePuestosData()
+  const [vista, setVista] = useState<VistaMinimos>('POLICIAS')
+  const vistaActiva =
+    VISTAS_MINIMOS.find((item) => item.valor === vista) ?? VISTAS_MINIMOS[0]
   const puestos = useMemo(
-    () => puestosTodos.filter((puesto) => puesto.ambito === 'OPERATIVO'),
-    [puestosTodos],
+    () =>
+      puestosTodos.filter((puesto) => puesto.ambito === vistaActiva.ambito),
+    [puestosTodos, vistaActiva.ambito],
   )
   const [minimos, setMinimos] = useMinimosSemanaData()
   const [diaActivo, setDiaActivo] = useState<DiaSemana>(1)
@@ -85,7 +137,11 @@ export function MinimosPage() {
   const firebaseOk = isFirebaseReady()
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const minimosRef = useRef(minimos)
-  const puestosRef = useRef(puestos)
+  const puestosTodosRef = useRef(puestosTodos)
+  const nombresPuestosVista = useMemo(
+    () => puestos.map((puesto) => puesto.nombre),
+    [puestos],
+  )
   const menuPlantillasRef = useRef<HTMLDivElement>(null)
 
   const diaInfo =
@@ -98,15 +154,21 @@ export function MinimosPage() {
     () => agruparPuestosPorCategoria(puestos),
     [puestos],
   )
-  const plantillaOperativa = agentes.length
+  const plantilla = useMemo(
+    () =>
+      vista === 'JEFATURA'
+        ? agentesCuadranteJefes(agentes).length
+        : agentesOperativosCuadrante(agentes).length,
+    [agentes, vista],
+  )
 
   useEffect(() => {
     minimosRef.current = minimos
   }, [minimos])
 
   useEffect(() => {
-    puestosRef.current = puestos
-  }, [puestos])
+    puestosTodosRef.current = puestosTodos
+  }, [puestosTodos])
 
   useEffect(() => {
     return () => {
@@ -139,7 +201,7 @@ export function MinimosPage() {
     setError(null)
     setGuardadoOk(false)
     try {
-      await saveMinimosSemana(minimosRef.current, puestosRef.current)
+      await saveMinimosSemana(minimosRef.current, puestosTodosRef.current)
       setPendiente(false)
       setGuardadoOk(true)
       window.setTimeout(() => setGuardadoOk(false), 1500)
@@ -209,31 +271,46 @@ export function MinimosPage() {
       'Copiar mínimos',
     )
     if (!ok) return
-    copiarMinimosDiaADias(diaActivo, diasDestino)
+    copiarMinimosDiaADias(diaActivo, diasDestino, nombresPuestosVista)
     programarGuardado()
     setPanelCopiaAbierto(false)
   }
 
   async function restablecerDefecto() {
     const ok = await askConfirm(
-      '¿Restablecer todos los días a los mínimos por defecto de cada puesto?',
+      vista === 'JEFATURA'
+        ? '¿Restablecer los mínimos de jefatura a los valores por defecto de cada puesto?'
+        : '¿Restablecer los mínimos de policías a los valores por defecto de cada puesto?',
       'Restablecer mínimos',
       true,
     )
     if (!ok) return
-    setMinimos(crearMinimosSemana(puestos))
+    const defaults = minimosBaseParaPuestos(puestos)
+    setMinimos((actual) => {
+      const copia = clonarMinimosSemana(actual)
+      for (const dia of [1, 2, 3, 4, 5, 6, 7] as const) {
+        const diaMin = { ...copia[dia] }
+        for (const puesto of puestos) {
+          diaMin[puesto.nombre] = clonarMinimosPuesto(
+            defaults[puesto.nombre] ?? { M: 1, T: 1, N: 1 },
+          )
+        }
+        copia[dia] = diaMin
+      }
+      return copia
+    })
     programarGuardado()
     setMenuPlantillasAbierto(false)
   }
 
   function aplicarPlantillaLaborables() {
-    copiarMinimosDiaADias(diaActivo, [2, 3, 4, 5])
+    copiarMinimosDiaADias(diaActivo, [2, 3, 4, 5], nombresPuestosVista)
     programarGuardado()
     setMenuPlantillasAbierto(false)
   }
 
   function aplicarPlantillaSemanaCompleta() {
-    copiarMinimosDiaATodaLaSemana(diaActivo)
+    copiarMinimosDiaATodaLaSemana(diaActivo, nombresPuestosVista)
     programarGuardado()
     setMenuPlantillasAbierto(false)
   }
@@ -282,7 +359,7 @@ export function MinimosPage() {
     <section className={PAGE_SECTION}>
       <PageHeader
         title="Mínimos semanales"
-        subtitle="Dotación por puesto y día · guardado automático"
+        subtitle={vistaActiva.subtitle}
         status={
           <SaveStatus
             guardando={guardando}
@@ -292,6 +369,28 @@ export function MinimosPage() {
         }
         toolbar={
           <>
+            <ToolbarSection label="Grupo">
+              {VISTAS_MINIMOS.map((item) => (
+                <button
+                  key={item.valor}
+                  type="button"
+                  className={`h-7 rounded-md px-2.5 text-xs font-semibold ${FOCUS_RING} ${
+                    vista === item.valor
+                      ? 'bg-brand-600 text-white'
+                      : 'border border-line bg-white text-slate-700 hover:bg-brand-50'
+                  }`}
+                  aria-pressed={vista === item.valor}
+                  title={item.hint}
+                  onClick={() => {
+                    setVista(item.valor)
+                    setMenuPlantillasAbierto(false)
+                  }}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </ToolbarSection>
+            <ToolbarDivider />
             <button
               type="button"
               className={BTN_PRIMARY}
@@ -351,7 +450,12 @@ export function MinimosPage() {
               type="button"
               className={BTN_SECONDARY}
               disabled={puestos.length === 0}
-              onClick={() => exportarMinimosExcel(puestos, minimos)}
+              onClick={() =>
+                exportarMinimosExcel(puestos, minimos, {
+                  titulo: vistaActiva.tituloExport,
+                  archivo: vistaActiva.archivoExport,
+                })
+              }
             >
               <Download className="h-3 w-3" />
               Exportar
@@ -426,7 +530,7 @@ export function MinimosPage() {
         <DashboardMain>
           {puestos.length === 0 ? (
             <p className="px-4 py-8 text-center text-sm text-slate-500">
-              Primero configura puestos en el panel Puestos.
+              {vistaActiva.vacio}
             </p>
           ) : (
             <DashboardMainScroll>
@@ -494,20 +598,27 @@ export function MinimosPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {gruposPuestos.flatMap((grupo) => [
-                    <tr key={`cat-${grupo.categoria}`} className="bg-slate-50/90">
-                      <td
-                        colSpan={1 + DIAS_SEMANA_CONFIG.length * 3}
-                        className="sticky left-0 border-y border-slate-200 px-1 py-0.5 text-sm font-bold uppercase tracking-wider text-slate-500"
-                      >
-                        <span className="inline-flex items-center gap-1">
-                          <Sparkles className="h-2.5 w-2.5" />
-                          {grupo.categoria}
-                        </span>
-                      </td>
-                    </tr>,
-                    ...grupo.puestos.map((puesto) => renderFilaPuesto(puesto)),
-                  ])}
+                  {gruposPuestos.length <= 1
+                    ? puestos.map((puesto) => renderFilaPuesto(puesto))
+                    : gruposPuestos.flatMap((grupo) => [
+                        <tr
+                          key={`cat-${grupo.categoria}`}
+                          className="bg-slate-50/90"
+                        >
+                          <td
+                            colSpan={1 + DIAS_SEMANA_CONFIG.length * 3}
+                            className="sticky left-0 border-y border-slate-200 px-1 py-0.5 text-sm font-bold uppercase tracking-wider text-slate-500"
+                          >
+                            <span className="inline-flex items-center gap-1">
+                              <Sparkles className="h-2.5 w-2.5" />
+                              {grupo.categoria}
+                            </span>
+                          </td>
+                        </tr>,
+                        ...grupo.puestos.map((puesto) =>
+                          renderFilaPuesto(puesto),
+                        ),
+                      ])}
                 </tbody>
                 <tfoot className="text-sm">
                   <tr className="bg-slate-800 text-white">
@@ -566,7 +677,8 @@ export function MinimosPage() {
           <MinimosResumenPanel
             puestos={puestos}
             minimos={minimos}
-            plantillaOperativa={plantillaOperativa}
+            plantillaOperativa={plantilla}
+            etiquetaPlantilla={vistaActiva.etiquetaPlantilla}
           />
         ) : null}
       </DashboardBody>

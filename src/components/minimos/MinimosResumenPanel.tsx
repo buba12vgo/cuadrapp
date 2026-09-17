@@ -25,6 +25,7 @@ type Props = {
   puestos: PuestoConfig[]
   minimos: MinimosSemana
   plantillaOperativa: number
+  etiquetaPlantilla?: string
 }
 
 const TURNO_META = [
@@ -37,6 +38,7 @@ export function MinimosResumenPanel({
   puestos,
   minimos,
   plantillaOperativa,
+  etiquetaPlantilla = 'Plantilla',
 }: Props) {
   const stats = estadisticasMinimosSemana(puestos, minimos)
   const coberturaPct =
@@ -49,7 +51,7 @@ export function MinimosResumenPanel({
     <DashboardSidebar>
       <KpiGrid2>
         <KpiCard icon={CalendarRange} label="Semana" value={stats.totalSemanal} />
-        <KpiCard icon={Users} label="Plantilla" value={plantillaOperativa} />
+        <KpiCard icon={Users} label={etiquetaPlantilla} value={plantillaOperativa} />
       </KpiGrid2>
 
       <KpiProgress

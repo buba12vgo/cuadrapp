@@ -1039,37 +1039,6 @@ export function CuadranteJefesPage() {
           </DashboardMainScroll>
         </DashboardMain>
         <DashboardSidebar>
-          <div className="rounded-xl border border-line bg-white p-2 text-sm text-slate-600 shadow-card">
-            <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">
-              Cómo usarlo
-            </p>
-            <ol className="list-decimal space-y-1 pl-4 text-xs leading-snug">
-              <li>
-                Clic en celda: cicla D → M → T → N → P → V. En fin de semana
-                también M-T (Mañana Tarde). P = permiso.
-              </li>
-              <li>Con turno (M/T/N/M-T), arrastra un puesto desde la bolsa.</li>
-              <li>
-                En celda P, arrastra o selecciona un tipo de permiso (AP, IT…).
-              </li>
-              <li>
-                Arrastra un puesto al número o nombre del jefe: lo pone en
-                todos sus días con turno.
-              </li>
-              <li>O selecciona el puesto/permiso y pulsa la celda.</li>
-              <li>Shift+clic: menú de puestos o permisos según la celda.</li>
-              <li>
-                Σ a la derecha: días trabajados del agente (M-T cuenta 2). Pie:
-                agentes de servicio ese día.
-              </li>
-            </ol>
-            <p className="mt-2 text-xs text-slate-500">
-              {jefes.length} agente{jefes.length === 1 ? '' : 's'} (jefes y
-              responsables) · {puestosJefes.length} puesto
-              {puestosJefes.length === 1 ? '' : 's'} exclusivo
-              {puestosJefes.length === 1 ? '' : 's'}
-            </p>
-          </div>
           <BolsaPuestosPanel
             filtroTurno={filtroTurno}
             onFiltroTurno={setFiltroTurno}

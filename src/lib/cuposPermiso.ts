@@ -231,5 +231,6 @@ export function restanParaAsignar(
 
 export function mensajeSinSaldo(saldo: SaldoPermiso) {
   const cupo = saldo.cupo ?? 0
-  return `No quedan días de ${saldo.nombre} para este agente (${saldo.usados}/${cupo} usados).`
+  const usados = Math.max(0, Math.min(saldo.usados, cupo))
+  return `No quedan días de ${saldo.nombre} para este agente (${usados}/${cupo} usados).`
 }

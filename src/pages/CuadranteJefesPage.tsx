@@ -900,14 +900,15 @@ export function CuadranteJefesPage() {
       ) : null}
       {puestoSeleccionado ? (
         <p className={ALERT_INFO}>
-          Puesto seleccionado: <strong>{puestoSeleccionado}</strong>. Pulsa una
-          celda con turno (M/T/N/M-T) para asignarlo (o cicla el turno con clic).
+          {puestoSeleccionado === NOMBRE_JORNADA_DISPONIBLE
+            ? 'Jornada Disponible seleccionada. Pulsa una celda M/T/N/M-T para marcarla como JD.'
+            : `Puesto seleccionado: ${puestoSeleccionado}. Pulsa una celda con turno (M/T/N/M-T) para asignarlo.`}
         </p>
       ) : null}
       {permisoSeleccionado ? (
         <p className={ALERT_INFO}>
           Permiso seleccionado: <strong>{permisoSeleccionado}</strong>. Pulsa
-          una celda P para asignarlo.
+          una celda (excepto V) para marcarla como P.
         </p>
       ) : null}
 

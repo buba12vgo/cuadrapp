@@ -193,6 +193,46 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     referencia: 'vacaciones.ts · mesVacacionesCiclo · anioReferenciaVacaciones',
   },
   {
+    id: 'ficha-suma-permisos',
+    categoria: 'PLANTILLA',
+    titulo: 'Permisos en la ficha de cada agente',
+    descripcion:
+      'La ficha de policía, jefe de equipo, jefe de servicio, responsable y bolsa muestra cupo, usados y restantes de cada tipo de permiso del catálogo (Asuntos propios, IT, Libre por Disponibilidad, Días del Año Anterior, etc.), más las Jornadas Disponibles que generan saldo de LPD.',
+    estado: 'implementada',
+    referencia: 'AgentesPage · conteoPermisos · cuposPermiso · PermisosPage',
+  },
+  {
+    id: 'cupos-permiso-anuales',
+    categoria: 'PLANTILLA',
+    titulo: 'Tope anual por tipo de permiso',
+    descripcion:
+      'Cada agente tiene un máximo de días por concepto (p. ej. 6 jornadas de Asuntos propios). El catálogo fija el tope; la ficha puede ajustarlo. 0 en el catálogo = sin tope (no genera saldo a DAA), salvo LPD y Días del Año Anterior, que siempre se contabilizan.',
+    estado: 'implementada',
+    detalle:
+      'Cada día P asignado resta del cupo de ese trabajador y concepto. LPD suma las Jornadas Disponibles del año. El cuadrante impide asignar si restan < 1.',
+    referencia: 'cuposPermiso · PermisosPage · AgentesPage · saldoPermisoCuadrante',
+  },
+  {
+    id: 'dias-ano-anterior',
+    categoria: 'PLANTILLA',
+    titulo: 'Días del Año Anterior',
+    descripcion:
+      'El 31 de diciembre a las 23:59 (hora de Madrid) los días de permiso no gastados de cada agente pasan al tipo «Días del Año Anterior» del año siguiente.',
+    estado: 'implementada',
+    detalle:
+      'Cierre perezoso al abrir la ficha o el cuadrante del año nuevo. Suma el restante de todos los conceptos con tope (AP, LPD, DAA no usados, etc.). El resto de cupos se reinicia al del catálogo o al override de la ficha.',
+    referencia: 'cuposPermiso · conteoPermisos · instanteCierreAnioMs',
+  },
+  {
+    id: 'permisos-toda-plantilla',
+    categoria: 'CUADRANTE',
+    titulo: 'Permisos tipados en toda la plantilla',
+    descripcion:
+      'Los tipos de permiso (celda P) aplican al cuadrante mensual y al de jefes. Arrastrar o seleccionar un permiso convierte la celda en P y resta un día del cupo de ese agente y concepto. Si no queda saldo, la asignación se bloquea.',
+    estado: 'implementada',
+    referencia: 'CuadranteMensualPage · CuadranteJefesPage · BolsaPermisosPanel',
+  },
+  {
     id: 'autogenerar-solo-anio',
     categoria: 'PLAN_ANUAL',
     titulo: 'Autogenerar un solo año',
@@ -331,6 +371,17 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     referencia: 'variablesCobro · diaEsFestivoCobro',
   },
   {
+    id: 'variable-jornada-disponible',
+    categoria: 'VARIABLES_COBRO',
+    titulo: 'Jornada Disponible',
+    descripcion:
+      'Una jornada M, T, N o M-T marcada como Jornada Disponible se cobra como variable JD y genera un día de Libre por Disponibilidad (LPD) para gastar como permiso P.',
+    estado: 'implementada',
+    detalle:
+      'No entra en el equilibrio automático al autogenerar el mes: se marca a mano en el cuadrante. En la ficha, el saldo LPD es JD generadas menos LPD usadas.',
+    referencia: 'jornadaDisponible · variablesCobro · conteoPermisos',
+  },
+  {
     id: 'variables-conciliacion-festivo-compatibles',
     categoria: 'VARIABLES_COBRO',
     titulo: 'Conciliaciones y festivo compatibles',
@@ -344,7 +395,7 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     categoria: 'VARIABLES_COBRO',
     titulo: 'Listado mensual de variables',
     descripcion:
-      'La página Listados muestra y exporta a Excel las variables de cobro de cada policía a mes vencido, calculadas desde el cuadrante mensual guardado.',
+      'La página Listados muestra y exporta a Excel las variables de cobro de cada agente a mes vencido (operativo y jefes), calculadas desde el cuadrante guardado, incluida Jornada Disponible.',
     estado: 'implementada',
     referencia: 'ListadosPage · exportarVariablesCobroExcel',
   },

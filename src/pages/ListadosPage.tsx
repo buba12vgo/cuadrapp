@@ -20,12 +20,13 @@ import {
 import { useAgentesData } from '@/lib/agentesStore'
 import { cuadranteDesdeFirestore } from '@/lib/cuadranteFirestore'
 import { diasDelMes } from '@/lib/convenio'
-import { getCuadrante } from '@/lib/db'
+import { getCuadrante, getCuadranteJefes } from '@/lib/db'
 import { exportarVariablesCobroExcel } from '@/lib/exportarVariablesCobroExcel'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
 import { useEventosData } from '@/lib/eventosStore'
 import { ensureFirebase } from '@/lib/firebase'
 import { isDesignPreview } from '@/lib/designPreview'
+import type { AsignacionesDiarias } from '@/lib/calendarioPuestos'
 import {
   ABREV_VARIABLE_COBRO,
   contarVariablesCobroAgente,
@@ -38,7 +39,7 @@ import type { RolPolicia } from '@/types'
 import {
   ROLES_OPERATIVO_CUADRANTE,
   ROL_LABEL,
-  esRolOperativoCuadrante,
+  esRolCuadranteJefes,
 } from '@/lib/rolesCuadrante'
 
 const MESES = [
@@ -56,7 +57,11 @@ const MESES = [
   'Diciembre',
 ] as const
 
-const ROLES = ROLES_OPERATIVO_CUADRANTE
+const ROLES: RolPolicia[] = [
+  ...ROLES_OPERATIVO_CUADRANTE,
+  'JEFE_SERVICIO',
+  'RESPONSABLE',
+]
 
 const CAMPO_TOOLBAR =
   'h-7 rounded-md border border-line bg-white px-1.5 text-xs text-ink outline-none focus:border-brand-400 focus-visible:ring-2 focus-visible:ring-brand-500/40'
@@ -71,12 +76,15 @@ export function ListadosPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [cuadrante, setCuadrante] = useState<CuadranteMensual>({})
+  const [asignaciones, setAsignaciones] = useState<AsignacionesDiarias>({})
+  const [cuadranteJefes, setCuadranteJefes] = useState<CuadranteMensual>({})
+  const [asignacionesJefes, setAsignacionesJefes] =
+    useState<AsignacionesDiarias>({})
 
   const nDias = diasDelMes(anio, mes)
 
   const agentesVisibles = useMemo(() => {
     const lista = agentesData.filter((agente) => {
-      if (!esRolOperativoCuadrante(agente.rolBase)) return false
       if (rolFiltro !== 'TODOS' && agente.rolBase !== rolFiltro) return false
       return true
     })
@@ -92,6 +100,9 @@ export function ListadosPage() {
       setLoading(true)
       setError(null)
       setCuadrante({})
+      setAsignaciones({})
+      setCuadranteJefes({})
+      setAsignacionesJefes({})
 
       if (isDesignPreview) {
         setLoading(false)
@@ -107,17 +118,35 @@ export function ListadosPage() {
       }
 
       try {
-        const datos = await getCuadrante(mes, anio)
+        const [datos, datosJefes] = await Promise.all([
+          getCuadrante(mes, anio),
+          getCuadranteJefes(mes, anio).catch(() => null),
+        ])
         if (cancelado) return
         if (datos && agentesData.length > 0) {
-          const { cuadrante: cargado } = cuadranteDesdeFirestore(
-            datos,
-            agentesData,
-            anio,
-            mes,
-            nDias,
-          )
+          const { cuadrante: cargado, asignaciones: asigs } =
+            cuadranteDesdeFirestore(
+              datos,
+              agentesData,
+              anio,
+              mes,
+              nDias,
+            )
           setCuadrante(cargado)
+          setAsignaciones(asigs)
+        }
+        if (datosJefes && agentesData.length > 0) {
+          const { cuadrante: cargado, asignaciones: asigs } =
+            cuadranteDesdeFirestore(
+              datosJefes,
+              agentesData,
+              anio,
+              mes,
+              nDias,
+              { migrarLibranzaAPermiso: true },
+            )
+          setCuadranteJefes(cargado)
+          setAsignacionesJefes(asigs)
         }
       } catch (err) {
         if (!cancelado) {
@@ -142,16 +171,32 @@ export function ListadosPage() {
     const mapa: Record<string, ReturnType<typeof contarVariablesCobroAgente>> =
       {}
     for (const agente of agentesVisibles) {
-      const fila = cuadrante[agente.id] ?? []
+      const jefes = esRolCuadranteJefes(agente.rolBase)
+      const fila = jefes
+        ? (cuadranteJefes[agente.id] ?? [])
+        : (cuadrante[agente.id] ?? [])
       mapa[agente.id] = contarVariablesCobroAgente(
         fila,
         anio,
         mes,
         eventosData,
+        {
+          asignaciones: jefes ? asignacionesJefes : asignaciones,
+          agenteId: agente.id,
+        },
       )
     }
     return mapa
-  }, [agentesVisibles, cuadrante, anio, mes, eventosData])
+  }, [
+    agentesVisibles,
+    cuadrante,
+    cuadranteJefes,
+    asignaciones,
+    asignacionesJefes,
+    anio,
+    mes,
+    eventosData,
+  ])
 
   const totalesColumna = useMemo(() => {
     const totales = conteoVariablesCobroVacio()
@@ -165,14 +210,15 @@ export function ListadosPage() {
     return totales
   }, [agentesVisibles, conteos])
 
-  const hayCuadrante = Object.keys(cuadrante).length > 0
+  const hayCuadrante =
+    Object.keys(cuadrante).length > 0 || Object.keys(cuadranteJefes).length > 0
   const granTotal = Object.values(totalesColumna).reduce((s, n) => s + n, 0)
 
   return (
     <section className={PAGE_SECTION}>
       <PageHeader
         title="Listados · variables de cobro"
-        subtitle="Conciliaciones de finde y festivos por policía (mes vencido)"
+        subtitle="Conciliaciones, festivos y jornada disponible de toda la plantilla (mes vencido)"
         actions={
           <button
             type="button"
@@ -257,7 +303,7 @@ export function ListadosPage() {
       {!loading && !hayCuadrante ? (
         <p className={ALERT_WARN}>
           No hay cuadrante guardado para {MESES[mes - 1]} {anio}. Las variables
-          salen en cero hasta que exista cuadrante mensual.
+          salen en cero hasta que exista cuadrante mensual o de jefes.
         </p>
       ) : null}
 

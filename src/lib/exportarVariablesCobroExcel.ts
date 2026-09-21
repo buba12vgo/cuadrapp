@@ -39,7 +39,7 @@ export function exportarVariablesCobroExcel(opciones: ExportarVariablesCobroOpci
 
   const filas: (string | number)[][] = [
     ['Variables de cobro mensuales', `${nombreMes} ${anio}`],
-    ['Mes vencido · conciliaciones de finde y festivo (sin distinguir turno)'],
+    ['Mes vencido · conciliaciones, festivo y jornada disponible'],
     [],
     [
       'Placa',

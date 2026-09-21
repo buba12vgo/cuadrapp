@@ -6,8 +6,9 @@ export type RolPolicia =
   | 'POLICIA_BOLSA'
 
 /** `MT` = Mañana+Tarde, solo fines de semana en cuadrante de jefes.
- *  `P` = Permiso (tipos configurables: AP, EF, IT…).
- *  `L` = Libranza (cuadrante operativo legacy; en jefes se usa `P`). */
+ *  `P` = Permiso (tipos configurables: AP, EF, IT, LPD…).
+ *  `L` = Libranza (cuadrante operativo legacy; en jefes se usa `P`).
+ *  Jornada Disponible no es un turno: se marca sobre M/T/N/MT. */
 export type Turno = 'M' | 'T' | 'N' | 'MT' | 'L' | 'P' | 'D' | 'V'
 
 export type TipoEvento =
@@ -48,6 +49,13 @@ export interface FichaPolicia {
    * los demás años rotan Jun → Jul → Sep → Ago.
    */
   anioReferenciaVacaciones?: number
+  /**
+   * Tope anual por código de permiso (anula el del catálogo).
+   * DAA no se guarda aquí: sale del cierre del 31 de diciembre.
+   */
+  cuposPermiso?: Record<string, number>
+  /** Snapshot por año, sobre todo el cupo de Días del Año Anterior. */
+  cuposPermisoAnio?: Record<string, Record<string, number>>
 }
 
 export interface EventoOperativo {

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { BolsaPuestosPanel, filtroTurnoInicial } from '@/components/BolsaPuestosPanel'
+import { BolsaPermisosPanel } from '@/components/BolsaPermisosPanel'
+import { JornadaDisponibleChip } from '@/components/JornadaDisponibleChip'
 import { CuadranteResumenPanel } from '@/components/dashboard/CuadranteResumenPanel'
 import {
   DashboardBody,
@@ -32,17 +34,23 @@ import {
   asignarPuestoEnCelda,
   asignarPuestoMesAgente,
   crearMinimosDeFecha,
+  esTurnoAsignable,
   esTurnoOperativo,
+  esTurnoPermiso,
   fechasOperativasAgenteMes,
+  leerPermisoArrastrado,
   leerPuestoArrastrado,
   permitirSoltarPuesto,
   puestosPermitidosParaAgente,
+  quitarAsignacionCelda,
 } from '@/lib/asignacionPuestos'
 import {
   type AsignacionesDiarias,
+  abreviaturaDesdePuestos,
   minimosParaFecha,
   type PuestoBase,
   totalMinimosTurno,
+  type TurnoAsignable,
   type TurnoOperativo,
 } from '@/lib/calendarioPuestos'
 import {
@@ -94,6 +102,25 @@ import {
   ROL_LABEL,
   agentesOperativosCuadrante,
 } from '@/lib/rolesCuadrante'
+import { abreviaturaDesdePermisos } from '@/lib/permisos'
+import { useTiposPermiso } from '@/lib/permisosStore'
+import {
+  asegurarRolloverDaaPlantilla,
+  cargarResumenesPermisosAnio,
+  resumenPermisosVacio,
+  type ResumenPermisosAgente,
+} from '@/lib/conteoPermisos'
+import {
+  mensajeSiNoPuedeAsignarCelda,
+  mensajeSiNoPuedeAsignarMes,
+  resumenesMesCuadrante,
+} from '@/lib/saldoPermisoCuadrante'
+import {
+  abreviaturaJornadaOPuesto,
+  conJornadaDisponible,
+  esJornadaDisponible,
+  NOMBRE_JORNADA_DISPONIBLE,
+} from '@/lib/jornadaDisponible'
 
 const MESES = [
   'Enero',
@@ -288,6 +315,19 @@ export function CuadranteMensualPage() {
   const [firebaseOk, setFirebaseOk] = useState(isFirebaseReady())
   const [filtroTurno, setFiltroTurno] =
     useState<FiltroTurnoBolsa>(filtroTurnoInicial)
+  const [tiposPermiso] = useTiposPermiso()
+  const [puestoSeleccionado, setPuestoSeleccionado] = useState<string | null>(
+    null,
+  )
+  const [permisoSeleccionado, setPermisoSeleccionado] = useState<string | null>(
+    null,
+  )
+  const [resumenesAnio, setResumenesAnio] = useState<
+    Record<string, ResumenPermisosAgente>
+  >({})
+  const [resumenesMesCargado, setResumenesMesCargado] = useState<
+    Record<string, ResumenPermisosAgente>
+  >({})
 
   const agentesOperativos = useMemo(
     () => agentesOperativosCuadrante(agentesData),
@@ -381,6 +421,7 @@ export function CuadranteMensualPage() {
   useEffect(() => {
     cuadranteEditadoLocalRef.current = false
     setMesGuardadoEnFirestore(false)
+    setResumenesMesCargado({})
   }, [mes, anio])
 
   useEffect(() => {
@@ -406,6 +447,7 @@ export function CuadranteMensualPage() {
         ) {
           setCuadrante(cuadranteVacio(agentesOperativos, nDias))
           setAsignacionesDiarias({})
+          setResumenesMesCargado({})
         }
         if (cargaId === cargaCuadranteRef.current) {
           setLoadingCuadrante(false)
@@ -447,15 +489,26 @@ export function CuadranteMensualPage() {
               anio,
               mes,
               nDias,
+              { permisos: tiposPermiso },
             )
             setCuadrante(cargado)
             setAsignacionesDiarias(asignaciones)
+            setResumenesMesCargado(
+              resumenesMesCuadrante(
+                agentesOperativos,
+                cargado,
+                asignaciones,
+                anio,
+                mes,
+              ),
+            )
           }
         } else if (agentesOperativos.length > 0) {
           setMesGuardadoEnFirestore(false)
           if (!cuadranteEditadoLocalRef.current) {
             setCuadrante(cuadranteVacio(agentesOperativos, nDias))
             setAsignacionesDiarias({})
+            setResumenesMesCargado({})
           }
         }
       } catch (err) {
@@ -478,7 +531,52 @@ export function CuadranteMensualPage() {
     return () => {
       cancelado = true
     }
-  }, [mes, anio, nDias, agentesIdsKey, agentesCargados, agentesOperativos, ids])
+  }, [mes, anio, nDias, agentesIdsKey, agentesCargados, agentesOperativos, ids, tiposPermiso])
+
+  useEffect(() => {
+    if (!agentesCargados || agentesOperativos.length === 0) return
+    let cancelado = false
+    async function cargarCupos() {
+      const ready = await ensureFirebase()
+      if (!ready || cancelado) {
+        if (!cancelado) setResumenesAnio({})
+        return
+      }
+      try {
+        const cambiados = await asegurarRolloverDaaPlantilla(
+          agentesOperativos,
+          anio,
+          tiposPermiso,
+        )
+        if (cancelado) return
+        if (cambiados.length > 0) {
+          const porId = new Map(cambiados.map((agente) => [agente.id, agente]))
+          setAgentesData((lista) =>
+            lista.map((agente) => porId.get(agente.id) ?? agente),
+          )
+        }
+        const resumenes = await cargarResumenesPermisosAnio(
+          agentesOperativos,
+          anio,
+          tiposPermiso,
+        )
+        if (!cancelado) setResumenesAnio(resumenes)
+      } catch {
+        if (!cancelado) setResumenesAnio({})
+      }
+    }
+    void cargarCupos()
+    return () => {
+      cancelado = true
+    }
+  }, [
+    anio,
+    agentesIdsKey,
+    agentesCargados,
+    agentesOperativos,
+    tiposPermiso,
+    setAgentesData,
+  ])
 
   function aplicarMes(siguienteAnio: number, siguienteMes: number) {
     const dias = diasDelMes(siguienteAnio, siguienteMes)
@@ -576,6 +674,7 @@ export function CuadranteMensualPage() {
         anio,
         mes,
         nDias,
+        { puestos: puestosOperativos, permisos: tiposPermiso },
       )
       await saveCuadrante(mes, anio, payload)
       cuadranteEditadoLocalRef.current = false
@@ -615,7 +714,7 @@ export function CuadranteMensualPage() {
   const [popoverCelda, setPopoverCelda] = useState<{
     agenteId: string
     fecha: string
-    turno: TurnoOperativo
+    turno: TurnoAsignable
     rect: DOMRect
   } | null>(null)
 
@@ -628,31 +727,145 @@ export function CuadranteMensualPage() {
     () => puestos.filter((puesto) => puesto.ambito === 'OPERATIVO'),
     [puestos],
   )
+  const nombresPermiso = useMemo(
+    () => tiposPermiso.map((permiso) => permiso.nombre),
+    [tiposPermiso],
+  )
+
+  function marcarEditado() {
+    cuadranteEditadoLocalRef.current = true
+  }
 
   function avisarExclusion() {
     void alert('Puesto excluido para este agente', 'Puesto no disponible')
   }
 
+  function seleccionarPuesto(puesto: string | null) {
+    setPuestoSeleccionado(puesto)
+    if (puesto) setPermisoSeleccionado(null)
+  }
+
+  function seleccionarPermiso(permiso: string | null) {
+    setPermisoSeleccionado(permiso)
+    if (permiso) setPuestoSeleccionado(null)
+  }
+
+  function bloquearSiSinSaldoCelda(
+    agenteId: string,
+    dia: number,
+    fecha: string,
+    turnoActual: Turno,
+    permiso: string,
+  ) {
+    const agente = agentesPorId.get(agenteId)
+    if (!agente) return true
+    const mensaje = mensajeSiNoPuedeAsignarCelda({
+      agente,
+      permisos: tiposPermiso,
+      anio,
+      mes,
+      nDias,
+      dia,
+      fecha,
+      turnoActual,
+      permiso,
+      cuadrante,
+      asignaciones: asignacionesDiarias,
+      resumenAnio: resumenesAnio[agenteId] ?? resumenPermisosVacio(),
+      mesCargado: resumenesMesCargado[agenteId] ?? resumenPermisosVacio(),
+    })
+    if (!mensaje) return false
+    void alert(mensaje, 'Sin saldo de permiso')
+    return true
+  }
+
+  function aplicarPermisoEnCelda(
+    agenteId: string,
+    dia: number,
+    fecha: string,
+    turnoActual: Turno,
+    permiso: string,
+  ) {
+    if (turnoActual === 'V') return
+    if (bloquearSiSinSaldoCelda(agenteId, dia, fecha, turnoActual, permiso)) {
+      return
+    }
+    if (turnoActual !== 'P') {
+      const indice = dia - 1
+      setCuadrante((actual) => {
+        const fila = [
+          ...(actual[agenteId] ??
+            Array.from({ length: nDias }, () => 'D' as Turno)),
+        ]
+        fila[indice] = 'P'
+        return { ...actual, [agenteId]: fila }
+      })
+      setAsignacionesDiarias((actual) => {
+        let siguiente = actual
+        if (esTurnoAsignable(turnoActual)) {
+          siguiente = quitarAsignacionCelda(
+            siguiente,
+            agenteId,
+            fecha,
+            turnoActual,
+          )
+        }
+        return {
+          ...siguiente,
+          [fecha]: {
+            ...(siguiente[fecha] ?? {}),
+            P: {
+              ...(siguiente[fecha]?.P ?? {}),
+              [agenteId]: permiso,
+            },
+          },
+        }
+      })
+      marcarEditado()
+      return
+    }
+    aplicarAsignacionCelda(agenteId, fecha, 'P', permiso)
+  }
+
   function aplicarAsignacionCelda(
     agenteId: string,
     fecha: string,
-    turno: TurnoOperativo,
+    turno: TurnoAsignable,
     puesto: PuestoBase,
   ) {
     const agente = agentesPorId.get(agenteId)
     if (!agente) return
+    if (esTurnoPermiso(turno)) {
+      if (bloquearSiSinSaldoCelda(agenteId, Number(fecha.slice(-2)), fecha, turno, puesto)) {
+        return
+      }
+      setAsignacionesDiarias((actual) => ({
+        ...actual,
+        [fecha]: {
+          ...(actual[fecha] ?? {}),
+          P: {
+            ...(actual[fecha]?.P ?? {}),
+            [agenteId]: puesto,
+          },
+        },
+      }))
+      marcarEditado()
+      return
+    }
     const resultado = asignarPuestoEnCelda(
       asignacionesDiarias,
       agente,
       fecha,
       turno,
       puesto,
+      puestosOperativos,
     )
     if (!resultado.ok) {
       avisarExclusion()
       return
     }
     setAsignacionesDiarias(resultado.asignaciones)
+    marcarEditado()
   }
 
   function aplicarAsignacionMesAgente(agenteId: string, puesto: PuestoBase) {
@@ -667,7 +880,9 @@ export function CuadranteMensualPage() {
       isoFecha,
     )
       .filter(
-        ({ turno }) => filtroTurno === 'TODOS' || turno === filtroTurno,
+        ({ turno }) =>
+          !esTurnoPermiso(turno) &&
+          (filtroTurno === 'TODOS' || turno === filtroTurno),
       )
       .map(({ fecha, turno }) => ({ fecha, turno }))
     if (fechasTurno.length === 0) {
@@ -692,6 +907,57 @@ export function CuadranteMensualPage() {
       return
     }
     setAsignacionesDiarias(resultado.asignaciones)
+    marcarEditado()
+  }
+
+  function aplicarPermisoMesAgente(agenteId: string, permiso: string) {
+    const fechasPermiso = fechasOperativasAgenteMes(
+      cuadrante,
+      agenteId,
+      anio,
+      mes,
+      nDias,
+      isoFecha,
+    ).filter(({ turno }) => esTurnoPermiso(turno))
+    if (fechasPermiso.length === 0) {
+      void alert(
+        'Este agente no tiene días de permiso (P) este mes.',
+        'Sin días de permiso',
+      )
+      return
+    }
+    const agente = agentesPorId.get(agenteId)
+    if (agente) {
+      const mensaje = mensajeSiNoPuedeAsignarMes({
+        agente,
+        permisos: tiposPermiso,
+        anio,
+        mes,
+        permiso,
+        cuadrante,
+        asignaciones: asignacionesDiarias,
+        resumenAnio: resumenesAnio[agenteId] ?? resumenPermisosVacio(),
+        mesCargado: resumenesMesCargado[agenteId] ?? resumenPermisosVacio(),
+      })
+      if (mensaje) {
+        void alert(mensaje, 'Sin saldo de permiso')
+        return
+      }
+    }
+    setAsignacionesDiarias((actual) => {
+      const copia: AsignacionesDiarias = { ...actual }
+      for (const { fecha, turno } of fechasPermiso) {
+        copia[fecha] = {
+          ...(copia[fecha] ?? {}),
+          [turno]: {
+            ...(copia[fecha]?.[turno] ?? {}),
+            [agenteId]: permiso,
+          },
+        }
+      }
+      return copia
+    })
+    marcarEditado()
   }
 
   function soltarEnCabeceraAgente(
@@ -699,6 +965,11 @@ export function CuadranteMensualPage() {
     agenteId: string,
   ) {
     event.preventDefault()
+    const permiso = leerPermisoArrastrado(event.dataTransfer, nombresPermiso)
+    if (permiso) {
+      aplicarPermisoMesAgente(agenteId, permiso)
+      return
+    }
     const puesto = leerPuestoArrastrado(event.dataTransfer)
     if (!puesto) return
     aplicarAsignacionMesAgente(agenteId, puesto)
@@ -707,22 +978,65 @@ export function CuadranteMensualPage() {
   function soltarEnCelda(
     event: React.DragEvent,
     agenteId: string,
+    dia: number,
     fecha: string,
-    turno: TurnoOperativo,
+    turno: Turno,
   ) {
     event.preventDefault()
     event.stopPropagation()
+    const permiso = leerPermisoArrastrado(event.dataTransfer, nombresPermiso)
+    if (permiso) {
+      aplicarPermisoEnCelda(agenteId, dia, fecha, turno, permiso)
+      return
+    }
+    if (!esTurnoAsignable(turno) || esTurnoPermiso(turno)) return
     const puesto = leerPuestoArrastrado(event.dataTransfer)
     if (!puesto) return
     if (filtroTurno !== 'TODOS' && turno !== filtroTurno) return
     aplicarAsignacionCelda(agenteId, fecha, turno, puesto)
   }
 
+  function clicCelda(
+    event: React.MouseEvent<HTMLTableCellElement>,
+    agenteId: string,
+    dia: number,
+    turno: Turno,
+    fecha: string,
+  ) {
+    event.stopPropagation()
+    if (permisoSeleccionado && turno !== 'V') {
+      aplicarPermisoEnCelda(
+        agenteId,
+        dia,
+        fecha,
+        turno,
+        permisoSeleccionado,
+      )
+      return
+    }
+    if (
+      puestoSeleccionado &&
+      esTurnoAsignable(turno) &&
+      !esTurnoPermiso(turno)
+    ) {
+      aplicarAsignacionCelda(agenteId, fecha, turno, puestoSeleccionado)
+      return
+    }
+    if (esTurnoPermiso(turno) || esTurnoOperativo(turno)) {
+      setPopoverCelda({
+        agenteId,
+        fecha,
+        turno,
+        rect: event.currentTarget.getBoundingClientRect(),
+      })
+    }
+  }
+
   return (
     <section className={PAGE_SECTION}>
       <PageHeader
         title="Cuadrante mensual"
-        subtitle={`Convenio: ${objetivo} días · fatiga ≤ 5 · cobertura vs mínimos${loadingCuadrante ? ' · Cargando…' : ''}${generandoCuadrante ? ' · Generando…' : ''}`}
+        subtitle={`Convenio: ${objetivo} días · fatiga ≤ 5 · cobertura vs mínimos · permisos y JD${loadingCuadrante ? ' · Cargando…' : ''}${generandoCuadrante ? ' · Generando…' : ''}`}
         status={
           <SaveStatus
             guardando={guardandoCuadrante}
@@ -907,6 +1221,19 @@ export function CuadranteMensualPage() {
         </p>
       ) : null}
       {errorCuadrante ? <p className={ALERT_ERROR}>{errorCuadrante}</p> : null}
+
+      {permisoSeleccionado ? (
+        <p className={ALERT_INFO}>
+          Permiso seleccionado: <strong>{permisoSeleccionado}</strong>. Pulsa
+          una celda (excepto V) para marcarla como P.
+        </p>
+      ) : null}
+      {puestoSeleccionado === NOMBRE_JORNADA_DISPONIBLE ? (
+        <p className={ALERT_INFO}>
+          Jornada Disponible seleccionada. Pulsa una celda M/T/N para marcarla
+          como JD (se cobra y genera un LPD).
+        </p>
+      ) : null}
       {agentesVisibles.length === 0 && !loadingCuadrante ? (
         <p className={ALERT_INFO}>Ningún agente con ese rol o turno este mes.</p>
       ) : null}
@@ -1017,16 +1344,31 @@ export function CuadranteMensualPage() {
                     const fila = cuadrante[agente.id] ?? []
                     const turno = fila[dia - 1] ?? 'D'
                     const fecha = isoFecha(anio, mes, dia)
-                    const abrevPuesto =
-                      turno === 'M' || turno === 'T' || turno === 'N'
-                        ? abreviaturaPuesto(
-                            asignacionesDiarias,
-                            fecha,
-                            agente.id,
-                            turno,
-                          )
-                        : null
+                    const turnoAsignable = esTurnoAsignable(turno)
+                      ? turno
+                      : null
+                    const asignado = turnoAsignable
+                      ? asignacionesDiarias[fecha]?.[turnoAsignable]?.[
+                          agente.id
+                        ]
+                      : undefined
+                    const abrevPuesto = asignado
+                      ? esTurnoPermiso(turno)
+                        ? abreviaturaDesdePermisos(tiposPermiso, asignado)
+                        : esJornadaDisponible(asignado)
+                          ? 'JD'
+                          : abreviaturaPuesto(
+                              asignacionesDiarias,
+                              fecha,
+                              agente.id,
+                              turnoAsignable!,
+                            )
+                      : null
                     const operativo = esTurnoOperativo(turno)
+                    const esP = esTurnoPermiso(turno)
+                    const esJd = Boolean(
+                      asignado && esJornadaDisponible(asignado),
+                    )
                     const avisos = mensajesInfraccion(fila, dia - 1, {
                       anio,
                       mes,
@@ -1036,54 +1378,64 @@ export function CuadranteMensualPage() {
                     const atenuada =
                       filtroVistaTurno !== 'TODOS'
                         ? turno !== filtroVistaTurno
-                        : filtroTurno !== 'TODOS' && turno !== filtroTurno
+                        : filtroTurno !== 'TODOS' &&
+                          turno !== filtroTurno &&
+                          !esP
                     const fondoSuave =
                       especial && (turno === 'D' || turno === 'V')
                         ? '!bg-amber-50'
-                        : ''
+                        : esJd
+                          ? '!bg-violet-50'
+                          : ''
+                    const interactiva =
+                      !atenuada &&
+                      (operativo ||
+                        esP ||
+                        (turno !== 'V' && Boolean(permisoSeleccionado)))
                     return (
                       <td
                         key={agente.id}
                         className={`${CELDA} text-center font-bold ${CLASE_TURNO[turno]} ${fondoSuave} ${
                           rota ? 'border-red-600 !text-red-800' : ''
                         } ${atenuada ? 'opacity-30' : ''} ${
-                          operativo && !atenuada
+                          interactiva
                             ? 'cursor-pointer hover:z-10 hover:ring-2 hover:ring-blue-500 data-[over=true]:ring-2 data-[over=true]:ring-emerald-600'
                             : ''
                         }`}
                         title={
                           avisos.length > 0
                             ? avisos.join(' · ')
-                            : operativo
-                              ? `${agente.numeroPlaca} · día ${dia} · ${turno}${abrevPuesto ? ` · ${abrevPuesto}` : ''} · clic o soltar puesto`
+                            : interactiva
+                              ? `${agente.numeroPlaca} · día ${dia} · ${turno}${abrevPuesto ? ` · ${abrevPuesto}` : ''} · clic o arrastrar puesto/permiso/JD`
                               : `${agente.numeroPlaca} · día ${dia} · ${turno}`
                         }
                         onDragOver={
-                          operativo && !atenuada
+                          turno !== 'V' && !atenuada
                             ? permitirSoltarPuesto
                             : undefined
                         }
                         onDragEnter={
-                          operativo && !atenuada
+                          turno !== 'V' && !atenuada
                             ? (event) => {
                                 event.currentTarget.dataset.over = 'true'
                               }
                             : undefined
                         }
                         onDragLeave={
-                          operativo && !atenuada
+                          turno !== 'V' && !atenuada
                             ? (event) => {
                                 event.currentTarget.dataset.over = 'false'
                               }
                             : undefined
                         }
                         onDrop={
-                          operativo && !atenuada
+                          turno !== 'V' && !atenuada
                             ? (event) => {
                                 event.currentTarget.dataset.over = 'false'
                                 soltarEnCelda(
                                   event,
                                   agente.id,
+                                  dia,
                                   fecha,
                                   turno,
                                 )
@@ -1091,16 +1443,15 @@ export function CuadranteMensualPage() {
                             : undefined
                         }
                         onClick={
-                          operativo && !atenuada
-                            ? (event) => {
-                                event.stopPropagation()
-                                setPopoverCelda({
-                                  agenteId: agente.id,
-                                  fecha,
+                          interactiva
+                            ? (event) =>
+                                clicCelda(
+                                  event,
+                                  agente.id,
+                                  dia,
                                   turno,
-                                  rect: event.currentTarget.getBoundingClientRect(),
-                                })
-                              }
+                                  fecha,
+                                )
                             : undefined
                         }
                       >
@@ -1210,6 +1561,20 @@ export function CuadranteMensualPage() {
             filtroTurno={filtroTurno}
             onFiltroTurno={setFiltroTurno}
             ambito="OPERATIVO"
+            puestoSeleccionado={
+              puestoSeleccionado === NOMBRE_JORNADA_DISPONIBLE
+                ? null
+                : puestoSeleccionado
+            }
+            onSeleccionarPuesto={seleccionarPuesto}
+          />
+          <JornadaDisponibleChip
+            seleccionado={puestoSeleccionado === NOMBRE_JORNADA_DISPONIBLE}
+            onSeleccionar={seleccionarPuesto}
+          />
+          <BolsaPermisosPanel
+            permisoSeleccionado={permisoSeleccionado}
+            onSeleccionarPermiso={seleccionarPermiso}
           />
         </DashboardSidebar>
       </DashboardBody>
@@ -1217,14 +1582,36 @@ export function CuadranteMensualPage() {
       {popoverCelda ? (
         <PopoverPuestosCelda
           rect={popoverCelda.rect}
+          titulo={
+            esTurnoPermiso(popoverCelda.turno)
+              ? 'Asignar permiso'
+              : 'Asignar puesto'
+          }
+          vacio={
+            esTurnoPermiso(popoverCelda.turno)
+              ? 'Sin tipos de permiso'
+              : 'Sin puestos permitidos'
+          }
+          abreviaturaDe={
+            esTurnoPermiso(popoverCelda.turno)
+              ? (nombre) => abreviaturaDesdePermisos(tiposPermiso, nombre)
+              : (nombre) =>
+                  abreviaturaJornadaOPuesto(nombre, (puesto) =>
+                    abreviaturaDesdePuestos(puestosOperativos, puesto),
+                  )
+          }
           puestos={
-            agentesPorId.get(popoverCelda.agenteId)
-              ? puestosPermitidosParaAgente(
-                  agentesPorId.get(popoverCelda.agenteId)!,
-                  puestosOperativos,
-                  'OPERATIVO',
-                )
-              : []
+            esTurnoPermiso(popoverCelda.turno)
+              ? nombresPermiso
+              : agentesPorId.get(popoverCelda.agenteId)
+                ? conJornadaDisponible(
+                    puestosPermitidosParaAgente(
+                      agentesPorId.get(popoverCelda.agenteId)!,
+                      puestosOperativos,
+                      'OPERATIVO',
+                    ),
+                  )
+                : [NOMBRE_JORNADA_DISPONIBLE]
           }
           onElegir={(puesto) =>
             aplicarAsignacionCelda(

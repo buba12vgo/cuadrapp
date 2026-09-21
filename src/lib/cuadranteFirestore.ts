@@ -7,6 +7,12 @@ import {
 } from '@/lib/calendarioPuestos'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
 import {
+  ABREV_JORNADA_DISPONIBLE,
+  esAbrevJornadaDisponible,
+  esJornadaDisponible,
+  NOMBRE_JORNADA_DISPONIBLE,
+} from '@/lib/jornadaDisponible'
+import {
   abreviaturaDesdePermisos,
   permisoDesdeAbrev,
   type PermisoConfig,
@@ -123,10 +129,14 @@ export function cuadranteParaFirestore(
         const fecha = isoFecha(anio, mes, dia)
         const asignado = asignaciones[fecha]?.[turno]?.[agente.id]
         if (asignado) {
-          celda.p =
-            turno === 'P'
-              ? abreviaturaDesdePermisos(permisos, asignado)
-              : abreviaturaDesdePuestos(puestos, asignado)
+          if (esJornadaDisponible(asignado)) {
+            celda.p = ABREV_JORNADA_DISPONIBLE
+          } else {
+            celda.p =
+              turno === 'P'
+                ? abreviaturaDesdePermisos(permisos, asignado)
+                : abreviaturaDesdePuestos(puestos, asignado)
+          }
         }
       }
       dias.push(celda)
@@ -177,8 +187,9 @@ export function cuadranteDesdeFirestore(
 
       const dia = indice + 1
       const abrev = typeof raw.p === 'string' ? raw.p : undefined
-      const asignado =
-        turno === 'P'
+      const asignado = esAbrevJornadaDisponible(abrev)
+        ? NOMBRE_JORNADA_DISPONIBLE
+        : turno === 'P'
           ? permisoDesdeAbrev(permisos, abrev)
           : puestoDesdeAbrev(abrev, puestos)
       if (asignado && esTurnoAsignable(turno)) {

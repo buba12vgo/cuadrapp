@@ -14,6 +14,11 @@ import {
 } from '@/lib/calendarioPuestos'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
 import { getPuestos } from '@/lib/puestosStore'
+import {
+  ABREV_JORNADA_DISPONIBLE,
+  esJornadaDisponible,
+  NOMBRE_JORNADA_DISPONIBLE,
+} from '@/lib/jornadaDisponible'
 import type { EventoOperativo, FichaPolicia } from '@/types'
 
 export const MIME_PUESTO = 'application/x-cuadrapp-puesto'
@@ -59,6 +64,7 @@ export function abreviaturaPuesto(
 ) {
   const puesto = asignaciones[fecha]?.[turno]?.[agenteId]
   if (!puesto) return null
+  if (esJornadaDisponible(puesto)) return ABREV_JORNADA_DISPONIBLE
   return abreviaturaDesdePuestos(puestos, puesto)
 }
 
@@ -85,6 +91,7 @@ export function leerPuestoArrastrado(
   puestos: PuestoConfig[] = getPuestos(),
 ): PuestoBase | null {
   const raw = dataTransfer.getData(MIME_PUESTO)
+  if (esJornadaDisponible(raw)) return NOMBRE_JORNADA_DISPONIBLE
   if (puestos.some((puesto) => puesto.nombre === raw)) return raw
   return null
 }
@@ -118,6 +125,32 @@ function clonarAsignaciones(actual: AsignacionesDiarias): AsignacionesDiarias {
     for (const [turno, porAgente] of Object.entries(porTurno)) {
       copia[fecha][turno as TurnoAsignable] = { ...porAgente }
     }
+  }
+  return copia
+}
+
+export function quitarAsignacionCelda(
+  asignaciones: AsignacionesDiarias,
+  agenteId: string,
+  fecha: string,
+  turno: TurnoAsignable,
+): AsignacionesDiarias {
+  const porTurno = asignaciones[fecha]
+  if (!porTurno?.[turno]?.[agenteId]) return asignaciones
+  const copia: AsignacionesDiarias = { ...asignaciones, [fecha]: { ...porTurno } }
+  const agentesTurno = { ...porTurno[turno] }
+  delete agentesTurno[agenteId]
+  if (Object.keys(agentesTurno).length === 0) {
+    const rest = { ...copia[fecha] }
+    delete rest[turno]
+    if (Object.keys(rest).length === 0) {
+      const sinFecha = { ...asignaciones }
+      delete sinFecha[fecha]
+      return sinFecha
+    }
+    copia[fecha] = rest
+  } else {
+    copia[fecha] = { ...copia[fecha], [turno]: agentesTurno }
   }
   return copia
 }
@@ -228,7 +261,11 @@ export function asignarPuestoEnCelda(
   puesto: PuestoBase,
   puestos: PuestoConfig[] = getPuestos(),
 ): { ok: true; asignaciones: AsignacionesDiarias } | { ok: false; error: string } {
-  if (puestoExcluidoParaAgente(agente.puestosExcluidos, puesto, puestos)) {
+  const jornadaDisponible = esJornadaDisponible(puesto)
+  if (
+    !jornadaDisponible &&
+    puestoExcluidoParaAgente(agente.puestosExcluidos, puesto, puestos)
+  ) {
     return { ok: false, error: 'Puesto excluido para este agente' }
   }
 
@@ -238,7 +275,7 @@ export function asignarPuestoEnCelda(
   // Soltar en celda: siempre el puesto pedido; nunca se deja vacío por el mínimo.
   copia[fecha][turno] = {
     ...copia[fecha][turno],
-    [agente.id]: puesto,
+    [agente.id]: jornadaDisponible ? NOMBRE_JORNADA_DISPONIBLE : puesto,
   }
   return { ok: true, asignaciones: copia }
 }
@@ -251,13 +288,26 @@ export function asignarPuestoMesAgente(
   puestos: PuestoConfig[] = getPuestos(),
   minimosDeFecha?: (fecha: string) => MinimosDia,
 ): { ok: true; asignaciones: AsignacionesDiarias } | { ok: false; error: string } {
-  if (puestoExcluidoParaAgente(agente.puestosExcluidos, puesto, puestos)) {
+  const jornadaDisponible = esJornadaDisponible(puesto)
+  if (
+    !jornadaDisponible &&
+    puestoExcluidoParaAgente(agente.puestosExcluidos, puesto, puestos)
+  ) {
     return { ok: false, error: 'Puesto excluido para este agente' }
   }
 
   const copia = clonarAsignaciones(asignaciones)
   for (const { fecha, turno } of fechasTurno) {
     const actual = copia[fecha]?.[turno]?.[agente.id]
+    if (jornadaDisponible) {
+      if (!copia[fecha]) copia[fecha] = {}
+      if (!copia[fecha][turno]) copia[fecha][turno] = {}
+      copia[fecha][turno] = {
+        ...copia[fecha][turno],
+        [agente.id]: NOMBRE_JORNADA_DISPONIBLE,
+      }
+      continue
+    }
     // Si ya tiene puesto, no lo quitamos.
     if (actual) continue
 

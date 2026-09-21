@@ -24,6 +24,11 @@ import {
 import { normalizarCodigo, sugerirAbreviatura } from '@/lib/calendarioPuestos'
 import { deleteTipoPermiso, saveTipoPermiso } from '@/lib/db'
 import { isFirebaseReady } from '@/lib/firebase'
+import {
+  diasAnualesCatalogo,
+  esDiasAnoAnterior,
+  normalizarDiasAnuales,
+} from '@/lib/cuposPermiso'
 import type { PermisoConfig } from '@/lib/permisos'
 import { useTiposPermiso } from '@/lib/permisosStore'
 import { FileText, Hash } from 'lucide-react'
@@ -34,10 +39,11 @@ type Formulario = {
   codigo: string
   nombre: string
   abreviatura: string
+  diasAnuales: string
 }
 
 function formularioVacio(): Formulario {
-  return { codigo: '', nombre: '', abreviatura: '' }
+  return { codigo: '', nombre: '', abreviatura: '', diasAnuales: '0' }
 }
 
 function formularioDesde(permiso: PermisoConfig): Formulario {
@@ -45,6 +51,7 @@ function formularioDesde(permiso: PermisoConfig): Formulario {
     codigo: permiso.codigo,
     nombre: permiso.nombre,
     abreviatura: permiso.abreviatura,
+    diasAnuales: String(diasAnualesCatalogo(permiso)),
   }
 }
 
@@ -157,6 +164,9 @@ function EditorModal({
             codigo: normalizarCodigo(form.codigo || form.nombre),
             nombre: form.nombre.trim(),
             abreviatura: form.abreviatura.trim().toUpperCase(),
+            diasAnuales: esDiasAnoAnterior(form.codigo || form.nombre)
+              ? 0
+              : normalizarDiasAnuales(Number(form.diasAnuales)),
           })
         }}
       >
@@ -220,6 +230,30 @@ function EditorModal({
                 }}
               />
             </label>
+            <label className="flex flex-col gap-0.5">
+              <span className="text-sm font-semibold text-slate-600">
+                Días al año (por agente)
+              </span>
+              <input
+                className={CAMPO_FULL}
+                type="number"
+                min={0}
+                max={366}
+                disabled={esDiasAnoAnterior(editandoCodigo ?? form.codigo)}
+                value={form.diasAnuales}
+                onChange={(event) =>
+                  setForm((actual) => ({
+                    ...actual,
+                    diasAnuales: event.target.value,
+                  }))
+                }
+              />
+              <span className="text-sm text-slate-500">
+                {esDiasAnoAnterior(editandoCodigo ?? form.codigo)
+                  ? 'Este cupo se llena el 31 de diciembre a las 23:59 con los días no gastados.'
+                  : 'Ej. 6 en Asuntos propios. 0 = sin tope anual (no pasa a Días del Año Anterior).'}
+              </span>
+            </label>
           </div>
         </section>
         {error ? (
@@ -274,6 +308,13 @@ export function PermisosPage() {
   }
 
   async function borrar(permiso: PermisoConfig) {
+    if (esDiasAnoAnterior(permiso.codigo)) {
+      await showAlert(
+        '«Días del Año Anterior» es un tipo de sistema: el 31 de diciembre a las 23:59 recibe el saldo no gastado.',
+        'No se puede eliminar',
+      )
+      return
+    }
     const ok = await askConfirm(
       `¿Eliminar el permiso «${permiso.nombre}»?`,
       'Eliminar permiso',
@@ -307,7 +348,7 @@ export function PermisosPage() {
     <section className={PAGE_SECTION}>
       <PageHeader
         title="Permisos"
-        subtitle={`${permisos.length} tipos · celda P en cuadrantes · Firestore`}
+        subtitle={`${permisos.length} tipos · tope anual por agente · cierre 31 dic 23:59 → DAA`}
         actions={
           <button
             type="button"
@@ -334,6 +375,7 @@ export function PermisosPage() {
                   <th className={TH}>Nombre</th>
                   <th className={TH}>Código</th>
                   <th className={TH}>Abrev.</th>
+                  <th className={`${TH} text-right`}>Días/año</th>
                   <th className={`${TH} text-right`}>Acciones</th>
                 </tr>
               </thead>
@@ -346,6 +388,13 @@ export function PermisosPage() {
                     </td>
                     <td className={`${TD} font-mono text-slate-600`}>
                       {permiso.abreviatura}
+                    </td>
+                    <td className={`${TD} text-right tabular-nums text-slate-600`}>
+                      {esDiasAnoAnterior(permiso.codigo)
+                        ? 'Cierre'
+                        : diasAnualesCatalogo(permiso) === 0
+                          ? 'Sin tope'
+                          : diasAnualesCatalogo(permiso)}
                     </td>
                     <td className={`${TD} text-right`}>
                       <button
@@ -362,7 +411,7 @@ export function PermisosPage() {
                       <button
                         type="button"
                         className="text-sm font-semibold text-red-700 hover:underline disabled:opacity-40"
-                        disabled={guardando}
+                        disabled={guardando || esDiasAnoAnterior(permiso.codigo)}
                         onClick={() => void borrar(permiso)}
                       >
                         Eliminar
@@ -373,7 +422,7 @@ export function PermisosPage() {
                 {permisos.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={4}
+                      colSpan={5}
                       className={`${TD} py-6 text-center text-slate-500`}
                     >
                       No hay tipos de permiso. Crea Asuntos propios, IT, etc.

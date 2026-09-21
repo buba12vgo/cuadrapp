@@ -49,6 +49,13 @@ export interface FichaPolicia {
    * los demás años rotan Jun → Jul → Sep → Ago.
    */
   anioReferenciaVacaciones?: number
+  /**
+   * Tope anual por código de permiso (anula el del catálogo).
+   * DAA no se guarda aquí: sale del cierre del 31 de diciembre.
+   */
+  cuposPermiso?: Record<string, number>
+  /** Snapshot por año, sobre todo el cupo de Días del Año Anterior. */
+  cuposPermisoAnio?: Record<string, Record<string, number>>
 }
 
 export interface EventoOperativo {

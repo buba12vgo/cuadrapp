@@ -46,11 +46,18 @@ import { useTiposPermiso } from '@/lib/permisosStore'
 import {
   cargarResumenPermisosAgente,
   diasLibreDisponibilidad,
-  diasTipoPermiso,
   resumenPermisosVacio,
   saldoLibreDisponibilidad,
+  asegurarRolloverDaa,
   type ResumenPermisosAgente,
 } from '@/lib/conteoPermisos'
+import {
+  diasAnualesCatalogo,
+  esDiasAnoAnterior,
+  leerCuposPermisoAgente,
+  normalizarDiasAnuales,
+  saldosPermisoAgente,
+} from '@/lib/cuposPermiso'
 import { NOMBRE_JORNADA_DISPONIBLE } from '@/lib/jornadaDisponible'
 import {
   ETIQUETA_PREFERENCIA,
@@ -125,16 +132,32 @@ const CAMPO_FULL = `${CAMPO} w-full`
 function FichaPermisosBloque({
   agente,
   esNuevo,
+  cuposPermiso,
+  onCuposPermiso,
+  onAgenteActualizado,
 }: {
   agente: FichaPolicia
   esNuevo?: boolean
+  cuposPermiso: Record<string, number>
+  onCuposPermiso: (codigo: string, dias: number) => void
+  onAgenteActualizado?: (ficha: FichaPolicia) => void
 }) {
   const [permisos] = useTiposPermiso()
   const [anio, setAnio] = useState(2026)
   const [resumen, setResumen] = useState<ResumenPermisosAgente>(() =>
     resumenPermisosVacio(),
   )
+  const [agenteAnio, setAgenteAnio] = useState(agente)
   const [loading, setLoading] = useState(!esNuevo)
+  const onAgenteActualizadoRef = useRef(onAgenteActualizado)
+
+  useEffect(() => {
+    onAgenteActualizadoRef.current = onAgenteActualizado
+  })
+
+  useEffect(() => {
+    setAgenteAnio(agente)
+  }, [agente])
 
   useEffect(() => {
     if (esNuevo) return
@@ -157,8 +180,17 @@ function FichaPermisosBloque({
         return
       }
       try {
-        const datos = await cargarResumenPermisosAgente(agente, anio, permisos)
-        if (!cancelado) setResumen(datos)
+        const actualizado = await asegurarRolloverDaa(agente, anio, permisos)
+        if (cancelado) return
+        if (actualizado !== agente) onAgenteActualizadoRef.current?.(actualizado)
+        const datos = await cargarResumenPermisosAgente(
+          actualizado,
+          anio,
+          permisos,
+        )
+        if (cancelado) return
+        setAgenteAnio(actualizado)
+        setResumen(datos)
       } catch {
         if (!cancelado) setResumen(resumenPermisosVacio())
       } finally {
@@ -171,11 +203,13 @@ function FichaPermisosBloque({
     }
   }, [agente, anio, esNuevo, permisos])
 
+  const agenteVista: FichaPolicia = {
+    ...agenteAnio,
+    cuposPermiso,
+  }
+  const saldos = saldosPermisoAgente(agenteVista, permisos, anio, resumen)
   const usadosLpd = diasLibreDisponibilidad(resumen)
-  const saldo = saldoLibreDisponibilidad(resumen)
-  const extraTipos = Object.keys(resumen.porTipo).filter(
-    (nombre) => !permisos.some((permiso) => permiso.nombre === nombre),
-  )
+  const saldoLpd = saldoLibreDisponibilidad(resumen)
 
   return (
     <section className={BLOQUE}>
@@ -198,48 +232,80 @@ function FichaPermisosBloque({
           </select>
         </label>
       </div>
-      {esNuevo ? (
-        <p className="text-sm text-slate-500">
-          Guarda el agente para ver los permisos del cuadrante.
-        </p>
-      ) : loading ? (
+      {loading ? (
         <p className="text-sm text-slate-500">Sumando permisos de {anio}…</p>
       ) : (
         <>
-          <ul className="flex flex-col gap-1">
-            {permisos.map((permiso) => (
-              <li
-                key={permiso.codigo}
-                className="flex items-center justify-between gap-2 text-sm text-slate-800"
-              >
-                <span>
-                  <span className="font-medium">{permiso.nombre}</span>
-                  <span className="ml-1.5 font-mono text-sm text-slate-500">
-                    {permiso.abreviatura}
-                  </span>
-                </span>
-                <span className="font-semibold tabular-nums">
-                  {diasTipoPermiso(resumen, permiso.nombre)}
-                </span>
-              </li>
-            ))}
-            {extraTipos.map((nombre) => (
-              <li
-                key={nombre}
-                className="flex items-center justify-between gap-2 text-sm text-slate-800"
-              >
-                <span className="font-medium">{nombre}</span>
-                <span className="font-semibold tabular-nums">
-                  {diasTipoPermiso(resumen, nombre)}
-                </span>
-              </li>
-            ))}
-            {permisos.length === 0 && extraTipos.length === 0 ? (
-              <li className="text-sm text-slate-500">
-                No hay tipos de permiso. Créalos en Administración → Permisos.
-              </li>
-            ) : null}
-          </ul>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-slate-500">
+                  <th className="pb-1 font-semibold">Tipo</th>
+                  <th className="pb-1 text-right font-semibold">Cupo</th>
+                  <th className="pb-1 text-right font-semibold">Usados</th>
+                  <th className="pb-1 text-right font-semibold">Restan</th>
+                </tr>
+              </thead>
+              <tbody>
+                {saldos.map((saldo) => {
+                  const esDaa = esDiasAnoAnterior(saldo.codigo)
+                  const catalogo = permisos.find((p) => p.codigo === saldo.codigo)
+                  const valorCupo =
+                    cuposPermiso[saldo.codigo] ??
+                    (catalogo ? diasAnualesCatalogo(catalogo) : 0)
+                  return (
+                    <tr key={saldo.codigo} className="border-t border-slate-100">
+                        <td className="py-1 pr-2">
+                          <span className="font-medium">{saldo.nombre}</span>
+                          <span className="ml-1.5 font-mono text-slate-500">
+                            {saldo.abreviatura}
+                          </span>
+                        </td>
+                        <td className="py-1 text-right">
+                          {esDaa ? (
+                            <span className="tabular-nums">
+                              {saldo.cupo ?? 0}
+                            </span>
+                          ) : (
+                            <input
+                              type="number"
+                              min={0}
+                              max={366}
+                              className={`${CAMPO_NUM} w-14`}
+                              value={valorCupo}
+                              title="Tope anual de este agente. Vacío del catálogo: 0 = sin tope."
+                              onChange={(event) =>
+                                onCuposPermiso(
+                                  saldo.codigo,
+                                  normalizarDiasAnuales(Number(event.target.value)),
+                                )
+                              }
+                            />
+                          )}
+                        </td>
+                        <td className="py-1 text-right tabular-nums">
+                          {saldo.usados}
+                        </td>
+                        <td
+                          className={`py-1 text-right font-semibold tabular-nums ${
+                            saldo.restan != null && saldo.restan < 0
+                              ? 'text-red-700'
+                              : 'text-emerald-800'
+                          }`}
+                        >
+                          {saldo.restan == null ? '∞' : saldo.restan}
+                        </td>
+                      </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          {saldos.length === 0 ? (
+            <p className="text-sm text-slate-500">
+              No hay tipos de permiso. Créalos en Administración → Permisos.
+            </p>
+          ) : null}
           <div className="mt-3 flex flex-col gap-1 border-t border-slate-200 pt-2 text-sm">
             <div className="flex items-center justify-between gap-2 text-violet-900">
               <span>
@@ -253,17 +319,24 @@ function FichaPermisosBloque({
               </span>
             </div>
             <p className="text-sm text-slate-500">
-              {resumen.jornadaDisponible} JD generan {resumen.jornadaDisponible}{' '}
-              días de libre por disponibilidad. Usados {usadosLpd}. Saldo{' '}
+              {resumen.jornadaDisponible} JD generan LPD. Usados {usadosLpd}.
+              Saldo LPD{' '}
               <span
                 className={`font-semibold tabular-nums ${
-                  saldo < 0 ? 'text-red-700' : 'text-emerald-800'
+                  saldoLpd < 0 ? 'text-red-700' : 'text-emerald-800'
                 }`}
               >
-                {saldo}
+                {saldoLpd}
               </span>
-              .
+              . El 31 de diciembre a las 23:59 los días que resten (AP, LPD,
+              DAA…) pasan a Días del Año Anterior.
             </p>
+            {esNuevo ? (
+              <p className="text-sm text-slate-500">
+                Los usados se contabilizan al guardar el agente y asignar
+                permisos en el cuadrante.
+              </p>
+            ) : null}
           </div>
         </>
       )}
@@ -286,6 +359,7 @@ type FormularioFicha = {
   limitaciones: Limitaciones
   preferenciaAnual: PreferenciaAnual
   puestosExcluidos: string[]
+  cuposPermiso: Record<string, number>
 }
 
 function normalizarExclusiones(
@@ -326,6 +400,7 @@ function formularioDesde(agente: FichaPolicia): FormularioFicha {
     limitaciones: { ...agente.limitaciones },
     preferenciaAnual: { ...agente.preferenciaAnual },
     puestosExcluidos: [...agente.puestosExcluidos],
+    cuposPermiso: leerCuposPermisoAgente(agente),
   }
 }
 
@@ -346,6 +421,7 @@ function FichaAgenteModal({
 }) {
   const [puestosTodos] = usePuestosData()
   const [form, setForm] = useState(() => formularioDesde(agente))
+  const cuposAnioRef = useRef(agente.cuposPermisoAnio)
   const puestos = useMemo(() => {
     const ambito =
       form.rolBase === 'JEFE_SERVICIO' || form.rolBase === 'RESPONSABLE'
@@ -356,7 +432,8 @@ function FichaAgenteModal({
 
   useEffect(() => {
     setForm(formularioDesde(agente))
-  }, [agente])
+    cuposAnioRef.current = agente.cuposPermisoAnio
+  }, [agente.id])
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -456,6 +533,12 @@ function FichaAgenteModal({
               form.puestosExcluidos,
               puestos,
             ),
+            cuposPermiso:
+              Object.keys(form.cuposPermiso).length > 0
+                ? form.cuposPermiso
+                : agente.cuposPermiso,
+            cuposPermisoAnio:
+              cuposAnioRef.current ?? agente.cuposPermisoAnio,
           })
         }}
       >
@@ -637,7 +720,20 @@ function FichaAgenteModal({
             </p>
           </section>
 
-          <FichaPermisosBloque agente={agente} esNuevo={esNuevo} />
+          <FichaPermisosBloque
+            agente={agente}
+            esNuevo={esNuevo}
+            cuposPermiso={form.cuposPermiso}
+            onCuposPermiso={(codigo, dias) =>
+              setForm((actual) => ({
+                ...actual,
+                cuposPermiso: { ...actual.cuposPermiso, [codigo]: dias },
+              }))
+            }
+            onAgenteActualizado={(ficha) => {
+              cuposAnioRef.current = ficha.cuposPermisoAnio
+            }}
+          />
 
           <section className={BLOQUE}>
             <h3 className={TITULO_BLOQUE}>Preferencia anual</h3>

@@ -71,6 +71,17 @@ import { abreviaturaDesdePermisos } from '@/lib/permisos'
 import { useTiposPermiso } from '@/lib/permisosStore'
 import { agentesCuadranteJefes, ROL_LABEL } from '@/lib/rolesCuadrante'
 import {
+  asegurarRolloverDaaPlantilla,
+  cargarResumenesPermisosAnio,
+  resumenPermisosVacio,
+  type ResumenPermisosAgente,
+} from '@/lib/conteoPermisos'
+import {
+  mensajeSiNoPuedeAsignarCelda,
+  mensajeSiNoPuedeAsignarMes,
+  resumenesMesCuadrante,
+} from '@/lib/saldoPermisoCuadrante'
+import {
   abreviaturaJornadaOPuesto,
   conJornadaDisponible,
   esJornadaDisponible,
@@ -228,6 +239,12 @@ export function CuadranteJefesPage() {
   const [permisoSeleccionado, setPermisoSeleccionado] = useState<string | null>(
     null,
   )
+  const [resumenesAnio, setResumenesAnio] = useState<
+    Record<string, ResumenPermisosAgente>
+  >({})
+  const [resumenesMesCargado, setResumenesMesCargado] = useState<
+    Record<string, ResumenPermisosAgente>
+  >({})
   const [popoverCelda, setPopoverCelda] = useState<{
     agenteId: string
     fecha: string
@@ -348,6 +365,7 @@ export function CuadranteJefesPage() {
   useEffect(() => {
     cuadranteEditadoLocalRef.current = false
     setMesGuardadoEnFirestore(false)
+    setResumenesMesCargado({})
   }, [mes, anio])
 
   useEffect(() => {
@@ -370,6 +388,7 @@ export function CuadranteJefesPage() {
         if (jefes.length > 0 && !cuadranteEditadoLocalRef.current) {
           setCuadrante(cuadranteVacio(jefes, nDias))
           setAsignacionesDiarias({})
+          setResumenesMesCargado({})
         }
         if (cargaId === cargaCuadranteRef.current) setLoadingCuadrante(false)
         return
@@ -396,16 +415,21 @@ export function CuadranteJefesPage() {
             )
             setCuadrante(cargado)
             setAsignacionesDiarias(asignaciones)
+            setResumenesMesCargado(
+              resumenesMesCuadrante(jefes, cargado, asignaciones, anio, mes),
+            )
           }
         } else if (jefes.length > 0) {
           setMesGuardadoEnFirestore(false)
           if (!cuadranteEditadoLocalRef.current) {
             setCuadrante(cuadranteVacio(jefes, nDias))
             setAsignacionesDiarias({})
+            setResumenesMesCargado({})
           }
         } else {
           setCuadrante({})
           setAsignacionesDiarias({})
+          setResumenesMesCargado({})
         }
       } catch (err) {
         if (!cancelado && cargaId === cargaCuadranteRef.current) {
@@ -428,6 +452,44 @@ export function CuadranteJefesPage() {
       cancelado = true
     }
   }, [mes, anio, nDias, jefesIdsKey, agentesCargados, jefes, puestos, tiposPermiso])
+
+  useEffect(() => {
+    if (!agentesCargados || jefes.length === 0) return
+    let cancelado = false
+    async function cargarCupos() {
+      const ready = await ensureFirebase()
+      if (!ready || cancelado) {
+        if (!cancelado) setResumenesAnio({})
+        return
+      }
+      try {
+        const cambiados = await asegurarRolloverDaaPlantilla(
+          jefes,
+          anio,
+          tiposPermiso,
+        )
+        if (cancelado) return
+        if (cambiados.length > 0) {
+          const porId = new Map(cambiados.map((agente) => [agente.id, agente]))
+          setAgentesData((lista) =>
+            lista.map((agente) => porId.get(agente.id) ?? agente),
+          )
+        }
+        const resumenes = await cargarResumenesPermisosAnio(
+          jefes,
+          anio,
+          tiposPermiso,
+        )
+        if (!cancelado) setResumenesAnio(resumenes)
+      } catch {
+        if (!cancelado) setResumenesAnio({})
+      }
+    }
+    void cargarCupos()
+    return () => {
+      cancelado = true
+    }
+  }, [anio, jefesIdsKey, agentesCargados, jefes, tiposPermiso, setAgentesData])
 
   function aplicarMes(siguienteAnio: number, siguienteMes: number) {
     const dias = diasDelMes(siguienteAnio, siguienteMes)
@@ -462,6 +524,35 @@ export function CuadranteJefesPage() {
     marcarEditado()
   }
 
+  function bloquearSiSinSaldoCelda(
+    agenteId: string,
+    dia: number,
+    fecha: string,
+    turnoActual: Turno,
+    permiso: string,
+  ) {
+    const agente = agentesPorId.get(agenteId)
+    if (!agente) return true
+    const mensaje = mensajeSiNoPuedeAsignarCelda({
+      agente,
+      permisos: tiposPermiso,
+      anio,
+      mes,
+      nDias,
+      dia,
+      fecha,
+      turnoActual,
+      permiso,
+      cuadrante,
+      asignaciones: asignacionesDiarias,
+      resumenAnio: resumenesAnio[agenteId] ?? resumenPermisosVacio(),
+      mesCargado: resumenesMesCargado[agenteId] ?? resumenPermisosVacio(),
+    })
+    if (!mensaje) return false
+    void alert(mensaje, 'Sin saldo de permiso')
+    return true
+  }
+
   function aplicarPermisoEnCelda(
     agenteId: string,
     dia: number,
@@ -470,6 +561,9 @@ export function CuadranteJefesPage() {
     permiso: string,
   ) {
     if (turnoActual === 'V') return
+    if (bloquearSiSinSaldoCelda(agenteId, dia, fecha, turnoActual, permiso)) {
+      return
+    }
     if (turnoActual !== 'P') {
       const indice = dia - 1
       setCuadrante((actual) => {
@@ -516,6 +610,9 @@ export function CuadranteJefesPage() {
     const agente = agentesPorId.get(agenteId)
     if (!agente) return
     if (esTurnoPermiso(turno)) {
+      if (bloquearSiSinSaldoCelda(agenteId, Number(fecha.slice(-2)), fecha, turno, puesto)) {
+        return
+      }
       const copia: AsignacionesDiarias = {
         ...asignacionesDiarias,
         [fecha]: {
@@ -622,6 +719,24 @@ export function CuadranteJefesPage() {
         'Sin días de permiso',
       )
       return
+    }
+    const agente = agentesPorId.get(agenteId)
+    if (agente) {
+      const mensaje = mensajeSiNoPuedeAsignarMes({
+        agente,
+        permisos: tiposPermiso,
+        anio,
+        mes,
+        permiso,
+        cuadrante,
+        asignaciones: asignacionesDiarias,
+        resumenAnio: resumenesAnio[agenteId] ?? resumenPermisosVacio(),
+        mesCargado: resumenesMesCargado[agenteId] ?? resumenPermisosVacio(),
+      })
+      if (mensaje) {
+        void alert(mensaje, 'Sin saldo de permiso')
+        return
+      }
     }
     setAsignacionesDiarias((actual) => {
       const copia: AsignacionesDiarias = { ...actual }

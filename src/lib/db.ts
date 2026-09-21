@@ -115,6 +115,34 @@ function leerPuestosExcluidos(valor: unknown): string[] {
   return valor.filter((item): item is string => typeof item === 'string')
 }
 
+function leerCuposPermiso(valor: unknown): Record<string, number> | undefined {
+  if (!valor || typeof valor !== 'object') return undefined
+  const result: Record<string, number> = {}
+  for (const [codigo, dias] of Object.entries(
+    valor as Record<string, unknown>,
+  )) {
+    if (!codigo.trim()) continue
+    if (typeof dias !== 'number' || !Number.isFinite(dias)) continue
+    result[codigo.trim().toUpperCase()] = Math.min(
+      366,
+      Math.max(0, Math.round(dias)),
+    )
+  }
+  return Object.keys(result).length > 0 ? result : undefined
+}
+
+function leerCuposPermisoAnio(
+  valor: unknown,
+): Record<string, Record<string, number>> | undefined {
+  if (!valor || typeof valor !== 'object') return undefined
+  const result: Record<string, Record<string, number>> = {}
+  for (const [anio, cupos] of Object.entries(valor as Record<string, unknown>)) {
+    const leido = leerCuposPermiso(cupos)
+    if (leido) result[anio] = leido
+  }
+  return Object.keys(result).length > 0 ? result : undefined
+}
+
 function agenteDesdeFirestore(
   docId: string,
   data: Record<string, unknown>,
@@ -141,6 +169,8 @@ function agenteDesdeFirestore(
       Number.isFinite(data.anioReferenciaVacaciones)
         ? Math.round(data.anioReferenciaVacaciones)
         : ANIO_REFERENCIA_VACACIONES_DEFECTO,
+    cuposPermiso: leerCuposPermiso(data.cuposPermiso),
+    cuposPermisoAnio: leerCuposPermisoAnio(data.cuposPermisoAnio),
   }
 }
 
@@ -152,7 +182,7 @@ function agenteParaFirestore(agente: FichaPolicia): FichaPolicia {
 
   const docId = agente.id.trim() || numeroPlaca
 
-  return {
+  const payload: FichaPolicia = {
     id: docId,
     numeroPlaca,
     nombre: agente.nombre.trim(),
@@ -163,7 +193,12 @@ function agenteParaFirestore(agente: FichaPolicia): FichaPolicia {
     puestosExcluidos: [...agente.puestosExcluidos],
     mesAnclaVacaciones: agente.mesAnclaVacaciones,
     anioReferenciaVacaciones: ANIO_REFERENCIA_VACACIONES_DEFECTO,
+    cuposPermiso: agente.cuposPermiso,
+    cuposPermisoAnio: agente.cuposPermisoAnio,
   }
+  if (!payload.cuposPermiso) delete payload.cuposPermiso
+  if (!payload.cuposPermisoAnio) delete payload.cuposPermisoAnio
+  return payload
 }
 
 export function agenteNuevo(): FichaPolicia {
@@ -571,7 +606,13 @@ function permisoDesdeFirestore(
       ? data.abreviatura.trim().toUpperCase()
       : ''
   if (!codigo || !nombre || !abreviatura) return null
-  return { codigo, nombre, abreviatura }
+  const diasAnuales =
+    typeof data.diasAnuales === 'number' && Number.isFinite(data.diasAnuales)
+      ? Math.min(366, Math.max(0, Math.round(data.diasAnuales)))
+      : codigo === 'ASUNTOS_PROPIOS'
+        ? 6
+        : 0
+  return { codigo, nombre, abreviatura, diasAnuales }
 }
 
 function permisoParaFirestore(permiso: PermisoConfig): PermisoConfig {
@@ -580,8 +621,13 @@ function permisoParaFirestore(permiso: PermisoConfig): PermisoConfig {
   const abreviatura = permiso.abreviatura.trim().toUpperCase()
   if (!codigo) throw new Error('El código del permiso es obligatorio')
   if (!nombre) throw new Error('El nombre del permiso es obligatorio')
-  if (!abreviatura) throw new Error('La abreviatura del permiso es obligatoria')
-  return { codigo, nombre, abreviatura }
+  const diasAnuales =
+    typeof permiso.diasAnuales === 'number' && Number.isFinite(permiso.diasAnuales)
+      ? Math.min(366, Math.max(0, Math.round(permiso.diasAnuales)))
+      : codigo === 'ASUNTOS_PROPIOS'
+        ? 6
+        : 0
+  return { codigo, nombre, abreviatura, diasAnuales }
 }
 
 export async function getTiposPermiso(): Promise<PermisoConfig[]> {
@@ -625,7 +671,12 @@ export async function seedTiposPermisoSiVacios(
   const existentes = await getTiposPermiso()
   const porCodigo = new Map(existentes.map((permiso) => [permiso.codigo, permiso]))
   const faltantes = permisos.filter((permiso) => !porCodigo.has(permiso.codigo))
-  if (faltantes.length === 0) return existentes
+  const aParchear = existentes.filter((existente) => {
+    const inicial = permisos.find((item) => item.codigo === existente.codigo)
+    if (!inicial) return existente.diasAnuales == null
+    return existente.diasAnuales == null && inicial.diasAnuales != null
+  })
+  if (faltantes.length === 0 && aParchear.length === 0) return existentes
 
   const firestore = await requireDb()
   const batch = writeBatch(firestore)
@@ -637,8 +688,28 @@ export async function seedTiposPermisoSiVacios(
       { merge: true },
     )
   }
+  const parcheados = aParchear.map((existente) => {
+    const inicial = permisos.find((item) => item.codigo === existente.codigo)
+    return permisoParaFirestore({
+      ...existente,
+      diasAnuales: inicial?.diasAnuales ?? existente.diasAnuales ?? 0,
+    })
+  })
+  for (const permiso of parcheados) {
+    batch.set(
+      doc(firestore, COLECCION_TIPOS_PERMISO, permiso.codigo),
+      permiso,
+      { merge: true },
+    )
+  }
   await conTiempoLimite(batch.commit())
-  return [...existentes, ...listaFaltantes].sort((a, b) =>
+  const porCodigoFinal = new Map(
+    [...existentes, ...listaFaltantes, ...parcheados].map((permiso) => [
+      permiso.codigo,
+      permiso,
+    ]),
+  )
+  return [...porCodigoFinal.values()].sort((a, b) =>
     a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }),
   )
 }

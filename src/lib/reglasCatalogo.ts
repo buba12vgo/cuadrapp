@@ -197,16 +197,38 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     categoria: 'PLANTILLA',
     titulo: 'Permisos en la ficha de cada agente',
     descripcion:
-      'La ficha de policía, jefe de equipo, jefe de servicio, responsable y bolsa muestra los días de cada tipo de permiso del catálogo (Asuntos propios, IT, Libre por Disponibilidad, etc.) sumados en el año, más las Jornadas Disponibles que generan saldo de LPD.',
+      'La ficha de policía, jefe de equipo, jefe de servicio, responsable y bolsa muestra cupo, usados y restantes de cada tipo de permiso del catálogo (Asuntos propios, IT, Libre por Disponibilidad, Días del Año Anterior, etc.), más las Jornadas Disponibles que generan saldo de LPD.',
     estado: 'implementada',
-    referencia: 'AgentesPage · conteoPermisos · PermisosPage',
+    referencia: 'AgentesPage · conteoPermisos · cuposPermiso · PermisosPage',
+  },
+  {
+    id: 'cupos-permiso-anuales',
+    categoria: 'PLANTILLA',
+    titulo: 'Tope anual por tipo de permiso',
+    descripcion:
+      'Cada agente tiene un máximo de días por concepto (p. ej. 6 jornadas de Asuntos propios). El catálogo fija el tope; la ficha puede ajustarlo. 0 en el catálogo = sin tope (no genera saldo a DAA), salvo LPD y Días del Año Anterior, que siempre se contabilizan.',
+    estado: 'implementada',
+    detalle:
+      'Cada día P asignado resta del cupo de ese trabajador y concepto. LPD suma las Jornadas Disponibles del año. El cuadrante impide asignar si restan < 1.',
+    referencia: 'cuposPermiso · PermisosPage · AgentesPage · saldoPermisoCuadrante',
+  },
+  {
+    id: 'dias-ano-anterior',
+    categoria: 'PLANTILLA',
+    titulo: 'Días del Año Anterior',
+    descripcion:
+      'El 31 de diciembre a las 23:59 (hora de Madrid) los días de permiso no gastados de cada agente pasan al tipo «Días del Año Anterior» del año siguiente.',
+    estado: 'implementada',
+    detalle:
+      'Cierre perezoso al abrir la ficha o el cuadrante del año nuevo. Suma el restante de todos los conceptos con tope (AP, LPD, DAA no usados, etc.). El resto de cupos se reinicia al del catálogo o al override de la ficha.',
+    referencia: 'cuposPermiso · conteoPermisos · instanteCierreAnioMs',
   },
   {
     id: 'permisos-toda-plantilla',
     categoria: 'CUADRANTE',
     titulo: 'Permisos tipados en toda la plantilla',
     descripcion:
-      'Los tipos de permiso (celda P) aplican al cuadrante mensual y al de jefes. Arrastrar o seleccionar un permiso convierte la celda en P.',
+      'Los tipos de permiso (celda P) aplican al cuadrante mensual y al de jefes. Arrastrar o seleccionar un permiso convierte la celda en P y resta un día del cupo de ese agente y concepto. Si no queda saldo, la asignación se bloquea.',
     estado: 'implementada',
     referencia: 'CuadranteMensualPage · CuadranteJefesPage · BolsaPermisosPanel',
   },

@@ -8,6 +8,15 @@ function clonarAgente(agente: FichaPolicia): FichaPolicia {
     limitaciones: { ...agente.limitaciones },
     preferenciaAnual: { ...agente.preferenciaAnual },
     puestosExcluidos: [...agente.puestosExcluidos],
+    cuposPermiso: agente.cuposPermiso ? { ...agente.cuposPermiso } : undefined,
+    cuposPermisoAnio: agente.cuposPermisoAnio
+      ? Object.fromEntries(
+          Object.entries(agente.cuposPermisoAnio).map(([anio, cupos]) => [
+            anio,
+            { ...cupos },
+          ]),
+        )
+      : undefined,
   }
 }
 
@@ -58,11 +67,6 @@ export function useAgentesData() {
     ) => {
       const resuelto =
         typeof next === 'function' ? next(agentesData) : next
-      const mismos =
-        agentesCargados &&
-        resuelto.length === agentesData.length &&
-        resuelto.every((agente, i) => agente.id === agentesData[i]?.id)
-      if (mismos) return
       agentesData = clonarAgentes(resuelto)
       agentesCargados = true
       emit()

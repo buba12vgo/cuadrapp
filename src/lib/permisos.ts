@@ -3,17 +3,32 @@ import {
   CODIGO_LIBRE_DISPONIBILIDAD,
   NOMBRE_LIBRE_DISPONIBILIDAD,
 } from '@/lib/jornadaDisponible'
+import {
+  ABREV_DIAS_ANO_ANTERIOR,
+  CODIGO_DIAS_ANO_ANTERIOR,
+  NOMBRE_DIAS_ANO_ANTERIOR,
+} from '@/lib/cuposPermiso'
 
 export type PermisoConfig = {
   codigo: string
   nombre: string
   abreviatura: string
+  /** Días de cupo anual por agente. 0 = sin tope (no pasa a DAA). */
+  diasAnuales?: number
 }
 
 export const PERMISO_LIBRE_DISPONIBILIDAD: PermisoConfig = {
   codigo: CODIGO_LIBRE_DISPONIBILIDAD,
   nombre: NOMBRE_LIBRE_DISPONIBILIDAD,
   abreviatura: ABREV_LIBRE_DISPONIBILIDAD,
+  diasAnuales: 0,
+}
+
+export const PERMISO_DIAS_ANO_ANTERIOR: PermisoConfig = {
+  codigo: CODIGO_DIAS_ANO_ANTERIOR,
+  nombre: NOMBRE_DIAS_ANO_ANTERIOR,
+  abreviatura: ABREV_DIAS_ANO_ANTERIOR,
+  diasAnuales: 0,
 }
 
 export const PERMISOS_INICIALES: PermisoConfig[] = [
@@ -21,18 +36,22 @@ export const PERMISOS_INICIALES: PermisoConfig[] = [
     codigo: 'ASUNTOS_PROPIOS',
     nombre: 'Asuntos propios',
     abreviatura: 'AP',
+    diasAnuales: 6,
   },
   {
     codigo: 'ENFERMEDAD_FAMILIAR',
     nombre: 'Enfermedad de familiar',
     abreviatura: 'EF',
+    diasAnuales: 0,
   },
   {
     codigo: 'IT',
     nombre: 'IT',
     abreviatura: 'IT',
+    diasAnuales: 0,
   },
   PERMISO_LIBRE_DISPONIBILIDAD,
+  PERMISO_DIAS_ANO_ANTERIOR,
 ]
 
 export function clonarPermiso(permiso: PermisoConfig): PermisoConfig {
@@ -40,6 +59,7 @@ export function clonarPermiso(permiso: PermisoConfig): PermisoConfig {
     codigo: permiso.codigo,
     nombre: permiso.nombre,
     abreviatura: permiso.abreviatura,
+    diasAnuales: permiso.diasAnuales,
   }
 }
 

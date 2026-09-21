@@ -4,7 +4,7 @@ import {
   cuadranteDesdeFirestore,
   type CuadranteMensualFirestore,
 } from '@/lib/cuadranteFirestore'
-import { getCuadrante, getCuadranteJefes } from '@/lib/db'
+import { getCuadrante, getCuadranteJefes, saveAgente } from '@/lib/db'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
 import {
   esJornadaDisponible,
@@ -12,6 +12,14 @@ import {
   NOMBRE_JORNADA_DISPONIBLE,
   NOMBRE_LIBRE_DISPONIBILIDAD,
 } from '@/lib/jornadaDisponible'
+import {
+  anioHaCerrado,
+  CODIGO_DIAS_ANO_ANTERIOR,
+  cuposAnioConRollover,
+  leerCuposPermisoAnio,
+  saldosPermisoAgente,
+  totalRestanteTrasladable,
+} from '@/lib/cuposPermiso'
 import type { PermisoConfig } from '@/lib/permisos'
 import { esRolCuadranteJefes } from '@/lib/rolesCuadrante'
 import type { FichaPolicia, Turno } from '@/types'
@@ -154,20 +162,112 @@ export async function cargarResumenPermisosAgente(
   anio: number,
   permisos?: PermisoConfig[],
 ): Promise<ResumenPermisosAgente> {
-  const resumen = resumenPermisosVacio()
-  const jefes = esRolCuadranteJefes(agente.rolBase)
-  const meses = await Promise.all(
-    Array.from({ length: 12 }, (_, i) => {
-      const mes = i + 1
-      return (jefes ? getCuadranteJefes(mes, anio) : getCuadrante(mes, anio)).catch(
-        () => null,
-      )
-    }),
-  )
-  for (let mes = 1; mes <= 12; mes++) {
-    const datos = meses[mes - 1]
-    if (!datos) continue
-    acumularPermisosDesdeFirestore(resumen, datos, agente, anio, mes, permisos)
+  const mapa = await cargarResumenesPermisosAnio([agente], anio, permisos)
+  return mapa[agente.id] ?? resumenPermisosVacio()
+}
+
+export async function cargarResumenesPermisosAnio(
+  agentes: FichaPolicia[],
+  anio: number,
+  permisos?: PermisoConfig[],
+): Promise<Record<string, ResumenPermisosAgente>> {
+  const resultado: Record<string, ResumenPermisosAgente> = {}
+  for (const agente of agentes) resultado[agente.id] = resumenPermisosVacio()
+  if (agentes.length === 0) return resultado
+
+  const operativos = agentes.filter((agente) => !esRolCuadranteJefes(agente.rolBase))
+  const jefes = agentes.filter((agente) => esRolCuadranteJefes(agente.rolBase))
+
+  async function cargarGrupo(
+    grupo: FichaPolicia[],
+    getter: typeof getCuadrante,
+  ) {
+    if (grupo.length === 0) return
+    const meses = await Promise.all(
+      Array.from({ length: 12 }, (_, i) =>
+        getter(i + 1, anio).catch(() => null),
+      ),
+    )
+    for (let mes = 1; mes <= 12; mes++) {
+      const datos = meses[mes - 1]
+      if (!datos) continue
+      for (const agente of grupo) {
+        acumularPermisosDesdeFirestore(
+          resultado[agente.id]!,
+          datos,
+          agente,
+          anio,
+          mes,
+          permisos,
+        )
+      }
+    }
   }
-  return resumen
+
+  await Promise.all([
+    cargarGrupo(operativos, getCuadrante),
+    cargarGrupo(jefes, getCuadranteJefes),
+  ])
+  return resultado
+}
+
+/** Devuelve solo los agentes cuyo snapshot DAA del año ha cambiado. */
+export async function asegurarRolloverDaaPlantilla(
+  agentes: FichaPolicia[],
+  anio: number,
+  permisos: PermisoConfig[],
+  persistir = true,
+): Promise<FichaPolicia[]> {
+  const origen = anio - 1
+  if (agentes.length === 0 || origen < 2020 || !anioHaCerrado(origen)) {
+    return []
+  }
+
+  const resumenesOrigen = await cargarResumenesPermisosAnio(
+    agentes,
+    origen,
+    permisos,
+  )
+  const cambiados: FichaPolicia[] = []
+  for (const agente of agentes) {
+    const saldos = saldosPermisoAgente(
+      agente,
+      permisos,
+      origen,
+      resumenesOrigen[agente.id] ?? resumenPermisosVacio(),
+    )
+    const daa = totalRestanteTrasladable(saldos)
+    const actual = leerCuposPermisoAnio(agente, anio)[CODIGO_DIAS_ANO_ANTERIOR]
+    if (actual === daa) continue
+
+    const siguiente: FichaPolicia = {
+      ...agente,
+      cuposPermisoAnio: cuposAnioConRollover(agente, anio, daa),
+    }
+    if (!persistir) {
+      cambiados.push(siguiente)
+      continue
+    }
+    try {
+      cambiados.push(await saveAgente(siguiente))
+    } catch {
+      cambiados.push(siguiente)
+    }
+  }
+  return cambiados
+}
+
+export async function asegurarRolloverDaa(
+  agente: FichaPolicia,
+  anio: number,
+  permisos: PermisoConfig[],
+  persistir = true,
+): Promise<FichaPolicia> {
+  const cambiados = await asegurarRolloverDaaPlantilla(
+    [agente],
+    anio,
+    permisos,
+    persistir,
+  )
+  return cambiados[0] ?? agente
 }

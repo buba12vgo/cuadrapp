@@ -25,6 +25,7 @@ const COLOR_BARRA: Record<TipoVariableCobro, string> = {
   conciliacion_sabado_manana: 'bg-sky-500',
   conciliacion_sabado_tarde: 'bg-orange-400',
   festivo: 'bg-emerald-500',
+  jornada_disponible: 'bg-fuchsia-500',
 }
 
 export function ListadosResumenPanel({ agentesCount, totales }: Props) {
@@ -62,6 +63,10 @@ export function ListadosResumenPanel({ agentesCount, totales }: Props) {
             <span className="font-semibold text-orange-700">ST</span> ·{' '}
             {ETIQUETA_VARIABLE_COBRO.conciliacion_sabado_tarde}
           </li>
+          <li>
+            <span className="font-semibold text-fuchsia-700">JD</span> ·{' '}
+            {ETIQUETA_VARIABLE_COBRO.jornada_disponible}
+          </li>
         </ul>
       </KpiSection>
       <KpiSection title="Notas">
@@ -69,6 +74,8 @@ export function ListadosResumenPanel({ agentesCount, totales }: Props) {
           Conciliaciones y festivo son compatibles (ej. sábado festivo con M →
           conciliación SM + festivo). Noche sábado con domingo festivo suma
           festivo por el tramo 22–06 en domingo si ese día no se cobró ya.
+          Jornada Disponible se marca a mano en el cuadrante (M/T/N) y genera
+          un libre por disponibilidad.
         </p>
       </KpiSection>
     </DashboardSidebar>

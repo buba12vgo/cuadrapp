@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { BolsaPuestosPanel, filtroTurnoInicial } from '@/components/BolsaPuestosPanel'
 import { BolsaPermisosPanel } from '@/components/BolsaPermisosPanel'
+import { JornadaDisponibleChip } from '@/components/JornadaDisponibleChip'
 import {
   DashboardBody,
   DashboardMain,
@@ -36,11 +37,13 @@ import {
   leerPuestoArrastrado,
   permitirSoltarPuesto,
   puestosPermitidosParaAgente,
+  quitarAsignacionCelda,
   turnoCoincideFiltro,
 } from '@/lib/asignacionPuestos'
 import {
   minimosParaFecha,
   totalMinimosTurno,
+  abreviaturaDesdePuestos,
   type AsignacionesDiarias,
   type PuestoBase,
   type TurnoAsignable,
@@ -67,6 +70,12 @@ import { useMinimosSemanaData, usePuestosData } from '@/lib/puestosStore'
 import { abreviaturaDesdePermisos } from '@/lib/permisos'
 import { useTiposPermiso } from '@/lib/permisosStore'
 import { agentesCuadranteJefes, ROL_LABEL } from '@/lib/rolesCuadrante'
+import {
+  abreviaturaJornadaOPuesto,
+  conJornadaDisponible,
+  esJornadaDisponible,
+  NOMBRE_JORNADA_DISPONIBLE,
+} from '@/lib/jornadaDisponible'
 import { exportarCuadranteJefesPdf } from '@/lib/exportarCuadranteJefesPdf'
 import type { Turno } from '@/types'
 
@@ -185,32 +194,6 @@ function siguienteTurno(actual: Turno, finde: boolean): Turno {
   if (indice >= 0) return ciclo[(indice + 1) % ciclo.length]!
   if (actual === 'MT') return 'P'
   return 'D'
-}
-
-function quitarAsignacionCelda(
-  asignaciones: AsignacionesDiarias,
-  agenteId: string,
-  fecha: string,
-  turno: TurnoAsignable,
-): AsignacionesDiarias {
-  const porTurno = asignaciones[fecha]
-  if (!porTurno?.[turno]?.[agenteId]) return asignaciones
-  const copia: AsignacionesDiarias = { ...asignaciones, [fecha]: { ...porTurno } }
-  const agentesTurno = { ...porTurno[turno] }
-  delete agentesTurno[agenteId]
-  if (Object.keys(agentesTurno).length === 0) {
-    const rest = { ...copia[fecha] }
-    delete rest[turno]
-    if (Object.keys(rest).length === 0) {
-      const sinFecha = { ...asignaciones }
-      delete sinFecha[fecha]
-      return sinFecha
-    }
-    copia[fecha] = rest
-  } else {
-    copia[fecha] = { ...copia[fecha], [turno]: agentesTurno }
-  }
-  return copia
 }
 
 export function CuadranteJefesPage() {
@@ -479,6 +462,51 @@ export function CuadranteJefesPage() {
     marcarEditado()
   }
 
+  function aplicarPermisoEnCelda(
+    agenteId: string,
+    dia: number,
+    fecha: string,
+    turnoActual: Turno,
+    permiso: string,
+  ) {
+    if (turnoActual === 'V') return
+    if (turnoActual !== 'P') {
+      const indice = dia - 1
+      setCuadrante((actual) => {
+        const fila = [
+          ...(actual[agenteId] ??
+            Array.from({ length: nDias }, () => 'D' as Turno)),
+        ]
+        fila[indice] = 'P'
+        return { ...actual, [agenteId]: fila }
+      })
+      setAsignacionesDiarias((actual) => {
+        let siguiente = actual
+        if (esTurnoAsignable(turnoActual)) {
+          siguiente = quitarAsignacionCelda(
+            siguiente,
+            agenteId,
+            fecha,
+            turnoActual,
+          )
+        }
+        return {
+          ...siguiente,
+          [fecha]: {
+            ...(siguiente[fecha] ?? {}),
+            P: {
+              ...(siguiente[fecha]?.P ?? {}),
+              [agenteId]: permiso,
+            },
+          },
+        }
+      })
+      marcarEditado()
+      return
+    }
+    aplicarAsignacionCelda(agenteId, fecha, 'P', permiso)
+  }
+
   function aplicarAsignacionCelda(
     agenteId: string,
     fecha: string,
@@ -521,17 +549,18 @@ export function CuadranteJefesPage() {
   function soltarEnCelda(
     event: React.DragEvent,
     agenteId: string,
+    dia: number,
     fecha: string,
-    turno: TurnoAsignable,
+    turno: Turno,
   ) {
     event.preventDefault()
     event.stopPropagation()
-    if (esTurnoPermiso(turno)) {
-      const permiso = leerPermisoArrastrado(event.dataTransfer, nombresPermiso)
-      if (!permiso) return
-      aplicarAsignacionCelda(agenteId, fecha, turno, permiso)
+    const permiso = leerPermisoArrastrado(event.dataTransfer, nombresPermiso)
+    if (permiso) {
+      aplicarPermisoEnCelda(agenteId, dia, fecha, turno, permiso)
       return
     }
+    if (!esTurnoAsignable(turno) || esTurnoPermiso(turno)) return
     const puesto = leerPuestoArrastrado(event.dataTransfer, puestosJefes)
     if (!puesto) return
     if (!turnoCoincideFiltro(turno, filtroTurno)) return
@@ -642,8 +671,14 @@ export function CuadranteJefesPage() {
     event.stopPropagation()
     const operativo = esTurnoAsignable(turno)
 
-    if (permisoSeleccionado && esTurnoPermiso(turno)) {
-      aplicarAsignacionCelda(agenteId, fecha, turno, permisoSeleccionado)
+    if (permisoSeleccionado && turno !== 'V') {
+      aplicarPermisoEnCelda(
+        agenteId,
+        dia,
+        fecha,
+        turno,
+        permisoSeleccionado,
+      )
       return
     }
 
@@ -986,6 +1021,7 @@ export function CuadranteJefesPage() {
                                   puestos,
                                 )
                             : null
+                        const esJd = Boolean(asignado && esJornadaDisponible(asignado))
                         const atenuada = !turnoCoincideFiltro(turno, filtroTurno)
                         const especial =
                           esFinDeSemana(anio, mes, dia) ||
@@ -993,7 +1029,9 @@ export function CuadranteJefesPage() {
                         const fondoSuave =
                           especial && (turno === 'D' || turno === 'V')
                             ? '!bg-amber-50'
-                            : ''
+                            : esJd
+                              ? '!bg-violet-50'
+                              : ''
                         return (
                           <td
                             key={dia}
@@ -1010,33 +1048,34 @@ export function CuadranteJefesPage() {
                                 : `${agente.numeroPlaca} · día ${dia} · ${etiquetaTurno(turno)} · clic cicla turno`
                             }
                             onDragOver={
-                              turnoAsignable && !atenuada
+                              turno !== 'V' && !atenuada
                                 ? permitirSoltarPuesto
                                 : undefined
                             }
                             onDragEnter={
-                              turnoAsignable && !atenuada
+                              turno !== 'V' && !atenuada
                                 ? (event) => {
                                     event.currentTarget.dataset.over = 'true'
                                   }
                                 : undefined
                             }
                             onDragLeave={
-                              turnoAsignable && !atenuada
+                              turno !== 'V' && !atenuada
                                 ? (event) => {
                                     event.currentTarget.dataset.over = 'false'
                                   }
                                 : undefined
                             }
                             onDrop={
-                              turnoAsignable && !atenuada
+                              turno !== 'V' && !atenuada
                                 ? (event) => {
                                     event.currentTarget.dataset.over = 'false'
                                     soltarEnCelda(
                                       event,
                                       agente.id,
+                                      dia,
                                       fecha,
-                                      turnoAsignable,
+                                      turno,
                                     )
                                   }
                                 : undefined
@@ -1174,8 +1213,16 @@ export function CuadranteJefesPage() {
             filtroTurno={filtroTurno}
             onFiltroTurno={setFiltroTurno}
             ambito="JEFE_SERVICIO"
-            puestoSeleccionado={puestoSeleccionado}
+            puestoSeleccionado={
+              puestoSeleccionado === NOMBRE_JORNADA_DISPONIBLE
+                ? null
+                : puestoSeleccionado
+            }
             onSeleccionarPuesto={seleccionarPuesto}
+          />
+          <JornadaDisponibleChip
+            seleccionado={puestoSeleccionado === NOMBRE_JORNADA_DISPONIBLE}
+            onSeleccionar={seleccionarPuesto}
           />
           <BolsaPermisosPanel
             permisoSeleccionado={permisoSeleccionado}
@@ -1200,18 +1247,23 @@ export function CuadranteJefesPage() {
           abreviaturaDe={
             esTurnoPermiso(popoverCelda.turno)
               ? (nombre) => abreviaturaDesdePermisos(tiposPermiso, nombre)
-              : undefined
+              : (nombre) =>
+                  abreviaturaJornadaOPuesto(nombre, (puesto) =>
+                    abreviaturaDesdePuestos(puestos, puesto),
+                  )
           }
           puestos={
             esTurnoPermiso(popoverCelda.turno)
               ? nombresPermiso
               : agentesPorId.get(popoverCelda.agenteId)
-                ? puestosPermitidosParaAgente(
-                    agentesPorId.get(popoverCelda.agenteId)!,
-                    puestosJefes,
-                    'JEFE_SERVICIO',
+                ? conJornadaDisponible(
+                    puestosPermitidosParaAgente(
+                      agentesPorId.get(popoverCelda.agenteId)!,
+                      puestosJefes,
+                      'JEFE_SERVICIO',
+                    ),
                   )
-                : []
+                : [NOMBRE_JORNADA_DISPONIBLE]
           }
           onElegir={(puesto) =>
             aplicarAsignacionCelda(

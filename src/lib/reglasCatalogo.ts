@@ -193,6 +193,24 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     referencia: 'vacaciones.ts · mesVacacionesCiclo · anioReferenciaVacaciones',
   },
   {
+    id: 'ficha-suma-permisos',
+    categoria: 'PLANTILLA',
+    titulo: 'Permisos en la ficha de cada agente',
+    descripcion:
+      'La ficha de policía, jefe de equipo, jefe de servicio, responsable y bolsa muestra los días de cada tipo de permiso del catálogo (Asuntos propios, IT, Libre por Disponibilidad, etc.) sumados en el año, más las Jornadas Disponibles que generan saldo de LPD.',
+    estado: 'implementada',
+    referencia: 'AgentesPage · conteoPermisos · PermisosPage',
+  },
+  {
+    id: 'permisos-toda-plantilla',
+    categoria: 'CUADRANTE',
+    titulo: 'Permisos tipados en toda la plantilla',
+    descripcion:
+      'Los tipos de permiso (celda P) aplican al cuadrante mensual y al de jefes. Arrastrar o seleccionar un permiso convierte la celda en P.',
+    estado: 'implementada',
+    referencia: 'CuadranteMensualPage · CuadranteJefesPage · BolsaPermisosPanel',
+  },
+  {
     id: 'autogenerar-solo-anio',
     categoria: 'PLAN_ANUAL',
     titulo: 'Autogenerar un solo año',
@@ -331,6 +349,17 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     referencia: 'variablesCobro · diaEsFestivoCobro',
   },
   {
+    id: 'variable-jornada-disponible',
+    categoria: 'VARIABLES_COBRO',
+    titulo: 'Jornada Disponible',
+    descripcion:
+      'Una jornada M, T, N o M-T marcada como Jornada Disponible se cobra como variable JD y genera un día de Libre por Disponibilidad (LPD) para gastar como permiso P.',
+    estado: 'implementada',
+    detalle:
+      'No entra en el equilibrio automático al autogenerar el mes: se marca a mano en el cuadrante. En la ficha, el saldo LPD es JD generadas menos LPD usadas.',
+    referencia: 'jornadaDisponible · variablesCobro · conteoPermisos',
+  },
+  {
     id: 'variables-conciliacion-festivo-compatibles',
     categoria: 'VARIABLES_COBRO',
     titulo: 'Conciliaciones y festivo compatibles',
@@ -344,7 +373,7 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     categoria: 'VARIABLES_COBRO',
     titulo: 'Listado mensual de variables',
     descripcion:
-      'La página Listados muestra y exporta a Excel las variables de cobro de cada policía a mes vencido, calculadas desde el cuadrante mensual guardado.',
+      'La página Listados muestra y exporta a Excel las variables de cobro de cada agente a mes vencido (operativo y jefes), calculadas desde el cuadrante guardado, incluida Jornada Disponible.',
     estado: 'implementada',
     referencia: 'ListadosPage · exportarVariablesCobroExcel',
   },

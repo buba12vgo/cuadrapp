@@ -118,7 +118,7 @@ function EditorModal({
   return (
     <Modal
       title={titulo}
-      subtitle="Tipos de permiso del cuadrante de jefes (celda P)."
+          subtitle="Tipos de permiso de toda la plantilla (celda P)."
       onClose={onCancelar}
       size="sm"
       bodyClassName="mt-3"
@@ -307,7 +307,7 @@ export function PermisosPage() {
     <section className={PAGE_SECTION}>
       <PageHeader
         title="Permisos"
-        subtitle={`${permisos.length} tipos · cuadrante jefes (celda P) · Firestore`}
+        subtitle={`${permisos.length} tipos · celda P en cuadrantes · Firestore`}
         actions={
           <button
             type="button"

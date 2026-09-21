@@ -42,6 +42,16 @@ import {
   type PuestoConfig,
 } from '@/lib/calendarioPuestos'
 import { usePuestosData } from '@/lib/puestosStore'
+import { useTiposPermiso } from '@/lib/permisosStore'
+import {
+  cargarResumenPermisosAgente,
+  diasLibreDisponibilidad,
+  diasTipoPermiso,
+  resumenPermisosVacio,
+  saldoLibreDisponibilidad,
+  type ResumenPermisosAgente,
+} from '@/lib/conteoPermisos'
+import { NOMBRE_JORNADA_DISPONIBLE } from '@/lib/jornadaDisponible'
 import {
   ETIQUETA_PREFERENCIA,
   esSinPreferencia,
@@ -111,6 +121,155 @@ const MESES_VACACIONES: FichaPolicia['mesAnclaVacaciones'][] = [
 ]
 
 const CAMPO_FULL = `${CAMPO} w-full`
+
+function FichaPermisosBloque({
+  agente,
+  esNuevo,
+}: {
+  agente: FichaPolicia
+  esNuevo?: boolean
+}) {
+  const [permisos] = useTiposPermiso()
+  const [anio, setAnio] = useState(2026)
+  const [resumen, setResumen] = useState<ResumenPermisosAgente>(() =>
+    resumenPermisosVacio(),
+  )
+  const [loading, setLoading] = useState(!esNuevo)
+
+  useEffect(() => {
+    if (esNuevo) return
+    let cancelado = false
+    async function cargar() {
+      setLoading(true)
+      if (isDesignPreview) {
+        if (!cancelado) {
+          setResumen(resumenPermisosVacio())
+          setLoading(false)
+        }
+        return
+      }
+      const ready = await ensureFirebase()
+      if (!ready || cancelado) {
+        if (!cancelado) {
+          setResumen(resumenPermisosVacio())
+          setLoading(false)
+        }
+        return
+      }
+      try {
+        const datos = await cargarResumenPermisosAgente(agente, anio, permisos)
+        if (!cancelado) setResumen(datos)
+      } catch {
+        if (!cancelado) setResumen(resumenPermisosVacio())
+      } finally {
+        if (!cancelado) setLoading(false)
+      }
+    }
+    void cargar()
+    return () => {
+      cancelado = true
+    }
+  }, [agente, anio, esNuevo, permisos])
+
+  const usadosLpd = diasLibreDisponibilidad(resumen)
+  const saldo = saldoLibreDisponibilidad(resumen)
+  const extraTipos = Object.keys(resumen.porTipo).filter(
+    (nombre) => !permisos.some((permiso) => permiso.nombre === nombre),
+  )
+
+  return (
+    <section className={BLOQUE}>
+      <div className="mb-2 flex items-baseline justify-between gap-2">
+        <h3 className={`${TITULO_BLOQUE} mb-0`}>Permisos</h3>
+        <label className="flex items-center gap-1.5 text-sm text-slate-600">
+          Año
+          <select
+            className={CAMPO}
+            value={anio}
+            onChange={(event) =>
+              setAnio(Number(event.target.value) || anio)
+            }
+          >
+            {Array.from({ length: 11 }, (_, i) => 2020 + i).map((valor) => (
+              <option key={valor} value={valor}>
+                {valor}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      {esNuevo ? (
+        <p className="text-sm text-slate-500">
+          Guarda el agente para ver los permisos del cuadrante.
+        </p>
+      ) : loading ? (
+        <p className="text-sm text-slate-500">Sumando permisos de {anio}…</p>
+      ) : (
+        <>
+          <ul className="flex flex-col gap-1">
+            {permisos.map((permiso) => (
+              <li
+                key={permiso.codigo}
+                className="flex items-center justify-between gap-2 text-sm text-slate-800"
+              >
+                <span>
+                  <span className="font-medium">{permiso.nombre}</span>
+                  <span className="ml-1.5 font-mono text-sm text-slate-500">
+                    {permiso.abreviatura}
+                  </span>
+                </span>
+                <span className="font-semibold tabular-nums">
+                  {diasTipoPermiso(resumen, permiso.nombre)}
+                </span>
+              </li>
+            ))}
+            {extraTipos.map((nombre) => (
+              <li
+                key={nombre}
+                className="flex items-center justify-between gap-2 text-sm text-slate-800"
+              >
+                <span className="font-medium">{nombre}</span>
+                <span className="font-semibold tabular-nums">
+                  {diasTipoPermiso(resumen, nombre)}
+                </span>
+              </li>
+            ))}
+            {permisos.length === 0 && extraTipos.length === 0 ? (
+              <li className="text-sm text-slate-500">
+                No hay tipos de permiso. Créalos en Administración → Permisos.
+              </li>
+            ) : null}
+          </ul>
+          <div className="mt-3 flex flex-col gap-1 border-t border-slate-200 pt-2 text-sm">
+            <div className="flex items-center justify-between gap-2 text-violet-900">
+              <span>
+                <span className="font-medium">{NOMBRE_JORNADA_DISPONIBLE}</span>
+                <span className="ml-1.5 font-mono text-sm text-violet-700">
+                  JD
+                </span>
+              </span>
+              <span className="font-semibold tabular-nums">
+                {resumen.jornadaDisponible}
+              </span>
+            </div>
+            <p className="text-sm text-slate-500">
+              {resumen.jornadaDisponible} JD generan {resumen.jornadaDisponible}{' '}
+              días de libre por disponibilidad. Usados {usadosLpd}. Saldo{' '}
+              <span
+                className={`font-semibold tabular-nums ${
+                  saldo < 0 ? 'text-red-700' : 'text-emerald-800'
+                }`}
+              >
+                {saldo}
+              </span>
+              .
+            </p>
+          </div>
+        </>
+      )}
+    </section>
+  )
+}
 
 function leerMeses(valor: string) {
   const n = Number(valor)
@@ -477,6 +636,8 @@ function FichaAgenteModal({
               puesto nuevo queda activo por defecto en toda la plantilla.
             </p>
           </section>
+
+          <FichaPermisosBloque agente={agente} esNuevo={esNuevo} />
 
           <section className={BLOQUE}>
             <h3 className={TITULO_BLOQUE}>Preferencia anual</h3>

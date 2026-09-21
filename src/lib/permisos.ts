@@ -1,7 +1,19 @@
+import {
+  ABREV_LIBRE_DISPONIBILIDAD,
+  CODIGO_LIBRE_DISPONIBILIDAD,
+  NOMBRE_LIBRE_DISPONIBILIDAD,
+} from '@/lib/jornadaDisponible'
+
 export type PermisoConfig = {
   codigo: string
   nombre: string
   abreviatura: string
+}
+
+export const PERMISO_LIBRE_DISPONIBILIDAD: PermisoConfig = {
+  codigo: CODIGO_LIBRE_DISPONIBILIDAD,
+  nombre: NOMBRE_LIBRE_DISPONIBILIDAD,
+  abreviatura: ABREV_LIBRE_DISPONIBILIDAD,
 }
 
 export const PERMISOS_INICIALES: PermisoConfig[] = [
@@ -20,6 +32,7 @@ export const PERMISOS_INICIALES: PermisoConfig[] = [
     nombre: 'IT',
     abreviatura: 'IT',
   },
+  PERMISO_LIBRE_DISPONIBILIDAD,
 ]
 
 export function clonarPermiso(permiso: PermisoConfig): PermisoConfig {

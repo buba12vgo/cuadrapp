@@ -623,12 +623,14 @@ export async function seedTiposPermisoSiVacios(
   permisos: PermisoConfig[] = PERMISOS_INICIALES,
 ): Promise<PermisoConfig[]> {
   const existentes = await getTiposPermiso()
-  if (existentes.length > 0) return existentes
+  const porCodigo = new Map(existentes.map((permiso) => [permiso.codigo, permiso]))
+  const faltantes = permisos.filter((permiso) => !porCodigo.has(permiso.codigo))
+  if (faltantes.length === 0) return existentes
 
   const firestore = await requireDb()
   const batch = writeBatch(firestore)
-  const lista = permisos.map(permisoParaFirestore)
-  for (const permiso of lista) {
+  const listaFaltantes = faltantes.map(permisoParaFirestore)
+  for (const permiso of listaFaltantes) {
     batch.set(
       doc(firestore, COLECCION_TIPOS_PERMISO, permiso.codigo),
       permiso,
@@ -636,7 +638,9 @@ export async function seedTiposPermisoSiVacios(
     )
   }
   await conTiempoLimite(batch.commit())
-  return lista
+  return [...existentes, ...listaFaltantes].sort((a, b) =>
+    a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }),
+  )
 }
 
 /** Firestore guarda mínimos indexados por código de puesto. */

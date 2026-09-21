@@ -59,7 +59,7 @@ export function BolsaPermisosPanel({
         Bolsa · Permisos
       </div>
       <p className="mb-1.5 text-sm leading-tight text-slate-500">
-        Arrastra o selecciona y pulsa una celda P.
+        Arrastra o selecciona y pulsa una celda (pasa a P).
       </p>
       <ul className="flex max-h-44 flex-col gap-1 overflow-auto">
         {visibles.map((permiso) => {

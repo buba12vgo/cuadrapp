@@ -31,7 +31,7 @@ export function OpcionesPage() {
   const [guardando, setGuardando] = useState(false)
 
   const conContrasena = Boolean(
-    user?.providerData.some((item) => item.providerId === 'password'),
+    user?.providerData?.some((item) => item.providerId === 'password'),
   )
 
   async function cambiar(event: React.FormEvent) {

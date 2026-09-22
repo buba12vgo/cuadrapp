@@ -35,13 +35,22 @@ export function DashboardMain({
 export function DashboardMainScroll({
   children,
   className = '',
+  overflow = 'auto',
 }: {
   children: ReactNode
   className?: string
+  /** `x`: el eje vertical cabe entero (mes). `y`: el eje horizontal cabe entero (año). */
+  overflow?: 'auto' | 'x' | 'y'
 }) {
+  const overflowClass =
+    overflow === 'x'
+      ? 'overflow-x-auto overflow-y-hidden'
+      : overflow === 'y'
+        ? 'overflow-x-hidden overflow-y-auto'
+        : 'overflow-auto'
   return (
     <div
-      className={`min-h-0 min-w-0 flex-1 overflow-auto overscroll-contain ${className}`.trim()}
+      className={`min-h-0 min-w-0 flex-1 overscroll-contain ${overflowClass} ${className}`.trim()}
     >
       {children}
     </div>

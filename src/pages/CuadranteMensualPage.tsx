@@ -24,6 +24,7 @@ import {
   SEMAFORO_WARN,
 } from '@/lib/uiStyles'
 import { AvisoSoloLectura } from '@/components/AvisoSoloLectura'
+import { LeyendaTurnos } from '@/components/LeyendaTurnos'
 import { useAppDialog } from '@/components/ui/ConfirmDialog'
 import { useAcceso } from '@/contexts/AccesoContext'
 import { PageHeader, ToolbarDivider, ToolbarSection } from '@/components/ui/PageHeader'
@@ -146,11 +147,11 @@ const ANCHO_DIA = 28
 const ANCHO_TOT = 24
 const ANCHO_AGENTE = 32
 
-/** Densidad alta: el mes completo debe caber en altura de viewport. */
+/** El mes reparte la altura del panel: los 28–31 días quedan a la vista. */
 const CELDA =
-  'h-[18px] max-h-[18px] overflow-hidden border border-line px-0 py-0 text-[10px] leading-none'
+  'overflow-hidden border border-line px-0 py-0 text-[10px] leading-none'
 const CELDA_PIE =
-  'h-[18px] max-h-[18px] overflow-hidden border border-line border-t-2 border-t-slate-300 px-0 py-0 text-[9px] leading-none'
+  'overflow-hidden border border-line border-t-2 border-t-slate-300 px-0 py-0 text-[9px] leading-none'
 const CAMPO_TOOLBAR =
   'h-7 rounded-md border border-line bg-white px-1.5 text-xs text-ink outline-none focus:border-brand-400 focus-visible:ring-2 focus-visible:ring-brand-500/40'
 
@@ -159,8 +160,8 @@ const CLASE_TURNO: Record<Turno, string> = {
   T: CLASE_TURNO_CELDA.T,
   N: CLASE_TURNO_CELDA.N,
   MT: CLASE_TURNO_CELDA.MT,
-  L: 'bg-emerald-50 text-emerald-900',
-  P: 'bg-rose-50 text-rose-800',
+  L: 'bg-emerald-50 font-bold text-emerald-900',
+  P: 'bg-rose-100 font-bold text-rose-900',
   D: 'bg-white text-slate-500',
   V: CLASE_TURNO_CELDA.V,
 }
@@ -1258,12 +1259,13 @@ export function CuadranteMensualPage() {
 
       <DashboardBody>
         <DashboardMain>
-          <DashboardMainScroll>
-          <table className={`w-max border-separate border-spacing-0 text-[11px] leading-none ${soloLectura ? 'pointer-events-none' : ''}`}>
+          <LeyendaTurnos className="border-b border-line" />
+          <DashboardMainScroll overflow="x">
+          <table className={`rejilla-mes border-separate border-spacing-0 text-[11px] leading-none ${soloLectura ? 'pointer-events-none' : ''}`}>
           <thead>
             <tr>
               <th
-                className={`${CELDA} sticky top-0 left-0 z-40 bg-white text-left font-bold`}
+                className={`${CELDA} sticky top-0 left-0 z-40 bg-brand-800 text-left font-bold text-white`}
                 style={{ width: ANCHO_DIA, minWidth: ANCHO_DIA }}
               >
                 Día
@@ -1274,7 +1276,7 @@ export function CuadranteMensualPage() {
                 return (
                   <th
                     key={agente.id}
-                    className={`${CELDA} group relative sticky top-0 z-20 bg-white text-center font-mono font-bold hover:bg-blue-50 data-[over=true]:bg-blue-100 data-[over=true]:ring-2 data-[over=true]:ring-inset data-[over=true]:ring-blue-500`}
+                    className={`${CELDA} group relative sticky top-0 z-20 bg-brand-800 text-center font-mono font-bold text-white hover:bg-brand-700 data-[over=true]:bg-brand-600 data-[over=true]:ring-2 data-[over=true]:ring-inset data-[over=true]:ring-amber-300`}
                     style={{ width: ANCHO_AGENTE, minWidth: ANCHO_AGENTE }}
                     title={`${nombre} · soltar puesto = mes completo`}
                     onDragOver={permitirSoltarPuesto}
@@ -1302,8 +1304,8 @@ export function CuadranteMensualPage() {
               {TURNOS_OP.map((turno, indice) => (
                 <th
                   key={turno}
-                  className={`${CELDA} sticky top-0 z-30 bg-white text-center font-bold ${
-                    indice === 0 ? 'border-l-2 border-l-slate-600' : ''
+                  className={`${CELDA} sticky top-0 z-30 bg-brand-800 text-center font-bold text-white ${
+                    indice === 0 ? 'border-l-2 border-l-white/40' : ''
                   }`}
                   style={stickyDerecha(indice)}
                   title={`${turno}: asignados / mínimo del día · rojo si no llega`}
@@ -1333,17 +1335,23 @@ export function CuadranteMensualPage() {
                 minimosSemana,
                 puestosOperativos,
               )
+              const diaCubierto = TURNOS_OP.every(
+                (turno) =>
+                  totales[turno] >=
+                  totalMinimosTurno(minimosDia, turno, puestosOperativos),
+              )
+              const fondoDia = diaCubierto ? 'bg-emerald-50' : 'bg-rose-50'
 
               return (
                 <tr key={dia} className={fondoFila}>
                   <td
-                    className={`${CELDA} sticky left-0 z-20 p-0 ${fondoFila}`}
+                    className={`${CELDA} sticky left-0 z-20 p-0 ${fondoDia}`}
                     style={{ width: ANCHO_DIA, minWidth: ANCHO_DIA }}
                   >
                     <button
                       type="button"
-                      className={`flex h-full w-full items-center px-0.5 hover:bg-blue-50 hover:ring-2 hover:ring-inset hover:ring-blue-500 ${
-                        especial ? 'text-red-600' : ''
+                      className={`flex h-full w-full items-center px-0.5 hover:ring-2 hover:ring-inset hover:ring-brand-500 ${
+                        diaCubierto ? 'text-emerald-950' : 'text-rose-900'
                       }`}
                       title={`Reparto operativo · día ${dia}`}
                       onClick={() => setDiaReparto(dia)}
@@ -1351,7 +1359,7 @@ export function CuadranteMensualPage() {
                       <span className="font-bold">{dia}</span>
                       <span
                         className={`ml-0.5 font-bold ${
-                          especial ? 'text-red-600' : 'text-slate-500'
+                          especial ? 'text-rose-700' : 'opacity-70'
                         }`}
                       >
                         {DIA_SEMANA[weekday]}

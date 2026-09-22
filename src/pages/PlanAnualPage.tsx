@@ -8,10 +8,12 @@ import {
 import { PageHeader } from '@/components/ui/PageHeader'
 import { SaveStatus } from '@/components/ui/SaveStatus'
 import { AvisoSoloLectura } from '@/components/AvisoSoloLectura'
+import { LeyendaTurnos } from '@/components/LeyendaTurnos'
 import { useAppDialog } from '@/components/ui/ConfirmDialog'
 import { useAcceso } from '@/contexts/AccesoContext'
 import { escrituraPermitida } from '@/lib/acceso'
 import {
+  CLASE_TURNO_CELDA,
   ALERT_ERROR,
   ALERT_INFO,
   BTN_DANGER,
@@ -74,10 +76,6 @@ const MESES = [
 ] as const
 
 const TOTALES = ['M', 'T', 'N', 'V'] as const
-const ANCHO_AGENTE = 110
-const ANCHO_MES = 30
-const ANCHO_TOTAL = 22
-const ANCHO_PATRON = 52
 
 /** Filas de altura fija: Pat no puede empujar la fila. */
 const CELDA =
@@ -94,10 +92,10 @@ const GRUPOS_PLAN: Array<{ valor: GrupoPlanAnual; label: string }> = [
 ]
 
 const CLASE_TURNO: Record<TurnoAnual, string> = {
-  M: 'bg-blue-100 font-semibold text-blue-700',
-  T: 'bg-orange-100 font-semibold text-orange-700',
-  N: 'bg-violet-100 font-semibold text-violet-700',
-  V: 'bg-emerald-100 font-semibold text-emerald-700',
+  M: CLASE_TURNO_CELDA.M,
+  T: CLASE_TURNO_CELDA.T,
+  N: CLASE_TURNO_CELDA.N,
+  V: CLASE_TURNO_CELDA.V,
 }
 
 function etiquetaPatCelda(
@@ -117,22 +115,6 @@ function totalesFila(turnos: CeldaPlanAnual[]) {
     if (turno) totales[turno] += 1
   }
   return totales
-}
-
-function stickyTotal(indice: number) {
-  return {
-    right: ANCHO_PATRON + (TOTALES.length - 1 - indice) * ANCHO_TOTAL,
-    minWidth: ANCHO_TOTAL,
-    width: ANCHO_TOTAL,
-  }
-}
-
-function stickyPatron() {
-  return {
-    right: 0,
-    minWidth: ANCHO_PATRON,
-    width: ANCHO_PATRON,
-  }
 }
 
 function porcentaje(cantidad: number, base: number) {
@@ -512,25 +494,25 @@ export function PlanAnualPage() {
 
       <DashboardBody>
         <DashboardMain>
-          <DashboardMainScroll>
-        <table className={`w-max min-w-full table-fixed border-separate border-spacing-0 text-[10px] leading-none ${soloLectura ? 'pointer-events-none' : ''}`}>
+          <LeyendaTurnos className="border-b border-line" />
+          <DashboardMainScroll overflow="y">
+        <table className={`rejilla-anio border-separate border-spacing-0 text-[10px] leading-none ${soloLectura ? 'pointer-events-none' : ''}`}>
           <thead>
             <tr className="h-[20px]">
               <th
-                className={`${CELDA} sticky top-0 left-0 z-40 bg-white text-left font-bold`}
-                style={{ width: ANCHO_AGENTE, minWidth: ANCHO_AGENTE }}
+                className={`${CELDA} sticky top-0 left-0 z-40 bg-brand-800 text-left font-bold text-white`}
+                style={{ width: '16%' }}
               >
                 Agente
               </th>
               {MESES.map((mes, indiceMes) => (
                 <th
                   key={mes}
-                  className={`${CELDA} sticky top-0 z-20 font-bold ${
+                  className={`${CELDA} sticky top-0 z-20 font-bold text-white ${
                     mesesMarcados.has(indiceMes)
-                      ? MARCA_PLAN_CABECERA
-                      : 'bg-white'
+                      ? 'bg-amber-700'
+                      : 'bg-brand-800'
                   }`}
-                  style={{ minWidth: ANCHO_MES }}
                   title={
                     mesesMarcados.has(indiceMes)
                       ? `${mes}: no se ha podido cuadrar el % del selector`
@@ -543,17 +525,17 @@ export function PlanAnualPage() {
               {TOTALES.map((clave, indice) => (
                 <th
                   key={clave}
-                  className={`${CELDA} sticky top-0 z-30 bg-white font-bold ${
-                    indice === 0 ? 'border-l-2 border-l-slate-600' : ''
+                  className={`${CELDA} sticky top-0 z-30 bg-brand-700 font-bold text-white ${
+                    indice === 0 ? 'border-l-2 border-l-white/40' : ''
                   }`}
-                  style={stickyTotal(indice)}
+                  style={{ width: '3.2%' }}
                 >
                   {clave}
                 </th>
               ))}
               <th
-                className={`${CELDA} sticky top-0 z-30 border-l border-slate-400 bg-white font-bold`}
-                style={stickyPatron()}
+                className={`${CELDA} sticky top-0 z-30 border-l border-white/30 bg-brand-700 font-bold text-white`}
+                style={{ width: '7%' }}
                 title="Patrón asignado o preferencia flexible"
               >
                 Pat
@@ -582,7 +564,7 @@ export function PlanAnualPage() {
                         ? MARCA_PLAN_FILA
                         : 'bg-white'
                     }`}
-                    style={{ width: ANCHO_AGENTE, minWidth: ANCHO_AGENTE }}
+                    style={{ width: '16%' }}
                     title={
                       fichaMarcada
                         ? tituloPreferencia(agente, totales)
@@ -634,7 +616,6 @@ export function PlanAnualPage() {
                             ? 'shadow-[inset_0_0_0_1px_rgb(252_211_77)]'
                             : ''
                         } ${aviso ? 'shadow-[inset_0_0_0_1px_rgb(239_68_68)]' : ''}`}
-                        style={{ minWidth: ANCHO_MES }}
                         title={
                           turno
                             ? aviso
@@ -661,7 +642,7 @@ export function PlanAnualPage() {
                       className={`${CELDA} sticky z-10 text-center ${
                         indice === 0 ? 'border-l-2 border-l-slate-600' : ''
                       } ${clasePreferencia(cuadraTotal(totales, agente, clave))}`}
-                      style={stickyTotal(indice)}
+                      style={{ width: '3.2%' }}
                       title={tituloPreferencia(agente, totales)}
                     >
                       {totales[clave]}
@@ -681,7 +662,7 @@ export function PlanAnualPage() {
                                 ? 'bg-slate-50 font-medium text-slate-700'
                                 : 'bg-slate-50 text-slate-600'
                     }`}
-                    style={stickyPatron()}
+                    style={{ width: '7%' }}
                     title={tituloPreferencia(agente, totales)}
                   >
                     <span className="block truncate px-0.5 text-[10px] leading-none">
@@ -716,7 +697,7 @@ export function PlanAnualPage() {
                         ? MARCA_PLAN_CABECERA
                         : 'bg-slate-100'
                     }`}
-                    style={{ width: ANCHO_AGENTE, minWidth: ANCHO_AGENTE }}
+                    style={{ width: '16%' }}
                   >
                     % {turnoPie}
                     {hayPlanAnio && marcas && !marcas.anioCuadra ? ' !' : ''}
@@ -738,7 +719,6 @@ export function PlanAnualPage() {
                             ? 'ring-1 ring-inset ring-amber-300'
                             : ''
                         }`}
-                        style={{ minWidth: ANCHO_MES }}
                         title={
                           real == null
                             ? undefined
@@ -773,7 +753,7 @@ export function PlanAnualPage() {
                             }`
                           : 'bg-slate-100'
                       }`}
-                      style={stickyTotal(indice)}
+                      style={{ width: '3.2%' }}
                     >
                       {clave === turnoPie && pctAnio != null
                         ? `${pctAnio.toFixed(1)}%`
@@ -782,7 +762,7 @@ export function PlanAnualPage() {
                   ))}
                   <td
                     className={`${CELDA_PIE} sticky z-40 bg-slate-100`}
-                    style={stickyPatron()}
+                    style={{ width: '7%' }}
                   />
                 </tr>
               )

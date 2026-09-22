@@ -80,14 +80,25 @@ export const BADGE_PENDING =
 export const BADGE_NEUTRAL =
   'rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600'
 
-/** Celdas M/T/N/MT/V — badges pastel estilo dashboard SaaS. */
+/** Celdas M/T/N/MT/V — bloques pastel a ancho de celda (Stitch / Puerto). */
 export const CLASE_TURNO_CELDA: Record<'M' | 'T' | 'N' | 'MT' | 'V', string> = {
-  M: 'rounded-md bg-blue-100 font-semibold text-blue-700',
-  T: 'rounded-md bg-orange-100 font-semibold text-orange-700',
-  N: 'rounded-md bg-violet-100 font-semibold text-violet-700',
-  MT: 'rounded-md bg-teal-100 font-semibold text-teal-800',
-  V: 'rounded-md bg-emerald-100 font-semibold text-emerald-700',
+  M: 'bg-sky-100 font-bold text-sky-950',
+  T: 'bg-amber-100 font-bold text-amber-950',
+  N: 'bg-violet-100 font-bold text-violet-950',
+  MT: 'bg-teal-100 font-bold text-teal-950',
+  V: 'bg-emerald-100 font-bold text-emerald-950',
 }
+
+export const LEYENDA_TURNOS = [
+  { clave: 'M', label: 'Mañana', clase: 'bg-sky-100 text-sky-950' },
+  { clave: 'T', label: 'Tarde', clase: 'bg-amber-100 text-amber-950' },
+  { clave: 'N', label: 'Noche', clase: 'bg-violet-100 text-violet-950' },
+  { clave: 'MT', label: 'Mañana Tarde', clase: 'bg-teal-100 text-teal-950' },
+  { clave: 'L', label: 'Libre', clase: 'bg-emerald-50 text-emerald-900' },
+  { clave: 'D', label: 'Descanso', clase: 'bg-white text-slate-600 ring-1 ring-inset ring-line' },
+  { clave: 'V', label: 'Vacaciones', clase: 'bg-emerald-100 text-emerald-950' },
+  { clave: 'P', label: 'Permiso', clase: 'bg-rose-100 text-rose-900' },
+] as const
 
 export const MARCA_PLAN_CABECERA =
   'bg-amber-50 text-amber-900 ring-1 ring-inset ring-amber-200'

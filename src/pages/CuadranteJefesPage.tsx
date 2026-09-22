@@ -21,6 +21,7 @@ import {
   SEMAFORO_OK,
 } from '@/lib/uiStyles'
 import { AvisoSoloLectura } from '@/components/AvisoSoloLectura'
+import { LeyendaTurnos } from '@/components/LeyendaTurnos'
 import { useAppDialog } from '@/components/ui/ConfirmDialog'
 import { useAcceso } from '@/contexts/AccesoContext'
 import { PageHeader, ToolbarSection } from '@/components/ui/PageHeader'
@@ -131,8 +132,8 @@ const CLASE_TURNO: Record<Turno, string> = {
   T: CLASE_TURNO_CELDA.T,
   N: CLASE_TURNO_CELDA.N,
   MT: CLASE_TURNO_CELDA.MT,
-  L: 'bg-rose-50 text-rose-800',
-  P: 'bg-rose-50 text-rose-800',
+  L: 'bg-emerald-50 font-bold text-emerald-900',
+  P: 'bg-rose-100 font-bold text-rose-900',
   D: 'bg-white text-slate-500',
   V: CLASE_TURNO_CELDA.V,
 }
@@ -1045,6 +1046,7 @@ export function CuadranteJefesPage() {
 
       <DashboardBody>
         <DashboardMain>
+          <LeyendaTurnos className="border-b border-line" />
           <DashboardMainScroll>
             <table className={`w-full table-fixed border-separate border-spacing-0 text-[12px] leading-none ${soloLectura ? 'pointer-events-none' : ''}`}>
               <colgroup>
@@ -1057,7 +1059,7 @@ export function CuadranteJefesPage() {
               <thead>
                 <tr>
                   <th
-                    className={`${CELDA_DIA} sticky top-0 left-0 z-40 bg-white px-1.5 text-left font-bold`}
+                    className={`${CELDA_DIA} sticky top-0 left-0 z-40 bg-brand-800 px-1.5 text-left font-bold text-white`}
                   >
                     Agente
                   </th>
@@ -1065,21 +1067,30 @@ export function CuadranteJefesPage() {
                     const weekday = new Date(anio, mes - 1, dia).getDay()
                     const especial =
                       esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia)
+                    const cobertura = coberturaPorDia[dia]
+                    const diaCubierto = TURNOS_OP.every(
+                      (turno) =>
+                        (cobertura?.real[turno] ?? 0) >=
+                        (cobertura?.minimo[turno] ?? 0),
+                    )
                     return (
                       <th
                         key={dia}
                         className={`${CELDA_DIA} sticky top-0 z-20 text-center ${
-                          especial ? 'bg-amber-50' : 'bg-white'
+                          diaCubierto
+                            ? 'bg-emerald-50 text-emerald-950'
+                            : 'bg-rose-50 text-rose-900'
                         }`}
+                        title={
+                          diaCubierto
+                            ? `Día ${dia} cubierto`
+                            : `Día ${dia} por debajo del mínimo`
+                        }
                       >
-                        <span
-                          className={`block font-bold ${especial ? 'text-red-600' : ''}`}
-                        >
-                          {dia}
-                        </span>
+                        <span className="block font-bold">{dia}</span>
                         <span
                           className={`block text-[10px] font-bold ${
-                            especial ? 'text-red-600' : 'text-slate-500'
+                            especial ? 'text-rose-700' : 'opacity-70'
                           }`}
                         >
                           {DIA_SEMANA[weekday]}
@@ -1088,7 +1099,7 @@ export function CuadranteJefesPage() {
                     )
                   })}
                   <th
-                    className={`${CELDA_DIA} sticky top-0 right-0 z-30 border-l-2 border-l-slate-600 bg-slate-100 text-center font-bold`}
+                    className={`${CELDA_DIA} sticky top-0 right-0 z-30 border-l-2 border-l-white/40 bg-brand-800 text-center font-bold text-white`}
                     title="Días trabajados · M-T cuenta como 2"
                   >
                     Σ

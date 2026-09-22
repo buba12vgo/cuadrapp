@@ -23,7 +23,9 @@ import {
   SEMAFORO_OK,
   SEMAFORO_WARN,
 } from '@/lib/uiStyles'
+import { AvisoSoloLectura } from '@/components/AvisoSoloLectura'
 import { useAppDialog } from '@/components/ui/ConfirmDialog'
+import { useAcceso } from '@/contexts/AccesoContext'
 import { PageHeader, ToolbarDivider, ToolbarSection } from '@/components/ui/PageHeader'
 import { SaveStatus } from '@/components/ui/SaveStatus'
 import { PopoverPuestosCelda } from '@/components/PopoverPuestosCelda'
@@ -285,6 +287,8 @@ function claseFindesMes(cantidad: number) {
 
 export function CuadranteMensualPage() {
   const { alert, confirm } = useAppDialog()
+  const { puedeEscribir } = useAcceso()
+  const soloLectura = !puedeEscribir('cuadrante-mensual')
   const [agentesData, setAgentesData] = useAgentesData()
   const [eventosData] = useEventosData()
   const [puestos] = usePuestosData()
@@ -587,6 +591,7 @@ export function CuadranteMensualPage() {
   }
 
   async function autogenerar() {
+    if (soloLectura) return
     if (!puedeAutogenerar || generandoCuadrante) return
 
     if (mesGuardadoEnFirestore || cuadranteEditadoLocalRef.current) {
@@ -642,6 +647,7 @@ export function CuadranteMensualPage() {
   }
 
   async function guardarCuadranteEnFirestore() {
+    if (soloLectura) return
     if (cuadranteCargaFallida && !tieneCuadranteLocal) {
       await alert(
         'No se puede guardar: el cuadrante no se cargó correctamente desde Firestore.',
@@ -701,6 +707,7 @@ export function CuadranteMensualPage() {
     fecha: string,
     asignaciones: AsignacionesDiarias[string],
   ) {
+    if (soloLectura) return
     setAsignacionesDiarias((actual) => ({
       ...actual,
       [fecha]: asignaciones,
@@ -786,6 +793,7 @@ export function CuadranteMensualPage() {
     turnoActual: Turno,
     permiso: string,
   ) {
+    if (soloLectura) return
     if (turnoActual === 'V') return
     if (bloquearSiSinSaldoCelda(agenteId, dia, fecha, turnoActual, permiso)) {
       return
@@ -833,6 +841,7 @@ export function CuadranteMensualPage() {
     turno: TurnoAsignable,
     puesto: PuestoBase,
   ) {
+    if (soloLectura) return
     const agente = agentesPorId.get(agenteId)
     if (!agente) return
     if (esTurnoPermiso(turno)) {
@@ -869,6 +878,7 @@ export function CuadranteMensualPage() {
   }
 
   function aplicarAsignacionMesAgente(agenteId: string, puesto: PuestoBase) {
+    if (soloLectura) return
     const agente = agentesPorId.get(agenteId)
     if (!agente) return
     const fechasTurno = fechasOperativasAgenteMes(
@@ -911,6 +921,7 @@ export function CuadranteMensualPage() {
   }
 
   function aplicarPermisoMesAgente(agenteId: string, permiso: string) {
+    if (soloLectura) return
     const fechasPermiso = fechasOperativasAgenteMes(
       cuadrante,
       agenteId,
@@ -965,6 +976,7 @@ export function CuadranteMensualPage() {
     agenteId: string,
   ) {
     event.preventDefault()
+    if (soloLectura) return
     const permiso = leerPermisoArrastrado(event.dataTransfer, nombresPermiso)
     if (permiso) {
       aplicarPermisoMesAgente(agenteId, permiso)
@@ -984,6 +996,7 @@ export function CuadranteMensualPage() {
   ) {
     event.preventDefault()
     event.stopPropagation()
+    if (soloLectura) return
     const permiso = leerPermisoArrastrado(event.dataTransfer, nombresPermiso)
     if (permiso) {
       aplicarPermisoEnCelda(agenteId, dia, fecha, turno, permiso)
@@ -1004,6 +1017,7 @@ export function CuadranteMensualPage() {
     fecha: string,
   ) {
     event.stopPropagation()
+    if (soloLectura) return
     if (permisoSeleccionado && turno !== 'V') {
       aplicarPermisoEnCelda(
         agenteId,
@@ -1190,7 +1204,7 @@ export function CuadranteMensualPage() {
             <button
               type="button"
               className={BTN_PRIMARY}
-              disabled={!puedeAutogenerar}
+              disabled={soloLectura || !puedeAutogenerar}
               onClick={() => void autogenerar()}
             >
               {generandoCuadrante ? 'Generando…' : 'Autogenerar'}
@@ -1199,6 +1213,7 @@ export function CuadranteMensualPage() {
               type="button"
               className={BTN_SUCCESS}
               disabled={
+                soloLectura ||
                 !cuadranteListo || guardandoCuadrante || generandoCuadrante || !firebaseOk
               }
               onClick={() => void guardarCuadranteEnFirestore()}
@@ -1209,6 +1224,9 @@ export function CuadranteMensualPage() {
         }
       />
 
+      {soloLectura ? (
+        <AvisoSoloLectura texto="Solo consulta del cuadrante mensual. La edición de jefes está en Cuadrante jefes." />
+      ) : null}
       {cuadranteCargaFallida && !tieneCuadranteLocal ? (
         <p className={ALERT_ERROR}>
           No se pudo cargar este mes desde Firestore. Puedes autogenerar el
@@ -1241,7 +1259,7 @@ export function CuadranteMensualPage() {
       <DashboardBody>
         <DashboardMain>
           <DashboardMainScroll>
-          <table className="w-max border-separate border-spacing-0 text-[11px] leading-none">
+          <table className={`w-max border-separate border-spacing-0 text-[11px] leading-none ${soloLectura ? 'pointer-events-none' : ''}`}>
           <thead>
             <tr>
               <th
@@ -1549,7 +1567,7 @@ export function CuadranteMensualPage() {
         </table>
           </DashboardMainScroll>
         </DashboardMain>
-        <DashboardSidebar>
+        <DashboardSidebar className={soloLectura ? 'pointer-events-none opacity-60' : ''}>
           <CuadranteResumenPanel
             agentesVisibles={agentesVisibles.length}
             diaDesde={diaDesde}

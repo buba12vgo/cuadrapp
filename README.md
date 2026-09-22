@@ -12,16 +12,9 @@ npm run dev
 
 ## Acceso
 
-Pueden entrar las cuentas de Google listadas en `VITE_ADMIN_EMAILS` (separadas
-por comas). Si no está definida, se usa `VITE_ADMIN_EMAIL` (por defecto
-`buba12@gmail.com`). Cualquier otra cuenta se cierra al instante.
+- **Superadmin** (`buba12@gmail.com`, placa 102): entra con Google y puede ver y cambiar todo. Da de alta al resto en Usuarios.
+- **Admin** (`jonymivi@gmail.com` y el alias `jony.mivi@gmail.com`, placa 108): entra con Google, ve todo y solo edita Permisos, Cuadrante jefes y Calendario jefes.
+- **Consulta jefes**: correo y contraseña que crea el superadmin. Solo ven Cuadrante jefes y Calendario jefes. Cambian la contraseña en Opciones.
 
-Ejemplo:
-
-```bash
-VITE_ADMIN_EMAILS=buba12@gmail.com,jony.mivi@gmail.com
-```
-
-También hay que actualizar `firestore.rules` con los mismos correos y
-desplegar las reglas en Firebase; si no, la UI deja entrar pero Firestore
-rechaza lecturas/escrituras.
+En Firebase Authentication hay que tener activos Google y Correo/contraseña.
+Despliega `firestore.rules` para que los usuarios de consulta puedan leer y el admin no escriba el cuadrante operativo.

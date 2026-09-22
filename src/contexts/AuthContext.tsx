@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useState,
@@ -8,12 +9,15 @@ import {
 import {
   GoogleAuthProvider,
   onAuthStateChanged,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
   signInWithPopup,
   signOut as firebaseSignOut,
   type User,
 } from 'firebase/auth'
 import { ensureFirebase, getAuthClient } from '@/lib/firebase'
-import { AGENT_DISPLAY_NAME, AGENT_EMAIL, AGENT_UID, isAllowedAdmin, mensajeNoAutorizado } from '@/lib/authAllowlist'
+import { AGENT_DISPLAY_NAME, AGENT_EMAIL, AGENT_UID } from '@/lib/authAllowlist'
+import { mensajeErrorAuth } from '@/lib/usuariosAcceso'
 import { isDesignPreview } from '@/lib/designPreview'
 
 const AUTH_INIT_TIMEOUT_MS = 8_000
@@ -31,7 +35,10 @@ type AuthContextValue = {
   loading: boolean
   firebaseReady: boolean
   signInWithGoogle: () => Promise<void>
+  signInWithEmail: (email: string, password: string) => Promise<void>
+  restablecerContrasena: (email: string) => Promise<void>
   signOut: () => Promise<void>
+  notificar: (mensaje: string) => void
   error: string | null
 }
 
@@ -86,20 +93,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           auth,
           (u) => {
             if (cancelled) return
-            if (u && !isAllowedAdmin(u)) {
-              void firebaseSignOut(auth)
-                .catch((err) => {
-                  console.error('[auth] No se pudo cerrar sesión no autorizada', err)
-                })
-                .finally(() => {
-                  if (cancelled) return
-                  setUser(null)
-                  setError(mensajeNoAutorizado())
-                  finishLoading()
-                })
-              return
-            }
             setUser(u)
+            if (u) setError(null)
             finishLoading()
           },
           (authError) => {
@@ -126,7 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = useCallback(async () => {
     setError(null)
     const ready = await ensureFirebase()
     if (!ready) {
@@ -138,27 +133,73 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const provider = new GoogleAuthProvider()
       provider.setCustomParameters({ prompt: 'select_account' })
-      const result = await signInWithPopup(auth, provider)
-      if (!isAllowedAdmin(result.user)) {
-        await firebaseSignOut(auth)
-        setUser(null)
-        setError(mensajeNoAutorizado())
-      }
+      await signInWithPopup(auth, provider)
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Error al iniciar sesión'
-      setError(msg)
+      setError(mensajeErrorAuth(e))
     }
-  }
+  }, [])
 
-  const signOut = async () => {
+  const signInWithEmail = useCallback(async (email: string, password: string) => {
+    setError(null)
+    const ready = await ensureFirebase()
+    if (!ready) {
+      setError('Firebase no está configurado.')
+      return
+    }
+    const auth = getAuthClient()
+    if (!auth) return
+    try {
+      await signInWithEmailAndPassword(auth, email.trim(), password)
+    } catch (e) {
+      setError(mensajeErrorAuth(e))
+    }
+  }, [])
+
+  const restablecerContrasena = useCallback(async (email: string) => {
+    setError(null)
+    const ready = await ensureFirebase()
+    if (!ready) {
+      setError('Firebase no está configurado.')
+      return
+    }
+    const auth = getAuthClient()
+    if (!auth) return
+    const limpio = email.trim()
+    if (!limpio) {
+      setError('Indica el correo para enviarte el enlace.')
+      return
+    }
+    try {
+      await sendPasswordResetEmail(auth, limpio)
+    } catch (e) {
+      setError(mensajeErrorAuth(e))
+      throw e
+    }
+  }, [])
+
+  const signOut = useCallback(async () => {
     const auth = getAuthClient()
     if (!auth) return
     await firebaseSignOut(auth)
-  }
+  }, [])
+
+  const notificar = useCallback((mensaje: string) => {
+    setError(mensaje)
+  }, [])
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, firebaseReady, signInWithGoogle, signOut, error }}
+      value={{
+        user,
+        loading,
+        firebaseReady,
+        signInWithGoogle,
+        signInWithEmail,
+        restablecerContrasena,
+        signOut,
+        notificar,
+        error,
+      }}
     >
       {children}
     </AuthContext.Provider>

@@ -20,7 +20,9 @@ import {
   SEMAFORO_KO,
   SEMAFORO_OK,
 } from '@/lib/uiStyles'
+import { AvisoSoloLectura } from '@/components/AvisoSoloLectura'
 import { useAppDialog } from '@/components/ui/ConfirmDialog'
+import { useAcceso } from '@/contexts/AccesoContext'
 import { PageHeader, ToolbarSection } from '@/components/ui/PageHeader'
 import { SaveStatus } from '@/components/ui/SaveStatus'
 import { PopoverPuestosCelda } from '@/components/PopoverPuestosCelda'
@@ -209,6 +211,8 @@ function siguienteTurno(actual: Turno, finde: boolean): Turno {
 
 export function CuadranteJefesPage() {
   const { alert } = useAppDialog()
+  const { puedeEscribir } = useAcceso()
+  const soloLectura = !puedeEscribir('cuadrante-jefes')
   const [agentesData, setAgentesData] = useAgentesData()
   const [puestos] = usePuestosData()
   const [minimosSemana] = useMinimosSemanaData()
@@ -504,6 +508,7 @@ export function CuadranteJefesPage() {
   }
 
   function ciclarTurnoCelda(agenteId: string, dia: number) {
+    if (soloLectura) return
     const indice = dia - 1
     const filaActual =
       cuadrante[agenteId] ?? Array.from({ length: nDias }, () => 'D' as Turno)
@@ -560,6 +565,7 @@ export function CuadranteJefesPage() {
     turnoActual: Turno,
     permiso: string,
   ) {
+    if (soloLectura) return
     if (turnoActual === 'V') return
     if (bloquearSiSinSaldoCelda(agenteId, dia, fecha, turnoActual, permiso)) {
       return
@@ -607,6 +613,7 @@ export function CuadranteJefesPage() {
     turno: TurnoAsignable,
     puesto: PuestoBase,
   ) {
+    if (soloLectura) return
     const agente = agentesPorId.get(agenteId)
     if (!agente) return
     if (esTurnoPermiso(turno)) {
@@ -652,6 +659,7 @@ export function CuadranteJefesPage() {
   ) {
     event.preventDefault()
     event.stopPropagation()
+    if (soloLectura) return
     const permiso = leerPermisoArrastrado(event.dataTransfer, nombresPermiso)
     if (permiso) {
       aplicarPermisoEnCelda(agenteId, dia, fecha, turno, permiso)
@@ -665,6 +673,7 @@ export function CuadranteJefesPage() {
   }
 
   function aplicarAsignacionMesAgente(agenteId: string, puesto: PuestoBase) {
+    if (soloLectura) return
     const agente = agentesPorId.get(agenteId)
     if (!agente) return
     const fechasTurno = fechasOperativasAgenteMes(
@@ -705,6 +714,7 @@ export function CuadranteJefesPage() {
   }
 
   function aplicarPermisoMesAgente(agenteId: string, permiso: string) {
+    if (soloLectura) return
     const fechasPermiso = fechasOperativasAgenteMes(
       cuadrante,
       agenteId,
@@ -756,6 +766,7 @@ export function CuadranteJefesPage() {
 
   function soltarEnCabeceraJefe(event: React.DragEvent, agenteId: string) {
     event.preventDefault()
+    if (soloLectura) return
     const permiso = leerPermisoArrastrado(event.dataTransfer, nombresPermiso)
     if (permiso) {
       aplicarPermisoMesAgente(agenteId, permiso)
@@ -816,6 +827,7 @@ export function CuadranteJefesPage() {
   }
 
   async function guardarCuadranteEnFirestore() {
+    if (soloLectura) return
     if (cuadranteCargaFallida && !tieneCuadranteLocal) {
       await alert(
         'No se puede guardar: el cuadrante no se cargó correctamente.',
@@ -984,6 +996,7 @@ export function CuadranteJefesPage() {
               type="button"
               className={BTN_SUCCESS}
               disabled={
+                soloLectura ||
                 !cuadranteListo ||
                 guardandoCuadrante ||
                 !firebaseOk ||
@@ -1007,6 +1020,9 @@ export function CuadranteJefesPage() {
         </p>
       ) : null}
       {errorCuadrante ? <p className={ALERT_ERROR}>{errorCuadrante}</p> : null}
+      {soloLectura ? (
+        <AvisoSoloLectura texto="Solo consulta del cuadrante de jefes. No puedes cambiar turnos, puestos ni permisos." />
+      ) : null}
       {jefes.length === 0 && !loadingCuadrante ? (
         <p className={ALERT_INFO}>
           No hay jefes de servicio ni responsables en la plantilla. Añádelos en
@@ -1030,7 +1046,7 @@ export function CuadranteJefesPage() {
       <DashboardBody>
         <DashboardMain>
           <DashboardMainScroll>
-            <table className="w-full table-fixed border-separate border-spacing-0 text-[12px] leading-none">
+            <table className={`w-full table-fixed border-separate border-spacing-0 text-[12px] leading-none ${soloLectura ? 'pointer-events-none' : ''}`}>
               <colgroup>
                 <col style={{ width: ANCHO_AGENTE }} />
                 {diasVisibles.map((dia) => (
@@ -1324,7 +1340,7 @@ export function CuadranteJefesPage() {
             </table>
           </DashboardMainScroll>
         </DashboardMain>
-        <DashboardSidebar>
+        <DashboardSidebar className={soloLectura ? 'pointer-events-none opacity-60' : ''}>
           <BolsaPuestosPanel
             filtroTurno={filtroTurno}
             onFiltroTurno={setFiltroTurno}

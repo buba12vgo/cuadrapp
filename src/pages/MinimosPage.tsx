@@ -14,7 +14,10 @@ import {
 } from '@/components/ui/DashboardLayout'
 import { PageHeader, ToolbarDivider, ToolbarSection } from '@/components/ui/PageHeader'
 import { SaveStatus } from '@/components/ui/SaveStatus'
+import { AvisoSoloLectura } from '@/components/AvisoSoloLectura'
 import { useAppDialog } from '@/components/ui/ConfirmDialog'
+import { useAcceso } from '@/contexts/AccesoContext'
+import { escrituraPermitida } from '@/lib/acceso'
 import {
   ALERT_ERROR,
   BTN_PRIMARY,
@@ -115,6 +118,8 @@ function esFinde(dia: DiaSemana) {
 
 export function MinimosPage() {
   const { confirm: askConfirm } = useAppDialog()
+  const { puedeEscribir } = useAcceso()
+  const soloLectura = !puedeEscribir('minimos')
   const [agentes] = useAgentesData()
   const [puestosTodos] = usePuestosData()
   const [vista, setVista] = useState<VistaMinimos>('POLICIAS')
@@ -196,6 +201,7 @@ export function MinimosPage() {
   }
 
   async function persistir() {
+    if (soloLectura || !escrituraPermitida('minimos')) return
     if (!firebaseOk) return
     setGuardando(true)
     setError(null)
@@ -217,6 +223,7 @@ export function MinimosPage() {
   }
 
   function programarGuardado() {
+    if (soloLectura) return
     setPendiente(true)
     setGuardadoOk(false)
     if (timerRef.current) clearTimeout(timerRef.current)
@@ -231,6 +238,7 @@ export function MinimosPage() {
     turno: TurnoOperativo,
     valor: number,
   ) {
+    if (soloLectura) return
     setMinimos((actual) => ({
       ...actual,
       [dia]: {
@@ -524,9 +532,10 @@ export function MinimosPage() {
         </div>
       ) : null}
 
+      {soloLectura ? <AvisoSoloLectura /> : null}
       {error ? <p className={ALERT_ERROR}>{error}</p> : null}
 
-      <DashboardBody>
+      <DashboardBody className={soloLectura ? 'pointer-events-none' : ''}>
         <DashboardMain>
           {puestos.length === 0 ? (
             <p className="px-4 py-8 text-center text-sm text-slate-500">

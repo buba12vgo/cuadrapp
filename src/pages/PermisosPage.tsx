@@ -7,7 +7,9 @@ import {
 } from '@/components/ui/DashboardLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Modal } from '@/components/ui/Modal'
+import { AvisoSoloLectura } from '@/components/AvisoSoloLectura'
 import { useAppDialog } from '@/components/ui/ConfirmDialog'
+import { useAcceso } from '@/contexts/AccesoContext'
 import { KpiCard, KpiGrid2 } from '@/components/ui/DashboardKpi'
 import {
   ALERT_ERROR,
@@ -268,6 +270,8 @@ function EditorModal({
 
 export function PermisosPage() {
   const { alert: showAlert, confirm: askConfirm } = useAppDialog()
+  const { puedeEscribir } = useAcceso()
+  const soloLectura = !puedeEscribir('permisos')
   const [permisos, setPermisos] = useTiposPermiso()
   const [modo, setModo] = useState<'nuevo' | 'editar' | null>(null)
   const [editando, setEditando] = useState<PermisoConfig | null>(null)
@@ -276,6 +280,7 @@ export function PermisosPage() {
   const firebaseOk = isFirebaseReady()
 
   async function guardar(permiso: PermisoConfig) {
+    if (soloLectura) return
     if (!firebaseOk) {
       await showAlert('Firebase no está configurado; no se puede guardar.', 'Firebase')
       return
@@ -308,6 +313,7 @@ export function PermisosPage() {
   }
 
   async function borrar(permiso: PermisoConfig) {
+    if (soloLectura) return
     if (esDiasAnoAnterior(permiso.codigo)) {
       await showAlert(
         '«Días del Año Anterior» es un tipo de sistema: el 31 de diciembre a las 23:59 recibe el saldo no gastado.',
@@ -353,7 +359,7 @@ export function PermisosPage() {
           <button
             type="button"
             className={BTN_PRIMARY}
-            disabled={!firebaseOk || guardando}
+            disabled={soloLectura || !firebaseOk || guardando}
             onClick={() => {
               setEditando(null)
               setModo('nuevo')
@@ -364,6 +370,7 @@ export function PermisosPage() {
         }
       />
 
+      {soloLectura ? <AvisoSoloLectura /> : null}
       {error ? <p className={ALERT_ERROR}>{error}</p> : null}
 
       <DashboardBody>
@@ -400,7 +407,7 @@ export function PermisosPage() {
                       <button
                         type="button"
                         className="mr-1.5 text-sm font-semibold text-slate-700 hover:underline disabled:opacity-40"
-                        disabled={guardando}
+                        disabled={soloLectura || guardando}
                         onClick={() => {
                           setEditando(permiso)
                           setModo('editar')
@@ -411,7 +418,7 @@ export function PermisosPage() {
                       <button
                         type="button"
                         className="text-sm font-semibold text-red-700 hover:underline disabled:opacity-40"
-                        disabled={guardando || esDiasAnoAnterior(permiso.codigo)}
+                        disabled={soloLectura || guardando || esDiasAnoAnterior(permiso.codigo)}
                         onClick={() => void borrar(permiso)}
                       >
                         Eliminar

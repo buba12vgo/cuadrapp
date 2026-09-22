@@ -6,7 +6,9 @@ import {
   DashboardMainScroll,
 } from '@/components/ui/DashboardLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { AvisoSoloLectura } from '@/components/AvisoSoloLectura'
 import { useAppDialog } from '@/components/ui/ConfirmDialog'
+import { useAcceso } from '@/contexts/AccesoContext'
 import {
   ALERT_ERROR,
   BTN_DANGER,
@@ -313,6 +315,8 @@ function EditorDiaDrawer({
 
 export function CalendarioPage() {
   const { alert: showAlert } = useAppDialog()
+  const { puedeEscribir } = useAcceso()
+  const soloLectura = !puedeEscribir('calendario')
   const [eventosData, setEventosData] = useEventosData()
   const [puestosTodos] = usePuestosData()
   const puestos = useMemo(
@@ -341,6 +345,7 @@ export function CalendarioPage() {
     : undefined
 
   async function guardarDia(evento: EventoOperativo | null) {
+    if (soloLectura) return
     if (!fechaSeleccionada) return
     if (!firebaseOk) {
       await showAlert('Firebase no está configurado; no se puede guardar.', 'Firebase')
@@ -444,6 +449,7 @@ export function CalendarioPage() {
         }
       />
 
+      {soloLectura ? <AvisoSoloLectura /> : null}
       {error ? <p className={ALERT_ERROR}>{error}</p> : null}
 
       <DashboardBody>
@@ -484,7 +490,9 @@ export function CalendarioPage() {
                     ? 'ring-2 ring-blue-500'
                     : 'bg-white'
                 }`}
-                onClick={() => setFechaSeleccionada(fecha)}
+                onClick={() => {
+                  if (!soloLectura) setFechaSeleccionada(fecha)
+                }}
               >
                 <span className="text-sm font-bold text-slate-800">{dia}</span>
                 {etiqueta ? (

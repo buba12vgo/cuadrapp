@@ -7,7 +7,9 @@ import {
 } from '@/components/ui/DashboardLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Modal } from '@/components/ui/Modal'
+import { AvisoSoloLectura } from '@/components/AvisoSoloLectura'
 import { useAppDialog } from '@/components/ui/ConfirmDialog'
+import { useAcceso } from '@/contexts/AccesoContext'
 import {
   ALERT_ERROR,
   ALERT_INFO,
@@ -826,6 +828,8 @@ function FichaAgenteModal({
 
 export function AgentesPage() {
   const { alert, confirm } = useAppDialog()
+  const { puedeEscribir } = useAcceso()
+  const soloLectura = !puedeEscribir('agentes')
   const [agentesData, setAgentesData] = useAgentesData()
   const [agenteModal, setAgenteModal] = useState<FichaPolicia | null>(null)
   const [esNuevo, setEsNuevo] = useState(false)
@@ -887,6 +891,7 @@ export function AgentesPage() {
   }, [setAgentesData])
 
   async function guardarFicha(ficha: FichaPolicia) {
+    if (soloLectura) return
     if (!ficha.numeroPlaca.trim()) {
       await alert('Indica un número de placa', 'Datos incompletos')
       return
@@ -927,6 +932,7 @@ export function AgentesPage() {
   }
 
   async function eliminarAgente(agente: FichaPolicia) {
+    if (soloLectura) return
     const etiqueta = `${agente.numeroPlaca} · ${agente.nombre} ${agente.apellidos}`.trim()
     const ok = await confirm(
       `¿Eliminar al agente «${etiqueta}»? Se quitará de la plantilla en Firestore.`,
@@ -962,6 +968,7 @@ export function AgentesPage() {
   }
 
   async function importarDesdeExcel(archivo: File) {
+    if (soloLectura) return
     setImportando(true)
     setError(null)
     try {
@@ -1025,7 +1032,7 @@ export function AgentesPage() {
             </button>
             <button
               type="button"
-              disabled={loading || importando || !firebaseOk}
+              disabled={soloLectura || loading || importando || !firebaseOk}
               className={BTN_SECONDARY}
               onClick={() => inputExcel.current?.click()}
             >
@@ -1033,7 +1040,7 @@ export function AgentesPage() {
             </button>
             <button
               type="button"
-              disabled={loading || importando || !firebaseOk}
+              disabled={soloLectura || loading || importando || !firebaseOk}
               className={BTN_PRIMARY}
               onClick={() => {
                 setEsNuevo(true)
@@ -1046,6 +1053,7 @@ export function AgentesPage() {
         }
       />
 
+      {soloLectura ? <AvisoSoloLectura /> : null}
       {error ? <p className={ALERT_ERROR}>{error}</p> : null}
 
       {loading ? (
@@ -1101,7 +1109,8 @@ export function AgentesPage() {
                     <td className={`${TD} text-right`}>
                       <button
                         type="button"
-                        className="mr-1.5 text-sm font-medium text-slate-700 hover:underline"
+                        disabled={soloLectura}
+                        className="mr-1.5 text-sm font-medium text-slate-700 hover:underline disabled:opacity-40"
                         onClick={() => {
                           setEsNuevo(false)
                           setAgenteModal(agente)
@@ -1111,7 +1120,7 @@ export function AgentesPage() {
                       </button>
                       <button
                         type="button"
-                        disabled={guardando || !firebaseOk}
+                        disabled={soloLectura || guardando || !firebaseOk}
                         className="text-sm font-semibold text-red-700 hover:underline disabled:cursor-not-allowed disabled:opacity-40"
                         onClick={() => void eliminarAgente(agente)}
                       >

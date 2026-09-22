@@ -7,7 +7,10 @@ import {
 } from '@/components/ui/DashboardLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { SaveStatus } from '@/components/ui/SaveStatus'
+import { AvisoSoloLectura } from '@/components/AvisoSoloLectura'
 import { useAppDialog } from '@/components/ui/ConfirmDialog'
+import { useAcceso } from '@/contexts/AccesoContext'
+import { escrituraPermitida } from '@/lib/acceso'
 import {
   ALERT_ERROR,
   ALERT_INFO,
@@ -189,6 +192,8 @@ function tituloPreferencia(agente: FichaPolicia, totales: Record<TurnoAnual, num
 
 export function PlanAnualPage() {
   const { confirm: askConfirm } = useAppDialog()
+  const { puedeEscribir } = useAcceso()
+  const soloLectura = !puedeEscribir('plan-anual')
   const [agentesData] = useAgentesData()
   const {
     anio,
@@ -259,7 +264,7 @@ export function PlanAnualPage() {
       window.clearTimeout(persistTimer.current)
       const pendiente = pendienteRef.current
       pendienteRef.current = null
-      if (!pendiente) return
+      if (!pendiente || !escrituraPermitida('plan-anual')) return
       void savePlanAnual(
         pendiente.anio,
         pendiente.plan,
@@ -272,6 +277,7 @@ export function PlanAnualPage() {
   }, [])
 
   async function persistir(plan: PlanAnual, objetivos: ObjetivosGlobales) {
+    if (soloLectura || !escrituraPermitida('plan-anual')) return
     pendienteRef.current = null
     const ready = await ensureFirebase()
     if (!ready) return
@@ -312,6 +318,7 @@ export function PlanAnualPage() {
   }
 
   function rotarCelda(agente: FichaPolicia, mes: number) {
+    if (soloLectura) return
     if (!planListo) return
     const filaActual = [...(planAnual[agente.id] ?? filaVaciaPlanAnual())]
     const turnoActual = filaActual[mes] ?? null
@@ -331,7 +338,7 @@ export function PlanAnualPage() {
 
   /** Regenera solo el año del selector; no escribe años vecinos. */
   function autogenerar() {
-    if (!planListo) return
+    if (soloLectura || !planListo) return
     const resultado = generarPlanAnual(
       agentesData,
       objetivosGlobales,
@@ -345,7 +352,7 @@ export function PlanAnualPage() {
 
   /** Vacía solo el año del selector, tras dos confirmaciones. */
   async function limpiarAnio() {
-    if (!planListo || !hayPlanAnio) return
+    if (soloLectura || !planListo || !hayPlanAnio) return
     const seguir = await askConfirm(
       `¿Vaciar el plan de ${anio}?\n\nSe borrarán todos los turnos de este año. ${anio + 1} y el resto no se tocan.\n\nDespués puedes rellenar ${anio} a mano (el cuadrante real) y autogenerar ${anio + 1} con las normas de fin de año.`,
       `Vaciar plan ${anio}`,
@@ -457,7 +464,7 @@ export function PlanAnualPage() {
               type="button"
               className={BTN_PRIMARY}
               title={`Regenera solo ${anio}`}
-              disabled={!planListo}
+              disabled={soloLectura || !planListo}
               onClick={autogenerar}
             >
               Autogenerar
@@ -466,7 +473,7 @@ export function PlanAnualPage() {
               type="button"
               className={BTN_DANGER}
               title={`Vacía el plan de ${anio}`}
-              disabled={!planListo || !hayPlanAnio}
+              disabled={soloLectura || !planListo || !hayPlanAnio}
               onClick={() => void limpiarAnio()}
             >
               Limpiar año
@@ -486,6 +493,7 @@ export function PlanAnualPage() {
         </div>
       ) : null}
 
+      {soloLectura ? <AvisoSoloLectura /> : null}
       {!cargado ? (
         <div className={`${ALERT_INFO} shrink-0`}>
           Cargando plan anual desde Firestore…
@@ -505,7 +513,7 @@ export function PlanAnualPage() {
       <DashboardBody>
         <DashboardMain>
           <DashboardMainScroll>
-        <table className="w-max min-w-full table-fixed border-separate border-spacing-0 text-[10px] leading-none">
+        <table className={`w-max min-w-full table-fixed border-separate border-spacing-0 text-[10px] leading-none ${soloLectura ? 'pointer-events-none' : ''}`}>
           <thead>
             <tr className="h-[20px]">
               <th

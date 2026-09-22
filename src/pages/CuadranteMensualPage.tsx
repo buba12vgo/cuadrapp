@@ -1340,7 +1340,9 @@ export function CuadranteMensualPage() {
                   totales[turno] >=
                   totalMinimosTurno(minimosDia, turno, puestosOperativos),
               )
-              const fondoDia = diaCubierto ? 'bg-emerald-50' : 'bg-rose-50'
+              const fondoDia = diaCubierto
+                ? 'bg-emerald-50'
+                : 'aviso-vivo bg-rose-50'
 
               return (
                 <tr key={dia} className={fondoFila}>
@@ -1422,7 +1424,7 @@ export function CuadranteMensualPage() {
                       <td
                         key={agente.id}
                         className={`${CELDA} text-center font-bold ${CLASE_TURNO[turno]} ${fondoSuave} ${
-                          rota ? 'border-red-600 !text-red-800' : ''
+                          rota ? 'aviso-vivo border-red-600 !text-red-800' : ''
                         } ${atenuada ? 'opacity-30' : ''} ${
                           interactiva
                             ? 'cursor-pointer hover:z-10 hover:ring-2 hover:ring-blue-500 data-[over=true]:ring-2 data-[over=true]:ring-emerald-600'

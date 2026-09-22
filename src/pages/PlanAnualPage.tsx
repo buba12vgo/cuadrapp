@@ -510,7 +510,7 @@ export function PlanAnualPage() {
                   key={mes}
                   className={`${CELDA} sticky top-0 z-20 font-bold text-white ${
                     mesesMarcados.has(indiceMes)
-                      ? 'bg-amber-700'
+                      ? 'aviso-vivo bg-amber-700'
                       : 'bg-brand-800'
                   }`}
                   title={
@@ -615,7 +615,7 @@ export function PlanAnualPage() {
                           mesesMarcados.has(mes)
                             ? 'shadow-[inset_0_0_0_1px_rgb(252_211_77)]'
                             : ''
-                        } ${aviso ? 'shadow-[inset_0_0_0_1px_rgb(239_68_68)]' : ''}`}
+                        } ${aviso ? 'aviso-vivo shadow-[inset_0_0_0_1px_rgb(239_68_68)]' : ''}`}
                         title={
                           turno
                             ? aviso

@@ -50,13 +50,13 @@ export const CAMPO = `h-9 rounded-lg border border-line bg-white px-2.5 text-sm 
 export const CAMPO_NUM = `h-9 w-14 rounded-lg border border-line bg-white px-1 text-center text-sm tabular-nums text-ink ${FOCUS_RING} focus:border-brand-400`
 
 export const ALERT_ERROR =
-  'shrink-0 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800'
+  'aviso-entrada shrink-0 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800'
 
 export const ALERT_WARN =
-  'shrink-0 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950'
+  'aviso-entrada shrink-0 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950'
 
 export const ALERT_INFO =
-  'shrink-0 rounded-xl border border-line bg-brand-50/60 px-3 py-2 text-sm text-slate-700'
+  'aviso-entrada shrink-0 rounded-xl border border-line bg-brand-50/60 px-3 py-2 text-sm text-slate-700'
 
 export const TABLE = 'w-full border-collapse text-sm'
 
@@ -108,7 +108,7 @@ export const MARCA_PLAN_FILA =
 
 export const SEMAFORO_OK = 'bg-emerald-50 font-semibold text-emerald-800'
 
-export const SEMAFORO_KO = 'bg-rose-50 font-semibold text-rose-800'
+export const SEMAFORO_KO = 'aviso-vivo bg-rose-50 font-semibold text-rose-800'
 
 export const SEMAFORO_WARN = 'bg-amber-50 font-semibold text-amber-900'
 

@@ -1079,7 +1079,7 @@ export function CuadranteJefesPage() {
                         className={`${CELDA_DIA} sticky top-0 z-20 text-center ${
                           diaCubierto
                             ? 'bg-emerald-50 text-emerald-950'
-                            : 'bg-rose-50 text-rose-900'
+                            : 'aviso-vivo bg-rose-50 text-rose-900'
                         }`}
                         title={
                           diaCubierto

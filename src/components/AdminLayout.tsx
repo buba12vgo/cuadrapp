@@ -9,31 +9,45 @@ import {
   List,
   PanelLeftClose,
   PanelLeftOpen,
+  Settings,
   Shield,
   Table2,
+  UserCog,
   Users,
 } from 'lucide-react'
 import { Fragment, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { AppDialogProvider } from '@/components/ui/ConfirmDialog'
+import { useAcceso } from '@/contexts/AccesoContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAgentUser } from '@/lib/authAllowlist'
+import { type Ambito, type RolAcceso } from '@/lib/acceso'
 import { isDesignPreview } from '@/lib/designPreview'
 import { FOCUS_RING } from '@/lib/uiStyles'
 import { useConfigOperativaBootstrap } from '@/lib/useConfigOperativaBootstrap'
 
 const SIDEBAR_KEY = 'cuadrapp.sidebar-collapsed'
 
-const NAV_GROUPS = [
+const NAV_GROUPS: Array<{
+  id: string
+  label: string
+  items: Array<{
+    to: string
+    label: string
+    icon: typeof Users
+    ambito: Ambito
+    end?: boolean
+  }>
+}> = [
   {
     id: 'plantilla',
     label: 'Plantilla',
     items: [
-      { to: '/admin/agentes', label: 'Agentes', icon: Users, end: true as const },
-      { to: '/admin/puestos', label: 'Puestos', icon: Briefcase },
-      { to: '/admin/permisos', label: 'Permisos', icon: ClipboardList },
-      { to: '/admin/minimos', label: 'Mínimos', icon: Gauge },
-      { to: '/admin/plan-anual', label: 'Plan anual', icon: CalendarRange },
+      { to: '/admin/agentes', label: 'Agentes', icon: Users, ambito: 'agentes', end: true },
+      { to: '/admin/puestos', label: 'Puestos', icon: Briefcase, ambito: 'puestos' },
+      { to: '/admin/permisos', label: 'Permisos', icon: ClipboardList, ambito: 'permisos' },
+      { to: '/admin/minimos', label: 'Mínimos', icon: Gauge, ambito: 'minimos' },
+      { to: '/admin/plan-anual', label: 'Plan anual', icon: CalendarRange, ambito: 'plan-anual' },
     ],
   },
   {
@@ -44,27 +58,34 @@ const NAV_GROUPS = [
         to: '/admin/cuadrante-mensual',
         label: 'Cuadrante mensual',
         icon: Table2,
+        ambito: 'cuadrante-mensual',
       },
       {
         to: '/admin/cuadrante-jefes',
         label: 'Cuadrante jefes',
         icon: Shield,
+        ambito: 'cuadrante-jefes',
       },
       {
         to: '/admin/calendario-jefes',
         label: 'Calendario jefes',
         icon: CalendarClock,
+        ambito: 'calendario-jefes',
       },
-      { to: '/admin/calendario', label: 'Calendario', icon: CalendarDays },
-      { to: '/admin/listados', label: 'Listados', icon: List },
+      { to: '/admin/calendario', label: 'Calendario', icon: CalendarDays, ambito: 'calendario' },
+      { to: '/admin/listados', label: 'Listados', icon: List, ambito: 'listados' },
     ],
   },
   {
-    id: 'normativa',
-    label: 'Normativa',
-    items: [{ to: '/admin/reglas', label: 'Reglas', icon: BookOpen }],
+    id: 'cuenta',
+    label: 'Cuenta',
+    items: [
+      { to: '/admin/usuarios', label: 'Usuarios', icon: UserCog, ambito: 'usuarios' },
+      { to: '/admin/opciones', label: 'Opciones', icon: Settings, ambito: 'opciones' },
+      { to: '/admin/reglas', label: 'Reglas', icon: BookOpen, ambito: 'reglas' },
+    ],
   },
-] as const
+]
 
 function leerSidebarPlegado() {
   try {
@@ -107,9 +128,15 @@ function NavItems({
   variant: 'side' | 'top'
   collapsed?: boolean
 }) {
+  const acceso = useAcceso()
+  const grupos = NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => acceso.puedeVer(item.ambito)),
+  })).filter((group) => group.items.length > 0)
+
   return (
     <>
-      {NAV_GROUPS.map((group, groupIndex) => (
+      {grupos.map((group, groupIndex) => (
         <Fragment key={group.id}>
           {variant === 'side' && !collapsed ? (
             <p
@@ -182,8 +209,11 @@ function BrandMark({ compact = false }: { compact?: boolean }) {
   )
 }
 
+const ROLES_PREVIEW: RolAcceso[] = ['SUPERADMIN', 'ADMIN', 'CONSULTA_JEFES']
+
 export function AdminLayout() {
   const { user, signOut } = useAuth()
+  const acceso = useAcceso()
   const { estado, error, firebaseOk } = useConfigOperativaBootstrap()
   const [collapsed, setCollapsed] = useState(leerSidebarPlegado)
 
@@ -267,7 +297,9 @@ export function AdminLayout() {
                     {user?.displayName ?? user?.email ?? 'Usuario'}
                   </p>
                   <p className="text-xs text-muted">
-                    {isAgentUser(user) ? 'Agente' : 'Administrador'}
+                    {isDesignPreview && isAgentUser(user)
+                      ? `Preview · ${acceso.etiquetaRol || 'Superadmin'}`
+                      : acceso.etiquetaRol || 'Usuario'}
                   </p>
                 </div>
                 <button
@@ -287,9 +319,28 @@ export function AdminLayout() {
             </nav>
 
             {isDesignPreview ? (
-              <p className="border-t border-brand-200 bg-brand-50 px-4 py-1.5 text-sm font-medium text-brand-800">
-                Sesión Cursor (cursor@cuadrapp.local) — datos locales, sin
-                Firestore
+              <p className="flex flex-wrap items-center gap-2 border-t border-brand-200 bg-brand-50 px-4 py-1.5 text-sm font-medium text-brand-800">
+                <span>Sesión Cursor — datos locales, sin Firestore.</span>
+                <label className="flex items-center gap-1 font-normal">
+                  Ver como
+                  <select
+                    className="h-7 rounded-md border border-brand-200 bg-white px-1.5 text-xs text-ink"
+                    value={acceso.rolPreview}
+                    onChange={(event) =>
+                      acceso.setRolPreview(event.target.value as RolAcceso)
+                    }
+                  >
+                    {ROLES_PREVIEW.map((rol) => (
+                      <option key={rol} value={rol}>
+                        {rol === 'SUPERADMIN'
+                          ? 'Superadmin'
+                          : rol === 'ADMIN'
+                            ? 'Admin'
+                            : 'Consulta jefes'}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </p>
             ) : null}
             {estado === 'loading' ? (

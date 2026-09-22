@@ -1,18 +1,94 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Misma lista que VITE_ADMIN_EMAILS en Vercel (correos en minúsculas).
-    function isAdmin() {
-      return request.auth != null
-        && request.auth.token.email_verified == true
-        && request.auth.token.email in [
-          'buba12@gmail.com',
-          'jony.mivi@gmail.com'
-        ];
+    function sesion() {
+      return request.auth != null;
     }
 
-    match /{document=**} {
-      allow read, write: if isAdmin();
+    function email() {
+      return request.auth.token.email;
+    }
+
+    function verificado() {
+      return request.auth.token.email_verified == true;
+    }
+
+    function esSuperAdmin() {
+      return sesion()
+        && verificado()
+        && email() == 'buba12@gmail.com';
+    }
+
+    function esAdminJefes() {
+      return sesion()
+        && verificado()
+        && email() in ['jonymivi@gmail.com', 'jony.mivi@gmail.com'];
+    }
+
+    function perfilConsulta() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+    }
+
+    function esConsulta() {
+      return sesion()
+        && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+        && perfilConsulta().activo == true
+        && perfilConsulta().rolAcceso == 'CONSULTA_JEFES'
+        && perfilConsulta().email == email();
+    }
+
+    function leeTodo() {
+      return esSuperAdmin() || esAdminJefes();
+    }
+
+    function leeJefes() {
+      return leeTodo() || esConsulta();
+    }
+
+    match /usuarios/{uid} {
+      allow get: if sesion() && request.auth.uid == uid;
+      allow list: if esSuperAdmin();
+      allow create, update, delete: if esSuperAdmin();
+    }
+
+    match /agentes/{id} {
+      allow read: if leeJefes();
+      allow write: if esSuperAdmin();
+    }
+
+    match /puestos/{id} {
+      allow read: if leeJefes();
+      allow write: if esSuperAdmin();
+    }
+
+    match /tiposPermiso/{id} {
+      allow read: if leeJefes();
+      allow write: if esSuperAdmin() || esAdminJefes();
+    }
+
+    match /cuadrantesJefes/{id} {
+      allow read: if leeJefes();
+      allow write: if esSuperAdmin() || esAdminJefes();
+    }
+
+    match /eventos/{id} {
+      allow read: if leeJefes();
+      allow write: if esSuperAdmin();
+    }
+
+    match /config/{id} {
+      allow read: if leeJefes();
+      allow write: if esSuperAdmin();
+    }
+
+    match /cuadrantes/{id} {
+      allow read: if leeTodo();
+      allow write: if esSuperAdmin();
+    }
+
+    match /planesAnuales/{id} {
+      allow read: if leeTodo();
+      allow write: if esSuperAdmin();
     }
   }
 }

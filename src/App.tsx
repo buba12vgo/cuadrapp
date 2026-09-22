@@ -12,7 +12,10 @@ import { PermisosPage } from '@/pages/PermisosPage'
 import { PuestosPage } from '@/pages/PuestosPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { ListadosPage } from '@/pages/ListadosPage'
+import { OpcionesPage } from '@/pages/OpcionesPage'
 import { ReglasPage } from '@/pages/ReglasPage'
+import { UsuariosPage } from '@/pages/UsuariosPage'
+import { InicioAcceso } from '@/components/InicioAcceso'
 
 export default function App() {
   return (
@@ -20,7 +23,7 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AdminLayout />}>
-          <Route path="/" element={<Navigate to="/admin/agentes" replace />} />
+          <Route path="/" element={<InicioAcceso />} />
           <Route path="/admin/agentes" element={<AgentesPage />} />
           <Route path="/admin/puestos" element={<PuestosPage />} />
           <Route path="/admin/permisos" element={<PermisosPage />} />
@@ -40,6 +43,8 @@ export default function App() {
           <Route path="/admin/calendario" element={<CalendarioPage />} />
           <Route path="/admin/listados" element={<ListadosPage />} />
           <Route path="/admin/reglas" element={<ReglasPage />} />
+          <Route path="/admin/usuarios" element={<UsuariosPage />} />
+          <Route path="/admin/opciones" element={<OpcionesPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/login" replace />} />

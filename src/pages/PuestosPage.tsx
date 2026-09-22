@@ -7,7 +7,9 @@ import {
 } from '@/components/ui/DashboardLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Modal } from '@/components/ui/Modal'
+import { AvisoSoloLectura } from '@/components/AvisoSoloLectura'
 import { useAppDialog } from '@/components/ui/ConfirmDialog'
+import { useAcceso } from '@/contexts/AccesoContext'
 import {
   ALERT_ERROR,
   BLOQUE,
@@ -284,6 +286,8 @@ function EditorPuestoModal({
 
 export function PuestosPage() {
   const { alert: showAlert, confirm: askConfirm } = useAppDialog()
+  const { puedeEscribir } = useAcceso()
+  const soloLectura = !puedeEscribir('puestos')
   const [puestos, setPuestos] = usePuestosData()
   const [modo, setModo] = useState<'nuevo' | 'editar' | null>(null)
   const [editando, setEditando] = useState<PuestoConfig | null>(null)
@@ -306,6 +310,7 @@ export function PuestosPage() {
   }
 
   async function guardar(puesto: PuestoConfig) {
+    if (soloLectura) return
     if (!firebaseOk) {
       await showAlert('Firebase no está configurado; no se puede guardar.', 'Firebase')
       return
@@ -366,6 +371,7 @@ export function PuestosPage() {
   }
 
   async function borrar(puesto: PuestoConfig) {
+    if (soloLectura) return
     const ok = await askConfirm(
       `¿Eliminar el puesto «${puesto.nombre}»? Se quitará de los mínimos configurados.`,
       'Eliminar puesto',
@@ -410,7 +416,7 @@ export function PuestosPage() {
           <button
             type="button"
             className={BTN_PRIMARY}
-            disabled={!firebaseOk || guardando}
+            disabled={soloLectura || !firebaseOk || guardando}
             onClick={abrirNuevo}
           >
             Nuevo puesto
@@ -418,6 +424,7 @@ export function PuestosPage() {
         }
       />
 
+      {soloLectura ? <AvisoSoloLectura /> : null}
       {error ? <p className={ALERT_ERROR}>{error}</p> : null}
 
       <DashboardBody>
@@ -450,7 +457,7 @@ export function PuestosPage() {
                   <button
                     type="button"
                     className="mr-1.5 text-sm font-semibold text-slate-700 hover:underline disabled:opacity-40"
-                    disabled={guardando}
+                    disabled={soloLectura || guardando}
                     onClick={() => abrirEditar(puesto)}
                   >
                     Editar
@@ -458,7 +465,7 @@ export function PuestosPage() {
                   <button
                     type="button"
                     className="text-sm font-semibold text-red-700 hover:underline disabled:opacity-40"
-                    disabled={guardando}
+                    disabled={soloLectura || guardando}
                     onClick={() => void borrar(puesto)}
                   >
                     Eliminar

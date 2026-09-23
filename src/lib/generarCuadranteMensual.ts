@@ -28,6 +28,7 @@ import {
 } from '@/lib/convenio'
 import {
   MAX_FINDES_CONSECUTIVOS,
+  MAX_FINDES_MES,
   equilibrarFindesConsecutivos,
   equilibrarFindesLaboradosMes,
   equilibrarFindesUnicoMes,
@@ -38,6 +39,7 @@ import {
   maxFindesConsecutivosLaborados,
   OBJETIVO_FINDES_MES,
   paresFindeCompletos,
+  type ParFinde,
 } from '@/lib/finesSemana'
 import {
   type ContextoMetricasCuadrante,
@@ -1195,6 +1197,380 @@ function refinarReglasFindesFilas(
     if (!turno || !fila || fila.length !== nDias) continue
     cuadrante[id] = refinarFilaFindes(fila, turno, anio, mes)
   }
+  cruzarFindesEnCuadrante(cuadrante, agenteIds, planAnual, anio, mes)
+}
+
+function costeFindePasada(fila: Turno[], anio: number, mes: number) {
+  const partidos = countFindesPartidos(fila, anio, mes)
+  const nf = findesLaboradosEnMes(fila, anio, mes)
+  const racha = maxFindesConsecutivosLaborados(fila, anio, mes)
+  let coste = partidos * 10_000
+  if (nf <= 0) coste += 50_000
+  else if (nf === 1) coste += 4_000
+  else if (nf === 3) coste += 250
+  else if (nf > MAX_FINDES_MES) coste += 50_000 + (nf - MAX_FINDES_MES) * 5_000
+  if (racha > MAX_FINDES_CONSECUTIVOS) {
+    coste += 3_000 * (racha - MAX_FINDES_CONSECUTIVOS)
+  }
+  return coste
+}
+
+function filaCruzValida(prueba: Turno[], original: Turno[], anio: number, mes: number) {
+  if (prueba.length !== original.length) return false
+  if (totalTrabajados(prueba) !== totalTrabajados(original)) return false
+  for (let i = 0; i < original.length; i++) {
+    if (original[i] === 'V' && prueba[i] !== 'V') return false
+    if (original[i] === 'L' && prueba[i] !== 'L') return false
+    if (original[i] === 'P' && prueba[i] !== 'P') return false
+  }
+  if (!filaSinGraves(prueba)) return false
+  const nf = findesLaboradosEnMes(prueba, anio, mes)
+  const nfAntes = findesLaboradosEnMes(original, anio, mes)
+  if (nf > MAX_FINDES_MES) return false
+  if (nf <= 0 && nfAntes > 0) return false
+  const racha = maxFindesConsecutivosLaborados(prueba, anio, mes)
+  const rachaAntes = maxFindesConsecutivosLaborados(original, anio, mes)
+  if (racha > MAX_FINDES_CONSECUTIVOS && racha > rachaAntes) return false
+  if (countFindesPartidos(prueba, anio, mes) > countFindesPartidos(original, anio, mes)) {
+    return false
+  }
+  return true
+}
+
+function costeGrupo(
+  base: Record<string, Turno[]>,
+  cambios: Record<string, Turno[]>,
+  anio: number,
+  mes: number,
+) {
+  let coste = 0
+  for (const id of Object.keys(base)) {
+    coste += costeFindePasada(cambios[id] ?? base[id], anio, mes)
+  }
+  return coste
+}
+
+function cambiosValidos(
+  base: Record<string, Turno[]>,
+  cambios: Record<string, Turno[]>,
+  anio: number,
+  mes: number,
+) {
+  for (const id of Object.keys(cambios)) {
+    const original = base[id]
+    const prueba = cambios[id]
+    if (!original || !prueba || !filaCruzValida(prueba, original, anio, mes)) return false
+  }
+  return true
+}
+
+function cadaCombinacion(
+  candidatos: number[],
+  k: number,
+  usar: (elegidos: number[]) => void,
+  max = 140,
+) {
+  if (k <= 0) {
+    usar([])
+    return
+  }
+  let vistos = 0
+  const pendientes: number[] = []
+  const recorrer = (inicio: number) => {
+    if (vistos >= max) return
+    if (pendientes.length === k) {
+      vistos += 1
+      usar([...pendientes])
+      return
+    }
+    for (let i = inicio; i < candidatos.length; i++) {
+      pendientes.push(candidatos[i])
+      recorrer(i + 1)
+      pendientes.pop()
+      if (vistos >= max) return
+    }
+  }
+  recorrer(0)
+}
+
+function candidatosCompensacion(
+  suelta: Turno[],
+  recibe: Turno[],
+  turno: TurnoOperativoMes,
+  anio: number,
+  mes: number,
+  bloqueados: Set<number>,
+) {
+  const candidatos: number[] = []
+  for (let i = 0; i < suelta.length; i++) {
+    if (bloqueados.has(i)) continue
+    if (esFinDeSemana(anio, mes, i + 1)) continue
+    if (suelta[i] !== turno || recibe[i] !== 'D') continue
+    candidatos.push(i)
+  }
+  candidatos.sort((a, b) => {
+    const score = (i: number) => {
+      const prevS = i > 0 && esDiaTrabajado(suelta[i - 1])
+      const nextS = i < suelta.length - 1 && esDiaTrabajado(suelta[i + 1])
+      const prevR = i > 0 && esDiaTrabajado(recibe[i - 1])
+      const nextR = i < recibe.length - 1 && esDiaTrabajado(recibe[i + 1])
+      let s = 0
+      if (prevS !== nextS) s += 8
+      if (!prevS && !nextS) s -= 20
+      if (prevR || nextR) s += 6
+      if (!prevR && !nextR) s -= 8
+      if ((i > 0 && suelta[i - 1] === 'D') || (i < suelta.length - 1 && suelta[i + 1] === 'D')) {
+        s += 4
+      }
+      return s
+    }
+    return score(b) - score(a)
+  })
+  return candidatos.slice(0, 16)
+}
+
+/**
+ * Deja el finde entero en `idTrabaja` y el descanso entero en `idDescansa`.
+ * Mueve las jornadas sobrantes a días de semana para conservar el cómputo y la cobertura.
+ */
+function asignarFindeEntero(
+  actual: Record<string, Turno[]>,
+  base: Record<string, Turno[]>,
+  idTrabaja: string,
+  idDescansa: string,
+  par: ParFinde,
+  turno: TurnoOperativoMes,
+  anio: number,
+  mes: number,
+): Record<string, Turno[]> | null {
+  const trabajo = actual[idTrabaja]
+  const descanso = actual[idDescansa]
+  if (!trabajo || !descanso || idTrabaja === idDescansa) return null
+  const iSab = par.sabado - 1
+  const iDom = par.domingo - 1
+  for (const fila of [trabajo, descanso]) {
+    for (const i of [iSab, iDom]) {
+      const celda = fila[i]
+      if (celda !== 'D' && celda !== turno) return null
+    }
+  }
+  const propuestoT = [...trabajo]
+  const propuestoD = [...descanso]
+  propuestoT[iSab] = turno
+  propuestoT[iDom] = turno
+  propuestoD[iSab] = 'D'
+  propuestoD[iDom] = 'D'
+  const delta = totalTrabajados(propuestoT) - totalTrabajados(trabajo)
+  if (delta < 0) return null
+  if (totalTrabajados(propuestoT) + totalTrabajados(propuestoD) !== totalTrabajados(trabajo) + totalTrabajados(descanso)) {
+    return null
+  }
+  const bloqueados = new Set([iSab, iDom])
+  let mejor: Record<string, Turno[]> | null = null
+  let mejorCoste = Number.POSITIVE_INFINITY
+  const probar = (t: Turno[], d: Turno[]) => {
+    const cambios = { [idTrabaja]: t, [idDescansa]: d }
+    if (!cambiosValidos(base, cambios, anio, mes)) return
+    const coste = costeGrupo(base, { ...actual, ...cambios }, anio, mes)
+    if (coste < mejorCoste) {
+      mejorCoste = coste
+      mejor = cambios
+    }
+  }
+  if (delta === 0) {
+    probar(propuestoT, propuestoD)
+    return mejor
+  }
+  const candidatos = candidatosCompensacion(
+    propuestoT,
+    propuestoD,
+    turno,
+    anio,
+    mes,
+    bloqueados,
+  )
+  cadaCombinacion(candidatos, delta, (elegidos) => {
+    const t = [...propuestoT]
+    const d = [...propuestoD]
+    for (const i of elegidos) {
+      t[i] = 'D'
+      d[i] = turno
+    }
+    probar(t, d)
+  })
+  return mejor
+}
+
+function esComplementario(
+  a: Turno[],
+  b: Turno[],
+  par: ParFinde,
+  turno: TurnoOperativoMes,
+) {
+  const iS = par.sabado - 1
+  const iD = par.domingo - 1
+  const aTrabajaSabado = a[iS] === turno && a[iD] === 'D'
+  const bTrabajaDomingo = b[iS] === 'D' && b[iD] === turno
+  const bTrabajaSabado = b[iS] === turno && b[iD] === 'D'
+  const aTrabajaDomingo = a[iS] === 'D' && a[iD] === turno
+  return (aTrabajaSabado && bTrabajaDomingo) || (bTrabajaSabado && aTrabajaDomingo)
+}
+
+function mejorTrasladoFinde(
+  actual: Record<string, Turno[]>,
+  base: Record<string, Turno[]>,
+  ids: string[],
+  turno: TurnoOperativoMes,
+  anio: number,
+  mes: number,
+) {
+  const pares = paresFindeCompletos(anio, mes, actual[ids[0]]?.length ?? 0)
+  let mejor: Record<string, Turno[]> | null = null
+  let mejorCoste = costeGrupo(base, actual, anio, mes)
+  const orden = [...ids].sort((a, b) => {
+    const na = findesLaboradosEnMes(actual[a] ?? [], anio, mes)
+    const nb = findesLaboradosEnMes(actual[b] ?? [], anio, mes)
+    return na - nb || a.localeCompare(b)
+  })
+  for (const idRecibe of orden) {
+    const recibe = actual[idRecibe]
+    if (!recibe) continue
+    const nfRecibe = findesLaboradosEnMes(recibe, anio, mes)
+    if (nfRecibe >= OBJETIVO_FINDES_MES) continue
+    for (const idDa of ids) {
+      if (idDa === idRecibe) continue
+      const da = actual[idDa]
+      if (!da) continue
+      const nfDa = findesLaboradosEnMes(da, anio, mes)
+      if (nfDa <= OBJETIVO_FINDES_MES || nfDa <= nfRecibe) continue
+      for (const par of pares) {
+        const iS = par.sabado - 1
+        const iD = par.domingo - 1
+        if (da[iS] !== turno || da[iD] !== turno) continue
+        if (recibe[iS] !== 'D' || recibe[iD] !== 'D') continue
+        const cambios = asignarFindeEntero(
+          actual,
+          base,
+          idRecibe,
+          idDa,
+          par,
+          turno,
+          anio,
+          mes,
+        )
+        if (!cambios) continue
+        const coste = costeGrupo(base, { ...actual, ...cambios }, anio, mes)
+        if (coste < mejorCoste) {
+          mejorCoste = coste
+          mejor = cambios
+        }
+      }
+    }
+  }
+  return mejor
+}
+
+function mejorUnionPartido(
+  actual: Record<string, Turno[]>,
+  base: Record<string, Turno[]>,
+  ids: string[],
+  turno: TurnoOperativoMes,
+  anio: number,
+  mes: number,
+) {
+  const pares = paresFindeCompletos(anio, mes, actual[ids[0]]?.length ?? 0)
+  let mejor: Record<string, Turno[]> | null = null
+  let mejorCoste = costeGrupo(base, actual, anio, mes)
+  for (let i = 0; i < ids.length; i++) {
+    for (let j = i + 1; j < ids.length; j++) {
+      const idA = ids[i]
+      const idB = ids[j]
+      const filaA = actual[idA]
+      const filaB = actual[idB]
+      if (!filaA || !filaB) continue
+      for (const par of pares) {
+        if (!esComplementario(filaA, filaB, par, turno)) continue
+        for (const [idTrabaja, idDescansa] of [
+          [idA, idB],
+          [idB, idA],
+        ] as const) {
+          const cambios = asignarFindeEntero(
+            actual,
+            base,
+            idTrabaja,
+            idDescansa,
+            par,
+            turno,
+            anio,
+            mes,
+          )
+          if (!cambios) continue
+          const coste = costeGrupo(base, { ...actual, ...cambios }, anio, mes)
+          if (coste < mejorCoste) {
+            mejorCoste = coste
+            mejor = cambios
+          }
+        }
+      }
+    }
+  }
+  return mejor
+}
+
+/**
+ * Pasada entre compañeros del mismo turno mensual:
+ * une findes partidos complementarios y pasa un finde entero de quien lleva 3 a quien lleva 1.
+ */
+export function cruzarFindesEntreAgentes(
+  cuadrante: CuadranteMensual,
+  ids: string[],
+  turno: TurnoOperativoMes,
+  anio: number,
+  mes: number,
+) {
+  if (ids.length < 2) return
+  const nDias = diasDelMes(anio, mes)
+  const base: Record<string, Turno[]> = {}
+  for (const id of ids) {
+    const fila = cuadrante[id]
+    if (!fila || fila.length !== nDias) return
+    base[id] = fila
+  }
+
+  for (let pasada = 0; pasada < 8; pasada++) {
+    const actual: Record<string, Turno[]> = {}
+    for (const id of ids) actual[id] = cuadrante[id] ?? base[id]
+    const costeActual = costeGrupo(base, actual, anio, mes)
+    let mejor = mejorUnionPartido(actual, base, ids, turno, anio, mes)
+    let mejorCoste = mejor ? costeGrupo(base, { ...actual, ...mejor }, anio, mes) : costeActual
+    const traslado = mejorTrasladoFinde(actual, base, ids, turno, anio, mes)
+    if (traslado) {
+      const costeTraslado = costeGrupo(base, { ...actual, ...traslado }, anio, mes)
+      if (costeTraslado < mejorCoste) {
+        mejor = traslado
+        mejorCoste = costeTraslado
+      }
+    }
+    if (!mejor || mejorCoste >= costeActual) break
+    for (const [id, fila] of Object.entries(mejor)) {
+      cuadrante[id] = fila
+      base[id] = fila
+    }
+  }
+}
+
+function cruzarFindesEnCuadrante(
+  cuadrante: CuadranteMensual,
+  agenteIds: string[],
+  planAnual: PlanAnual,
+  anio: number,
+  mes: number,
+) {
+  const nDias = diasDelMes(anio, mes)
+  const grupos = agentesPorTurnoMes(cuadrante, agenteIds, planAnual, mes, nDias)
+  for (const [turno, ids] of grupos) {
+    cruzarFindesEntreAgentes(cuadrante, ids, turno, anio, mes)
+  }
 }
 
 function refinarFindesFilasConScore(
@@ -1319,6 +1695,7 @@ async function refinarCuadranteSudokuAsync(
     if (scoreDespues === 0) break
     if (scoreDespues >= scoreAntes) break
   }
+  cruzarFindesEnCuadrante(cuadrante, agenteIds, planAnual, anio, mes)
 }
 
 function aplicarRefinadoCuadrante(
@@ -1385,6 +1762,7 @@ function aplicarRefinadoCuadrante(
       opciones,
     )
   }
+  cruzarFindesEnCuadrante(cuadrante, agenteIds, planAnual, anio, mes)
 }
 
 function aplicarRefinadoFinalCuadrante(
@@ -1398,6 +1776,7 @@ function aplicarRefinadoFinalCuadrante(
 ) {
   if (!tieneContextoMinimos(opciones)) {
     equilibrarCoberturaPorTurno(cuadrante, agenteIds, planAnual, anio, mes)
+    cruzarFindesEnCuadrante(cuadrante, agenteIds, planAnual, anio, mes)
     return
   }
 
@@ -1435,6 +1814,7 @@ function aplicarRefinadoFinalCuadrante(
     eventos,
     opciones,
   )
+  cruzarFindesEnCuadrante(cuadrante, agenteIds, planAnual, anio, mes)
 }
 
 function tieneContextoMinimos(opciones?: OpcionesGeneracionCuadranteMensual) {
@@ -1587,6 +1967,7 @@ async function aplicarRefinadoCuadranteAsync(
     )
     await yieldToMain()
   }
+  cruzarFindesEnCuadrante(cuadrante, agenteIds, planAnual, anio, mes)
 }
 
 async function aplicarRefinadoFinalCuadranteAsync(
@@ -1600,6 +1981,7 @@ async function aplicarRefinadoFinalCuadranteAsync(
 ) {
   if (!tieneContextoMinimos(opciones)) {
     equilibrarCoberturaPorTurno(cuadrante, agenteIds, planAnual, anio, mes)
+    cruzarFindesEnCuadrante(cuadrante, agenteIds, planAnual, anio, mes)
     await yieldToMain()
     return
   }

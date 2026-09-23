@@ -320,8 +320,8 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
       'No se pueden trabajar más de 2 fines de semana seguidos. Sábado y domingo van juntos: o se trabajan los dos o se descansan los dos. Se procura alternar los findes laborables, priorizando cubrir los mínimos operativos.',
     estado: 'implementada',
     detalle:
-      'Al generar el cuadrante se unifican findes partidos y se mueve el finde entero (sábado+domingo) si hay que cortar una racha. El pie muestra el sumatorio F (festivos + conciliaciones del mes) equilibrado entre agentes del mismo turno. Un sábado laborable con domingo de descanso (o al revés) se marca en rojo.',
-    referencia: 'finesSemana · unificarFindesPartidos · sumatorioFMensual',
+      'Al generar el cuadrante se unifican findes partidos dentro de la fila y, si dos compañeros del mismo turno se parten el mismo sábado y domingo, se cruzan para que uno trabaje el finde entero y el otro lo descanse. Si uno lleva 3 findes y otro lleva 1, se traslada un finde completo del que va sobrado al que va corto, compensando esas jornadas entre semana. El pie muestra el sumatorio F (festivos + conciliaciones del mes) equilibrado entre agentes del mismo turno. Un sábado laborable con domingo de descanso (o al revés) se marca en rojo.',
+    referencia: 'finesSemana · unificarFindesPartidos · cruzarFindesEntreAgentes · sumatorioFMensual',
   },
   {
     id: 'eventos-modifican-minimos',

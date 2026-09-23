@@ -198,6 +198,22 @@ function turnoPlanMes(
   return 'M'
 }
 
+/** Turno M/T/N del mes: el del plan, o el primero que ya tenga la fila. */
+function turnoOperativoAgente(
+  agente: { rolBase: RolPolicia; id: string },
+  planAnual: PlanAnual,
+  mes: number,
+  fila: readonly Turno[] | undefined,
+): TurnoOperativo | null {
+  const plan = turnoPlanMes(agente, planAnual, mes)
+  if (plan === 'M' || plan === 'T' || plan === 'N') return plan
+  if (plan === 'V') return null
+  for (const turno of fila ?? []) {
+    if (turno === 'M' || turno === 'T' || turno === 'N') return turno
+  }
+  return null
+}
+
 function isoFecha(anio: number, mes: number, dia: number) {
   return `${anio}-${pad(mes)}-${pad(dia)}`
 }
@@ -1003,11 +1019,100 @@ export function CuadranteMensualPage() {
       aplicarPermisoEnCelda(agenteId, dia, fecha, turno, permiso)
       return
     }
+    if (turno === 'D') {
+      const puesto = leerPuestoArrastrado(event.dataTransfer)
+      if (!puesto) return
+      const agente = agentesPorId.get(agenteId)
+      const destino = agente
+        ? turnoOperativoAgente(agente, planAnual, mes, cuadrante[agenteId])
+        : null
+      if (!destino) return
+      if (filtroTurno !== 'TODOS' && destino !== filtroTurno) return
+      ponerDescansoEnTurno(agenteId, dia, puesto)
+      return
+    }
     if (!esTurnoAsignable(turno) || esTurnoPermiso(turno)) return
     const puesto = leerPuestoArrastrado(event.dataTransfer)
     if (!puesto) return
     if (filtroTurno !== 'TODOS' && turno !== filtroTurno) return
     aplicarAsignacionCelda(agenteId, fecha, turno, puesto)
+  }
+
+  function ponerDescansoEnTurno(
+    agenteId: string,
+    dia: number,
+    puesto: PuestoBase | null,
+  ) {
+    if (soloLectura) return
+    const agente = agentesPorId.get(agenteId)
+    if (!agente) return
+    const destino = turnoOperativoAgente(
+      agente,
+      planAnual,
+      mes,
+      cuadrante[agenteId],
+    )
+    if (!destino) {
+      void alert(
+        'Este agente no tiene un turno de mes (M, T o N) para cubrir el descanso.',
+        'Sin turno de mes',
+      )
+      return
+    }
+    const fecha = isoFecha(anio, mes, dia)
+    if (puesto) {
+      const resultado = asignarPuestoEnCelda(
+        asignacionesDiarias,
+        agente,
+        fecha,
+        destino,
+        puesto,
+        puestosOperativos,
+      )
+      if (!resultado.ok) {
+        avisarExclusion()
+        return
+      }
+      setAsignacionesDiarias(resultado.asignaciones)
+    }
+    const indice = dia - 1
+    setCuadrante((actual) => {
+      const fila = [
+        ...(actual[agenteId] ??
+          Array.from({ length: nDias }, () => 'D' as Turno)),
+      ]
+      fila[indice] = destino
+      return { ...actual, [agenteId]: fila }
+    })
+    marcarEditado()
+  }
+
+  function alternarDescansoTurno(agenteId: string, dia: number) {
+    if (soloLectura) return
+    const indice = dia - 1
+    const filaActual =
+      cuadrante[agenteId] ?? Array.from({ length: nDias }, () => 'D' as Turno)
+    const anterior = filaActual[indice] ?? 'D'
+    if (anterior === 'D') {
+      ponerDescansoEnTurno(agenteId, dia, null)
+      return
+    }
+    if (!esTurnoOperativo(anterior) && anterior !== 'MT') return
+    const fecha = isoFecha(anio, mes, dia)
+    setCuadrante((actual) => {
+      const fila = [
+        ...(actual[agenteId] ??
+          Array.from({ length: nDias }, () => 'D' as Turno)),
+      ]
+      fila[indice] = 'D'
+      return { ...actual, [agenteId]: fila }
+    })
+    if (esTurnoAsignable(anterior)) {
+      setAsignacionesDiarias((actual) =>
+        quitarAsignacionCelda(actual, agenteId, fecha, anterior),
+      )
+    }
+    marcarEditado()
   }
 
   function clicCelda(
@@ -1037,13 +1142,33 @@ export function CuadranteMensualPage() {
       aplicarAsignacionCelda(agenteId, fecha, turno, puestoSeleccionado)
       return
     }
-    if (esTurnoPermiso(turno) || esTurnoOperativo(turno)) {
+    if (puestoSeleccionado && turno === 'D') {
+      ponerDescansoEnTurno(agenteId, dia, puestoSeleccionado)
+      return
+    }
+    if (
+      event.shiftKey &&
+      esTurnoAsignable(turno)
+    ) {
       setPopoverCelda({
         agenteId,
         fecha,
         turno,
         rect: event.currentTarget.getBoundingClientRect(),
       })
+      return
+    }
+    if (esTurnoPermiso(turno)) {
+      setPopoverCelda({
+        agenteId,
+        fecha,
+        turno,
+        rect: event.currentTarget.getBoundingClientRect(),
+      })
+      return
+    }
+    if (turno === 'D' || esTurnoOperativo(turno) || turno === 'MT') {
+      alternarDescansoTurno(agenteId, dia)
     }
   }
 
@@ -1051,7 +1176,7 @@ export function CuadranteMensualPage() {
     <section className={PAGE_SECTION}>
       <PageHeader
         title="Cuadrante mensual"
-        subtitle={`Convenio: ${objetivo} días · fatiga ≤ 5 · cobertura vs mínimos · permisos y JD${loadingCuadrante ? ' · Cargando…' : ''}${generandoCuadrante ? ' · Generando…' : ''}`}
+        subtitle={`Convenio: ${objetivo} días · fatiga ≤ 5 · cobertura vs mínimos · clic alterna descanso y turno${loadingCuadrante ? ' · Cargando…' : ''}${generandoCuadrante ? ' · Generando…' : ''}`}
         status={
           <SaveStatus
             guardando={guardandoCuadrante}
@@ -1249,8 +1374,8 @@ export function CuadranteMensualPage() {
       ) : null}
       {puestoSeleccionado === NOMBRE_JORNADA_DISPONIBLE ? (
         <p className={ALERT_INFO}>
-          Jornada Disponible seleccionada. Pulsa una celda M/T/N para marcarla
-          como JD (se cobra y genera un LPD).
+          Jornada Disponible seleccionada. Pulsa un descanso o una celda M/T/N
+          para marcarla como JD (se cobra y genera un LPD).
         </p>
       ) : null}
       {agentesVisibles.length === 0 && !loadingCuadrante ? (
@@ -1403,21 +1528,43 @@ export function CuadranteMensualPage() {
                       colaMesAnterior: colaMesAnterior[agente.id],
                     })
                     const rota = avisos.length > 0
+                    const turnoMes = turnoPlanMes(agente, planAnual, mes)
+                    const turnoMesOperativo =
+                      turnoMes === 'M' || turnoMes === 'T' || turnoMes === 'N'
+                        ? turnoMes
+                        : null
+                    const descansoDelFiltro =
+                      turno === 'D' &&
+                      turnoMesOperativo != null &&
+                      (filtroVistaTurno === turnoMesOperativo ||
+                        (filtroVistaTurno === 'TODOS' &&
+                          (filtroTurno === 'TODOS' ||
+                            filtroTurno === turnoMesOperativo)))
                     const atenuada =
                       filtroVistaTurno !== 'TODOS'
-                        ? turno !== filtroVistaTurno
+                        ? turno !== filtroVistaTurno && !descansoDelFiltro
                         : filtroTurno !== 'TODOS' &&
                           turno !== filtroTurno &&
-                          !esP
+                          !esP &&
+                          !descansoDelFiltro
                     const fondoSuave =
                       especial && (turno === 'D' || turno === 'V')
                         ? '!bg-amber-50'
                         : esJd
                           ? '!bg-violet-50'
                           : ''
+                    const puedeAlternar =
+                      turno === 'D'
+                        ? turnoOperativoAgente(
+                            agente,
+                            planAnual,
+                            mes,
+                            fila,
+                          ) != null
+                        : operativo || turno === 'MT'
                     const interactiva =
                       !atenuada &&
-                      (operativo ||
+                      (puedeAlternar ||
                         esP ||
                         (turno !== 'V' && Boolean(permisoSeleccionado)))
                     return (
@@ -1433,9 +1580,11 @@ export function CuadranteMensualPage() {
                         title={
                           avisos.length > 0
                             ? avisos.join(' · ')
-                            : interactiva
-                              ? `${agente.numeroPlaca} · día ${dia} · ${turno}${abrevPuesto ? ` · ${abrevPuesto}` : ''} · clic o arrastrar puesto/permiso/JD`
-                              : `${agente.numeroPlaca} · día ${dia} · ${turno}`
+                            : puedeAlternar && !atenuada
+                              ? `${agente.numeroPlaca} · día ${dia} · ${turno}${abrevPuesto ? ` · ${abrevPuesto}` : ''} · clic alterna descanso y turno · Mayús+clic asigna puesto`
+                              : interactiva
+                                ? `${agente.numeroPlaca} · día ${dia} · ${turno}${abrevPuesto ? ` · ${abrevPuesto}` : ''} · clic o arrastrar puesto/permiso/JD`
+                                : `${agente.numeroPlaca} · día ${dia} · ${turno}`
                         }
                         onDragOver={
                           turno !== 'V' && !atenuada

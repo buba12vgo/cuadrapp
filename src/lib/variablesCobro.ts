@@ -115,9 +115,11 @@ function sumarFestivoDia(
 /**
  * Cuenta variables de cobro mensuales desde el cuadrante diario.
  * Festivo: una unidad por día festivo en M, T o N. M-T (mañana y tarde)
- * suma dos. Noche sábado (22–06): si el domingo es festivo, suma el tramo
- * de domingo que aún no esté cobrado. Conciliaciones y festivos se acumulan
- * a la vez. M-T en sábado suma conciliación de mañana y de tarde.
+ * suma dos. La noche de sábado y la noche de domingo se cobran como festivo
+ * aunque ese día no esté en el calendario. Noche sábado (22–06): si el
+ * domingo es festivo, suma el tramo de domingo que aún no esté cobrado.
+ * Conciliaciones y festivos se acumulan a la vez. M-T en sábado suma
+ * conciliación de mañana y de tarde.
  * Jornada Disponible se marca en asignaciones (M/T/N/MT).
  */
 export function contarVariablesCobroAgente(
@@ -171,6 +173,10 @@ export function contarVariablesCobroAgente(
         counts,
         turno === 'MT' ? 2 : 1,
       )
+    }
+
+    if (turno === 'N' && (wd === 6 || wd === 0)) {
+      sumarFestivoDia(diasFestivoCobrados, anio, mes, dia, counts, 1)
     }
 
     if (wd === 6 && turno === 'N') {

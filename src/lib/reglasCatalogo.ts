@@ -364,10 +364,10 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     categoria: 'VARIABLES_COBRO',
     titulo: 'Festivo',
     descripcion:
-      'Cada día festivo trabajado en M, T o N suma una unidad de festivo. El turno M-T de jefes suma dos, porque cubre mañana y tarde. Cuentan festivos del calendario nacional/gallego y eventos FESTIVO del calendario operativo.',
+      'Cada día festivo trabajado en M, T o N suma una unidad de festivo. El turno M-T de jefes suma dos, porque cubre mañana y tarde. La noche de sábado y la noche de domingo se cobran como festivo aunque el día no esté en el calendario. Cuentan festivos del calendario nacional/gallego y eventos FESTIVO del calendario operativo.',
     estado: 'implementada',
     detalle:
-      'En M, T o N hay como máximo un festivo por día y agente. M-T cobra dos en ese mismo día. Si hay noche sábado (N) y el domingo siguiente es festivo, se suma el tramo 22–06 en domingo que aún no esté cobrado por el trabajo de ese domingo.',
+      'En M, T o N hay como máximo un festivo por día y agente. M-T cobra dos en ese mismo día. Si el sábado o el domingo ya es festivo de calendario, la noche no suma un segundo festivo ese mismo día. Si hay noche sábado (N) y el domingo siguiente es festivo, se suma el tramo 22–06 en domingo que aún no esté cobrado por el trabajo de ese domingo.',
     referencia: 'variablesCobro · diaEsFestivoCobro',
   },
   {

@@ -98,24 +98,27 @@ export type OpcionesConteoCobro = {
 }
 
 function sumarFestivoDia(
-  diasFestivoCobrados: Set<string>,
+  diasFestivoCobrados: Map<string, number>,
   anio: number,
   mes: number,
   dia: number,
   counts: ConteoVariablesCobro,
+  unidades: number,
 ) {
   const fecha = isoFecha(anio, mes, dia)
-  if (diasFestivoCobrados.has(fecha)) return
-  diasFestivoCobrados.add(fecha)
-  counts.festivo++
+  const ya = diasFestivoCobrados.get(fecha) ?? 0
+  if (unidades <= ya) return
+  counts.festivo += unidades - ya
+  diasFestivoCobrados.set(fecha, unidades)
 }
 
 /**
  * Cuenta variables de cobro mensuales desde el cuadrante diario.
- * Festivo: una unidad por día festivo trabajado (M/T/N, sin distinguir turno).
- * Noche sábado (22–06): si el domingo es festivo y no se cobró ya ese día,
- * suma otro festivo por el tramo en domingo. Conciliaciones y festivos son
- * independientes. Jornada Disponible se marca en asignaciones (M/T/N/MT).
+ * Festivo: una unidad por día festivo en M, T o N. M-T (mañana y tarde)
+ * suma dos. Noche sábado (22–06): si el domingo es festivo, suma el tramo
+ * de domingo que aún no esté cobrado. Conciliaciones y festivos se acumulan
+ * a la vez. M-T en sábado suma conciliación de mañana y de tarde.
+ * Jornada Disponible se marca en asignaciones (M/T/N/MT).
  */
 export function contarVariablesCobroAgente(
   fila: Turno[],
@@ -126,7 +129,7 @@ export function contarVariablesCobroAgente(
 ): ConteoVariablesCobro {
   const counts = conteoVariablesCobroVacio()
   const nDias = fila.length
-  const diasFestivoCobrados = new Set<string>()
+  const diasFestivoCobrados = new Map<string, number>()
   const asignaciones = opciones?.asignaciones
   const agenteId = opciones?.agenteId
 
@@ -147,16 +150,27 @@ export function contarVariablesCobroAgente(
     }
 
     if (!esDiaTrabajado(turno)) continue
-    if (turno !== 'M' && turno !== 'T' && turno !== 'N') continue
+    if (turno !== 'M' && turno !== 'T' && turno !== 'N' && turno !== 'MT') {
+      continue
+    }
 
     const wd = diaSemana(anio, mes, dia)
+    const manana = turno === 'M' || turno === 'MT'
+    const tarde = turno === 'T' || turno === 'MT'
 
     if (wd === 5 && turno === 'N') counts.conciliacion_viernes_noche++
-    if (wd === 6 && turno === 'M') counts.conciliacion_sabado_manana++
-    if (wd === 6 && turno === 'T') counts.conciliacion_sabado_tarde++
+    if (wd === 6 && manana) counts.conciliacion_sabado_manana++
+    if (wd === 6 && tarde) counts.conciliacion_sabado_tarde++
 
     if (diaEsFestivoCobro(anio, mes, dia, eventos)) {
-      sumarFestivoDia(diasFestivoCobrados, anio, mes, dia, counts)
+      sumarFestivoDia(
+        diasFestivoCobrados,
+        anio,
+        mes,
+        dia,
+        counts,
+        turno === 'MT' ? 2 : 1,
+      )
     }
 
     if (wd === 6 && turno === 'N') {
@@ -165,7 +179,7 @@ export function contarVariablesCobroAgente(
         domingo <= nDias &&
         diaEsFestivoCobro(anio, mes, domingo, eventos)
       ) {
-        sumarFestivoDia(diasFestivoCobrados, anio, mes, domingo, counts)
+        sumarFestivoDia(diasFestivoCobrados, anio, mes, domingo, counts, 1)
       }
     }
   }

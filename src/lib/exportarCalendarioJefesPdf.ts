@@ -5,12 +5,13 @@ import {
 } from '@/lib/asignacionPuestos'
 import type { AsignacionesDiarias, PuestoConfig } from '@/lib/calendarioPuestos'
 import { diasDelMes, esFinDeSemana, totalDiasTrabajadosJefes } from '@/lib/convenio'
+import { nombresEventosFecha } from '@/lib/eventosStore'
 import { esFestivo } from '@/lib/festivos'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
 import type { PermisoConfig } from '@/lib/permisos'
 import { getTiposPermiso } from '@/lib/permisosStore'
 import { ROL_LABEL } from '@/lib/rolesCuadrante'
-import type { FichaPolicia, Turno } from '@/types'
+import type { EventoOperativo, FichaPolicia, Turno } from '@/types'
 
 const MESES = [
   'Enero',
@@ -104,6 +105,7 @@ export type ExportarCalendarioJefesPdfOpciones = {
   asignacionesDiarias: AsignacionesDiarias
   puestos: PuestoConfig[]
   permisos?: PermisoConfig[]
+  eventos?: EventoOperativo[]
 }
 
 export function exportarCalendarioJefesPdf(
@@ -144,6 +146,7 @@ export function exportarCalendarioJefesPdf(
           puestos,
           permisos,
         )
+        const nombres = nombresEventosFecha(opciones.eventos ?? [], fecha).join(' · ')
         const especial =
           esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia)
         const color = COLOR_TURNO[turno] ?? COLOR_TURNO.D
@@ -156,6 +159,7 @@ export function exportarCalendarioJefesPdf(
           <span class="num" style="color:${numColor};">${dia}</span>
           <span class="turno">${escapeHtml(etiqueta)}</span>
           ${detalle ? `<span class="detalle">${escapeHtml(detalle)}</span>` : ''}
+          ${nombres ? `<span class="detalle">${escapeHtml(nombres)}</span>` : ''}
         </td>`
       })
       .join('')

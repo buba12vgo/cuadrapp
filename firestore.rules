@@ -47,8 +47,11 @@ service cloud.firestore {
 
     match /usuarios/{uid} {
       allow get: if sesion() && request.auth.uid == uid;
-      allow list: if esSuperAdmin();
-      allow create, update, delete: if esSuperAdmin();
+      allow list: if esSuperAdmin() || esAdminJefes();
+      allow create, delete: if esSuperAdmin();
+      allow update: if esSuperAdmin()
+        || (esAdminJefes()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['puedeEditarEventos']));
     }
 
     match /agentes/{id} {
@@ -73,7 +76,9 @@ service cloud.firestore {
 
     match /eventos/{id} {
       allow read: if leeJefes();
-      allow write: if esSuperAdmin();
+      allow write: if esSuperAdmin()
+        || esAdminJefes()
+        || (esConsulta() && perfilConsulta().puedeEditarEventos == true);
     }
 
     match /config/{id} {

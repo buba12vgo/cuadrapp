@@ -138,7 +138,7 @@ const CLASE_TURNO: Record<Turno, string> = {
   V: CLASE_TURNO_CELDA.V,
 }
 
-/** Laboral: D → M → T → N → P → V. Finde: incluye M-T (Mañana Tarde). */
+/** Laboral: D → M → T → N → P → V. Finde y festivo: incluye M-T. */
 const CICLO_SEMANA: Turno[] = ['D', 'M', 'T', 'N', 'P', 'V']
 const CICLO_FINDE: Turno[] = ['D', 'M', 'T', 'N', 'MT', 'P', 'V']
 
@@ -514,7 +514,10 @@ export function CuadranteJefesPage() {
     const filaActual =
       cuadrante[agenteId] ?? Array.from({ length: nDias }, () => 'D' as Turno)
     const anterior = filaActual[indice] ?? 'D'
-    const siguiente = siguienteTurno(anterior, esFinDeSemana(anio, mes, dia))
+    const siguiente = siguienteTurno(
+      anterior,
+      esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia),
+    )
     const fecha = isoFecha(anio, mes, dia)
 
     setCuadrante((actual) => {
@@ -892,7 +895,7 @@ export function CuadranteJefesPage() {
     <section className={PAGE_SECTION}>
       <PageHeader
         title="Cuadrante jefes de servicio"
-        subtitle={`Jefes y responsables · mensual · clic cicla turno (P = permiso) · finde incluye M-T · Shift+clic o arrastre asigna puesto/permiso · arrastre al nombre = todos los días${loadingCuadrante ? ' · Cargando…' : ''}${mesGuardadoEnFirestore ? '' : ' · Sin guardar'}`}
+        subtitle={`Jefes y responsables · mensual · clic cicla turno (P = permiso) · finde y festivo incluyen M-T · Shift+clic o arrastre asigna puesto/permiso · arrastre al nombre = todos los días${loadingCuadrante ? ' · Cargando…' : ''}${mesGuardadoEnFirestore ? '' : ' · Sin guardar'}`}
         status={
           <SaveStatus
             guardando={guardandoCuadrante}

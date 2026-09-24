@@ -30,6 +30,7 @@ import {
   TITULO_BLOQUE,
 } from '@/lib/uiStyles'
 import { useAgentesData } from '@/lib/agentesStore'
+import { nombresEventosFecha, useEventosData } from '@/lib/eventosStore'
 import { etiquetaTurno } from '@/lib/asignacionPuestos'
 import type { AsignacionesDiarias } from '@/lib/calendarioPuestos'
 import {
@@ -268,6 +269,7 @@ function BarraCompacta({
 export function CalendarioJefesPage() {
   const { alert } = useAppDialog()
   const [agentesData, setAgentesData] = useAgentesData()
+  const [eventosData] = useEventosData()
   const [puestos] = usePuestosData()
   const [tiposPermiso] = useTiposPermiso()
   const [anio, setAnio] = useState(ANIO_ACTUAL)
@@ -443,6 +445,7 @@ export function CalendarioJefesPage() {
         asignacionesDiarias,
         puestos,
         permisos: tiposPermiso,
+        eventos: eventosData,
       })
     } catch (err) {
       void alert(
@@ -646,6 +649,7 @@ export function CalendarioJefesPage() {
                         tiposPermiso,
                       )
                     : { etiqueta: etiquetaTurno(turno), detalle: null }
+                  const nombresEvento = nombresEventosFecha(eventosData, fecha)
                   const finde = esFinDeSemana(anio, mes, dia)
                   const festivo = esFestivo(anio, mes, dia)
                   const especial = finde || festivo
@@ -664,7 +668,7 @@ export function CalendarioJefesPage() {
                       className={`group flex min-h-0 flex-col gap-1 overflow-hidden border-l-[3px] p-1.5 transition-opacity ${FOCUS_RING} ${fondoCelda} ${BORDE_CELDA[turno]} ${
                         esDescansoCelda ? 'opacity-[0.88]' : ''
                       } ${atenuada ? '!opacity-25' : ''}`}
-                      title={`${dia}/${mes}/${anio} · ${etiqueta}${detalle ? ` · ${detalle}` : ''}`}
+                      title={`${dia}/${mes}/${anio} · ${etiqueta}${detalle ? ` · ${detalle}` : ''}${nombresEvento.length ? ` · ${nombresEvento.join(' · ')}` : ''}`}
                     >
                       <div className="flex shrink-0 items-center justify-between gap-0.5">
                         <span
@@ -681,6 +685,14 @@ export function CalendarioJefesPage() {
 
                       <div className="mt-auto flex min-h-0 flex-col items-start gap-1 overflow-hidden">
                         <PillTurno turno={turno} />
+                        {nombresEvento.length > 0 ? (
+                          <span
+                            className="line-clamp-2 max-w-full text-[10px] font-semibold leading-snug text-rose-800"
+                            title={nombresEvento.join(' · ')}
+                          >
+                            {nombresEvento.join(' · ')}
+                          </span>
+                        ) : null}
                         {detalle ? (
                           <span
                             className="line-clamp-2 max-w-full text-[11px] font-bold leading-snug text-slate-900"

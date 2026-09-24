@@ -35,7 +35,8 @@ import {
 } from '@/lib/calendarioPuestos'
 import { diasDelMes } from '@/lib/convenio'
 import { deleteEvento, saveEvento } from '@/lib/db'
-import { useEventosData } from '@/lib/eventosStore'
+import { isDesignPreview } from '@/lib/designPreview'
+import { eventosEnFecha, useEventosData } from '@/lib/eventosStore'
 import { isFirebaseReady } from '@/lib/firebase'
 import { useMinimosSemanaData, usePuestosData } from '@/lib/puestosStore'
 import type { EventoOperativo, TipoEvento } from '@/types'
@@ -57,7 +58,6 @@ const MESES = [
 
 const DIAS_SEMANA = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const
 const TURNOS = ['M', 'T', 'N'] as const
-const ANIO_INICIAL = 2026
 
 const ETIQUETA_EVENTO: Partial<
   Record<TipoEvento, { emoji: string; clase: string; texto: string }>
@@ -107,44 +107,70 @@ function celdasMes(anio: number, mes: number) {
   return celdas
 }
 
+type FilaEvento = {
+  id: string
+  tipoDia: TipoDiaEditor
+  descripcion: string
+}
+
+function filaNueva(fecha: string, tipoDia: TipoDiaEditor = 'CRUCERO'): FilaEvento {
+  const sufijo =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID().slice(0, 8)
+      : String(Date.now())
+  return { id: `ev-${fecha}-${sufijo}`, tipoDia, descripcion: '' }
+}
+
+function filasDesdeEventos(fecha: string, eventos: EventoOperativo[]): FilaEvento[] {
+  if (eventos.length === 0) return [filaNueva(fecha, 'FESTIVO')]
+  return eventos.map((evento) => ({
+    id: evento.id,
+    tipoDia: tipoEditorDesdeEvento(evento),
+    descripcion: evento.descripcion,
+  }))
+}
+
 function EditorDiaDrawer({
   fecha,
-  evento,
+  eventos,
   puestos,
   semana,
   guardando,
   onGuardar,
-  onBorrar,
   onCerrar,
 }: {
   fecha: string
-  evento: EventoOperativo | undefined
+  eventos: EventoOperativo[]
   puestos: PuestoConfig[]
   semana: MinimosSemana
   guardando?: boolean
-  onGuardar: (evento: EventoOperativo | null) => void | Promise<void>
-  onBorrar: () => void | Promise<void>
+  onGuardar: (eventos: EventoOperativo[]) => void | Promise<void>
   onCerrar: () => void
 }) {
   const baseDia = () => minimosDefectoParaFecha(fecha, semana, puestos)
-  const [tipoDia, setTipoDia] = useState<TipoDiaEditor>(() =>
-    tipoEditorDesdeEvento(evento),
+  const [filas, setFilas] = useState<FilaEvento[]>(() =>
+    filasDesdeEventos(fecha, eventos),
   )
-  const [descripcion, setDescripcion] = useState(evento?.descripcion ?? '')
-  const [minimos, setMinimos] = useState<MinimosDia>(() =>
-    evento
-      ? minimosDesdeEvento(evento, puestos, baseDia())
-      : baseDia(),
-  )
+  const [minimos, setMinimos] = useState<MinimosDia>(() => {
+    const base = baseDia()
+    const conMinimos =
+      [...eventos]
+        .reverse()
+        .find((evento) => Object.keys(evento.modificadoresMinimos).length > 0) ??
+      eventos[0]
+    return conMinimos ? minimosDesdeEvento(conMinimos, puestos, base) : base
+  })
 
   useEffect(() => {
     const base = minimosDefectoParaFecha(fecha, semana, puestos)
-    setTipoDia(tipoEditorDesdeEvento(evento))
-    setDescripcion(evento?.descripcion ?? '')
-    setMinimos(
-      evento ? minimosDesdeEvento(evento, puestos, base) : base,
-    )
-  }, [fecha, evento, puestos, semana])
+    setFilas(filasDesdeEventos(fecha, eventos))
+    const conMinimos =
+      [...eventos]
+        .reverse()
+        .find((evento) => Object.keys(evento.modificadoresMinimos).length > 0) ??
+      eventos[0]
+    setMinimos(conMinimos ? minimosDesdeEvento(conMinimos, puestos, base) : base)
+  }, [fecha, eventos, puestos, semana])
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -156,22 +182,34 @@ function EditorDiaDrawer({
 
   async function guardar() {
     const defecto = minimosDefectoParaFecha(fecha, semana, puestos)
-    if (tipoDia === 'NORMAL' && minimosIgualesDefecto(minimos, defecto, puestos)) {
-      await onGuardar(null)
+    const minimosIguales = minimosIgualesDefecto(minimos, defecto, puestos)
+    const utiles = filas.filter(
+      (fila) => fila.descripcion.trim() || fila.tipoDia !== 'NORMAL' || !minimosIguales,
+    )
+    if (utiles.length === 0) {
+      await onGuardar([])
       return
     }
+    const record = minimosARecord(minimos, puestos)
+    await onGuardar(
+      utiles.map((fila) => ({
+        id: fila.id,
+        fecha,
+        tipo: tipoEventoDesdeEditor(fila.tipoDia),
+        descripcion:
+          fila.descripcion.trim() ||
+          (fila.tipoDia === 'NORMAL'
+            ? 'Mínimos personalizados'
+            : TIPO_DIA_LABEL[fila.tipoDia]),
+        modificadoresMinimos: record,
+      })),
+    )
+  }
 
-    await onGuardar({
-      id: evento?.id ?? `ev-${fecha}`,
-      fecha,
-      tipo: tipoEventoDesdeEditor(tipoDia),
-      descripcion:
-        descripcion.trim() ||
-        (tipoDia === 'NORMAL'
-          ? 'Mínimos personalizados'
-          : TIPO_DIA_LABEL[tipoDia]),
-      modificadoresMinimos: minimosARecord(minimos, puestos),
-    })
+  function quitarFila(id: string) {
+    setFilas((actual) =>
+      actual.length === 1 ? [filaNueva(fecha)] : actual.filter((fila) => fila.id !== id),
+    )
   }
 
   return (
@@ -196,36 +234,78 @@ function EditorDiaDrawer({
         </header>
 
         <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-4">
-          <label className="flex flex-col gap-1">
-            <span className="text-sm font-semibold text-slate-600">
-              Tipo de día
-            </span>
-            <select
-              className={CAMPO}
-              value={tipoDia}
-              onChange={(event) =>
-                setTipoDia(event.target.value as TipoDiaEditor)
-              }
-            >
-              {(Object.keys(TIPO_DIA_LABEL) as TipoDiaEditor[]).map((tipo) => (
-                <option key={tipo} value={tipo}>
-                  {TIPO_DIA_LABEL[tipo]}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="flex flex-col gap-1">
-            <span className="text-sm font-semibold text-slate-600">
-              Descripción
-            </span>
-            <input
-              className={CAMPO}
-              value={descripcion}
-              placeholder="Notas operativas del día"
-              onChange={(event) => setDescripcion(event.target.value)}
-            />
-          </label>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-semibold text-slate-600">
+                Eventos del día
+              </span>
+              <button
+                type="button"
+                className={BTN_GHOST}
+                onClick={() =>
+                  setFilas((actual) => [...actual, filaNueva(fecha)])
+                }
+              >
+                Añadir evento
+              </button>
+            </div>
+            {filas.map((fila, indice) => {
+              const etiqueta = ETIQUETA_EVENTO[tipoEventoDesdeEditor(fila.tipoDia)]
+              return (
+                <div
+                  key={fila.id}
+                  className="flex flex-col gap-1 rounded-md border border-slate-200 p-2"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-500">
+                      Evento {indice + 1}
+                      {etiqueta ? ` · ${etiqueta.emoji}` : ''}
+                    </span>
+                    <button
+                      type="button"
+                      className="text-xs font-semibold text-rose-700"
+                      onClick={() => quitarFila(fila.id)}
+                    >
+                      Quitar
+                    </button>
+                  </div>
+                  <select
+                    className={CAMPO}
+                    aria-label={`Tipo del evento ${indice + 1}`}
+                    value={fila.tipoDia}
+                    onChange={(event) => {
+                      const tipoDia = event.target.value as TipoDiaEditor
+                      setFilas((actual) =>
+                        actual.map((item) =>
+                          item.id === fila.id ? { ...item, tipoDia } : item,
+                        ),
+                      )
+                    }}
+                  >
+                    {(Object.keys(TIPO_DIA_LABEL) as TipoDiaEditor[]).map((tipo) => (
+                      <option key={tipo} value={tipo}>
+                        {TIPO_DIA_LABEL[tipo]}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    className={CAMPO}
+                    aria-label={`Nombre del evento ${indice + 1}`}
+                    value={fila.descripcion}
+                    placeholder="Nombre que verán los jefes"
+                    onChange={(event) => {
+                      const descripcion = event.target.value
+                      setFilas((actual) =>
+                        actual.map((item) =>
+                          item.id === fila.id ? { ...item, descripcion } : item,
+                        ),
+                      )
+                    }}
+                  />
+                </div>
+              )
+            })}
+          </div>
 
           <div>
             <p className="mb-1 text-sm font-semibold text-slate-600">
@@ -284,10 +364,10 @@ function EditorDiaDrawer({
           <button
             type="button"
             className={BTN_DANGER}
-            disabled={!evento || guardando}
-            onClick={() => void onBorrar()}
+            disabled={eventos.length === 0 || guardando}
+            onClick={() => void onGuardar([])}
           >
-            Borrar evento
+            Borrar día
           </button>
           <div className="flex gap-1">
             <button
@@ -324,8 +404,8 @@ export function CalendarioPage() {
     [puestosTodos],
   )
   const [semana] = useMinimosSemanaData()
-  const [anio, setAnio] = useState(ANIO_INICIAL)
-  const [mes, setMes] = useState(8)
+  const [anio, setAnio] = useState(() => new Date().getFullYear())
+  const [mes, setMes] = useState(() => new Date().getMonth() + 1)
   const [fechaSeleccionada, setFechaSeleccionada] = useState<string | null>(
     null,
   )
@@ -334,20 +414,24 @@ export function CalendarioPage() {
   const firebaseOk = isFirebaseReady()
 
   const eventosPorFecha = useMemo(() => {
-    const mapa = new Map<string, EventoOperativo>()
-    for (const evento of eventosData) mapa.set(evento.fecha, evento)
+    const mapa = new Map<string, EventoOperativo[]>()
+    for (const evento of eventosData) {
+      const lista = mapa.get(evento.fecha) ?? []
+      lista.push(evento)
+      mapa.set(evento.fecha, lista)
+    }
     return mapa
   }, [eventosData])
 
   const celdas = useMemo(() => celdasMes(anio, mes), [anio, mes])
-  const eventoEditando = fechaSeleccionada
-    ? eventosPorFecha.get(fechaSeleccionada)
-    : undefined
+  const eventosEditando = fechaSeleccionada
+    ? (eventosPorFecha.get(fechaSeleccionada) ?? [])
+    : []
 
-  async function guardarDia(evento: EventoOperativo | null) {
+  async function guardarDia(eventos: EventoOperativo[]) {
     if (soloLectura) return
     if (!fechaSeleccionada) return
-    if (!firebaseOk) {
+    if (!firebaseOk && !isDesignPreview) {
       await showAlert('Firebase no está configurado; no se puede guardar.', 'Firebase')
       return
     }
@@ -355,21 +439,18 @@ export function CalendarioPage() {
     setGuardando(true)
     setError(null)
     try {
-      const existente = eventosPorFecha.get(fechaSeleccionada)
-      if (evento) {
-        const guardado = await saveEvento(evento)
-        setEventosData((actual) => {
-          const resto = actual.filter(
-            (item) => item.fecha !== fechaSeleccionada,
-          )
-          return [...resto, guardado]
-        })
-      } else {
-        if (existente) await deleteEvento(existente.id)
-        setEventosData((actual) =>
-          actual.filter((item) => item.fecha !== fechaSeleccionada),
-        )
+      const previos = eventosEnFecha(eventosData, fechaSeleccionada)
+      const ids = new Set(eventos.map((evento) => evento.id))
+      if (firebaseOk) {
+        for (const previo of previos) {
+          if (!ids.has(previo.id)) await deleteEvento(previo.id)
+        }
+        for (const evento of eventos) await saveEvento(evento)
       }
+      setEventosData((actual) => [
+        ...actual.filter((item) => item.fecha !== fechaSeleccionada),
+        ...eventos,
+      ])
       setFechaSeleccionada(null)
     } catch (err) {
       const mensaje =
@@ -383,39 +464,11 @@ export function CalendarioPage() {
     }
   }
 
-  async function borrarDia() {
-    if (!fechaSeleccionada) return
-    if (!firebaseOk) {
-      await showAlert('Firebase no está configurado; no se puede borrar.', 'Firebase')
-      return
-    }
-
-    const existente = eventosPorFecha.get(fechaSeleccionada)
-    setGuardando(true)
-    setError(null)
-    try {
-      if (existente) await deleteEvento(existente.id)
-      setEventosData((actual) =>
-        actual.filter((item) => item.fecha !== fechaSeleccionada),
-      )
-      setFechaSeleccionada(null)
-    } catch (err) {
-      const mensaje =
-        err instanceof Error
-          ? err.message
-          : 'No se pudo borrar el evento en Firestore'
-      setError(mensaje)
-      await showAlert(mensaje, 'Error al borrar')
-    } finally {
-      setGuardando(false)
-    }
-  }
-
   return (
     <section className={PAGE_SECTION}>
       <PageHeader
         title="Calendario operativo"
-        subtitle={`${eventosData.length} días configurados · Firestore`}
+        subtitle={`${eventosData.length} eventos · varios por día · Firestore`}
         actions={
           <>
             <label className="flex items-center gap-1">
@@ -475,17 +528,13 @@ export function CalendarioPage() {
             }
 
             const fecha = isoFecha(anio, mes, dia)
-            const evento = eventosPorFecha.get(fecha)
-            const etiqueta =
-              evento && ETIQUETA_EVENTO[evento.tipo]
-                ? ETIQUETA_EVENTO[evento.tipo]
-                : null
+            const eventosDia = eventosPorFecha.get(fecha) ?? []
 
             return (
               <button
                 key={fecha}
                 type="button"
-                className={`flex h-[4.5rem] flex-col rounded-sm border border-slate-200 p-1 text-left hover:border-slate-400 hover:ring-1 hover:ring-blue-300 ${
+                className={`flex min-h-[5.5rem] flex-col rounded-sm border border-slate-200 p-1 text-left hover:border-slate-400 hover:ring-1 hover:ring-blue-300 ${
                   fechaSeleccionada === fecha
                     ? 'ring-2 ring-blue-500'
                     : 'bg-white'
@@ -495,23 +544,20 @@ export function CalendarioPage() {
                 }}
               >
                 <span className="text-sm font-bold text-slate-800">{dia}</span>
-                {etiqueta ? (
-                  <span
-                    className={`mt-0.5 inline-flex items-center gap-0.5 rounded px-0.5 py-0 text-sm font-semibold ${etiqueta.clase}`}
-                  >
-                    {etiqueta.emoji} {etiqueta.texto}
-                  </span>
-                ) : null}
-                {evento && !etiqueta ? (
-                  <span className="mt-0.5 rounded bg-slate-100 px-0.5 py-0 text-sm font-medium text-slate-700">
-                    Override
-                  </span>
-                ) : null}
-                {evento?.descripcion ? (
-                  <span className="mt-auto line-clamp-2 text-sm text-slate-500">
-                    {evento.descripcion}
-                  </span>
-                ) : null}
+                {eventosDia.map((item) => {
+                  const etiqueta = ETIQUETA_EVENTO[item.tipo]
+                  return (
+                    <span
+                      key={item.id}
+                      className={`mt-0.5 line-clamp-1 rounded px-0.5 py-0 text-xs font-semibold ${
+                        etiqueta ? etiqueta.clase : 'bg-slate-100 text-slate-700'
+                      }`}
+                    >
+                      {etiqueta ? `${etiqueta.emoji} ` : ''}
+                      {item.descripcion || etiqueta?.texto || 'Evento'}
+                    </span>
+                  )
+                })}
               </button>
             )
           })}
@@ -525,12 +571,11 @@ export function CalendarioPage() {
         <EditorDiaDrawer
           key={fechaSeleccionada}
           fecha={fechaSeleccionada}
-          evento={eventoEditando}
+          eventos={eventosEditando}
           puestos={puestos}
           semana={semana}
           guardando={guardando}
           onGuardar={guardarDia}
-          onBorrar={borrarDia}
           onCerrar={() => setFechaSeleccionada(null)}
         />
       ) : null}

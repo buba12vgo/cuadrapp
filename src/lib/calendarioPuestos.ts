@@ -240,7 +240,12 @@ export function minimosParaFecha(
   puestos: PuestoConfig[],
 ): MinimosDia {
   const base = minimosDefectoParaFecha(fecha, semana, puestos)
-  const evento = eventos.find((item) => item.fecha === fecha)
+  const delDia = eventos.filter((item) => item.fecha === fecha)
+  const evento =
+    [...delDia]
+      .reverse()
+      .find((item) => Object.keys(item.modificadoresMinimos).length > 0) ??
+    delDia[0]
   if (evento) return minimosDesdeEvento(evento, puestos, base)
   return base
 }

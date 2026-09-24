@@ -22,6 +22,8 @@ export type PerfilAcceso = {
   numeroPlaca: string | null
   nombre: string
   fijo: boolean
+  /** Consulta de jefes autorizada a crear eventos del calendario. */
+  puedeEditarEventos?: boolean
 }
 
 export const ETIQUETA_ROL_ACCESO: Record<RolAcceso, string> = {
@@ -82,6 +84,8 @@ const ESCRITURA_ADMIN = new Set<Ambito>([
   'permisos',
   'cuadrante-jefes',
   'calendario-jefes',
+  'calendario',
+  'usuarios',
 ])
 
 let rolActivo: RolAcceso | null = null
@@ -125,7 +129,7 @@ export function ambitoDeRuta(path: string): Ambito | null {
 
 export function puedeVer(rol: RolAcceso, ambito: Ambito) {
   if (rol === 'SUPERADMIN') return true
-  if (rol === 'ADMIN') return ambito !== 'usuarios'
+  if (rol === 'ADMIN') return true
   return (
     ambito === 'cuadrante-jefes' ||
     ambito === 'calendario-jefes' ||
@@ -133,10 +137,15 @@ export function puedeVer(rol: RolAcceso, ambito: Ambito) {
   )
 }
 
-export function puedeEscribir(rol: RolAcceso, ambito: Ambito) {
+export function puedeEscribir(
+  rol: RolAcceso,
+  ambito: Ambito,
+  opciones?: { puedeEditarEventos?: boolean },
+) {
   if (!puedeVer(rol, ambito)) return false
   if (ambito === 'opciones') return false
   if (rol === 'SUPERADMIN') return true
+  if (ambito === 'calendario' && opciones?.puedeEditarEventos) return true
   if (rol === 'ADMIN') return ESCRITURA_ADMIN.has(ambito)
   return false
 }

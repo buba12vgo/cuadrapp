@@ -7,6 +7,7 @@ import { isDesignPreview } from '@/lib/designPreview'
 import { esRolCuadranteJefes, ROL_LABEL } from '@/lib/rolesCuadrante'
 import {
   crearUsuarioConsulta,
+  guardarPermisoEventos,
   listarUsuariosAcceso,
   mensajeErrorAuth,
   type UsuarioAccesoDoc,
@@ -100,7 +101,27 @@ export function UsuariosPage() {
     }
   }
 
-  if (acceso.perfil && acceso.perfil.rol !== 'SUPERADMIN') {
+  const esSuperadmin = acceso.perfil?.rol === 'SUPERADMIN'
+  const esAdmin = acceso.perfil?.rol === 'ADMIN'
+
+  async function alternarEventos(usuario: UsuarioAccesoDoc) {
+    setError(null)
+    const siguiente = usuario.puedeEditarEventos !== true
+    try {
+      await guardarPermisoEventos(usuario.uid, siguiente)
+      setUsuarios((actual) =>
+        actual.map((item) =>
+          item.uid === usuario.uid
+            ? { ...item, puedeEditarEventos: siguiente }
+            : item,
+        ),
+      )
+    } catch (err) {
+      setError(mensajeErrorAuth(err))
+    }
+  }
+
+  if (acceso.perfil && !esSuperadmin && !esAdmin) {
     return (
       <section className={PAGE_SECTION}>
         <PageHeader title="Usuarios" subtitle="Solo el superadmin gestiona las cuentas" />
@@ -113,7 +134,11 @@ export function UsuariosPage() {
     <section className={PAGE_SECTION}>
       <PageHeader
         title="Usuarios"
-        subtitle="Cuentas de consulta para jefes de servicio y responsables"
+        subtitle={
+          esSuperadmin
+            ? 'Cuentas de consulta para jefes de servicio y responsables'
+            : 'Autoriza qué jefes pueden meter eventos en el calendario'
+        }
       />
       <div className="min-h-0 flex-1 overflow-auto">
         <div className="flex flex-col gap-3">
@@ -157,6 +182,7 @@ export function UsuariosPage() {
             </p>
           </section>
 
+          {esSuperadmin ? (
           <section className={BLOQUE}>
             <h2 className={TITULO_BLOQUE}>Dar de alta un jefe</h2>
             <form className="grid gap-2 sm:grid-cols-2" onSubmit={(event) => void alta(event)}>
@@ -209,6 +235,15 @@ export function UsuariosPage() {
             {aviso ? <p className="mt-2 text-sm text-emerald-800">{aviso}</p> : null}
             {error ? <p className={`${ALERT_ERROR} mt-2`}>{error}</p> : null}
           </section>
+          ) : (
+            <p className={ALERT_INFO}>
+              Puedes autorizar a un jefe con usuario a meter eventos en el
+              calendario. El alta de cuentas sigue en el superadmin.
+            </p>
+          )}
+          {!esSuperadmin && error ? (
+            <p className={ALERT_ERROR}>{error}</p>
+          ) : null}
 
           <section className={BLOQUE}>
             <h2 className={TITULO_BLOQUE}>Jefes y responsables</h2>
@@ -219,6 +254,7 @@ export function UsuariosPage() {
                   <th className={TH}>Nombre</th>
                   <th className={TH}>Puesto</th>
                   <th className={TH}>Acceso</th>
+                  <th className={TH}>Eventos</th>
                 </tr>
               </thead>
               <tbody>
@@ -236,12 +272,26 @@ export function UsuariosPage() {
                           ? `${usuario.email} · consulta`
                           : 'Sin usuario'}
                       </td>
+                      <td className={TD}>
+                        {usuario ? (
+                          <label className="inline-flex items-center gap-1">
+                            <input
+                              type="checkbox"
+                              checked={usuario.puedeEditarEventos === true}
+                              onChange={() => void alternarEventos(usuario)}
+                            />
+                            Puede meter eventos
+                          </label>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
                     </tr>
                   )
                 })}
                 {jefes.length === 0 ? (
                   <tr>
-                    <td className={`${TD} text-slate-500`} colSpan={4}>
+                    <td className={`${TD} text-slate-500`} colSpan={5}>
                       No hay jefes de servicio ni responsables en la plantilla cargada.
                     </td>
                   </tr>

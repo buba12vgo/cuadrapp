@@ -60,6 +60,16 @@ export function useEventosData() {
   return [eventos, setEventosData] as const
 }
 
+export function eventosEnFecha(eventos: EventoOperativo[], fecha: string) {
+  return eventos.filter((evento) => evento.fecha === fecha)
+}
+
 export function eventoPorFecha(eventos: EventoOperativo[], fecha: string) {
-  return eventos.find((evento) => evento.fecha === fecha)
+  return eventosEnFecha(eventos, fecha)[0]
+}
+
+export function nombresEventosFecha(eventos: EventoOperativo[], fecha: string) {
+  return eventosEnFecha(eventos, fecha)
+    .map((evento) => evento.descripcion.trim())
+    .filter(Boolean)
 }

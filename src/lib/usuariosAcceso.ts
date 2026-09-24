@@ -10,6 +10,7 @@ import {
   getDoc,
   getDocs,
   setDoc,
+  updateDoc,
 } from 'firebase/firestore'
 import { normalizarEmail, type RolAcceso } from '@/lib/acceso'
 import { getDb, getFirebaseApp } from '@/lib/firebase'
@@ -23,11 +24,22 @@ export type UsuarioAccesoDoc = {
   nombre: string
   activo: boolean
   creadoEn: string
+  puedeEditarEventos?: boolean
 }
 
 const COLECCION = 'usuarios'
 
 const locales: UsuarioAccesoDoc[] = []
+
+export function consultaPreviewPuedeEventos() {
+  return locales.some((item) => item.puedeEditarEventos === true)
+}
+
+export function sembrarUsuarioPreview(usuario: UsuarioAccesoDoc) {
+  const idx = locales.findIndex((item) => item.uid === usuario.uid)
+  if (idx >= 0) return
+  locales.push(usuario)
+}
 
 export function mensajeErrorAuth(error: unknown) {
   const code =
@@ -146,5 +158,19 @@ function usuarioDesde(uid: string, data: Record<string, unknown>): UsuarioAcceso
     nombre,
     activo: data.activo !== false,
     creadoEn: typeof data.creadoEn === 'string' ? data.creadoEn : '',
+    puedeEditarEventos: data.puedeEditarEventos === true,
   }
+}
+
+export async function guardarPermisoEventos(uid: string, puede: boolean) {
+  const id = uid.trim()
+  if (!id) throw new Error('Usuario sin identificador')
+  const local = locales.find((item) => item.uid === id)
+  if (local) local.puedeEditarEventos = puede
+  const db = getDb()
+  if (!db) {
+    if (!local) throw new Error('Ese jefe todavía no tiene usuario.')
+    return
+  }
+  await updateDoc(doc(db, COLECCION, id), { puedeEditarEventos: puede })
 }

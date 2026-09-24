@@ -18,7 +18,7 @@ import {
   type RolAcceso,
 } from '@/lib/acceso'
 import { isDesignPreview } from '@/lib/designPreview'
-import { leerUsuarioAcceso } from '@/lib/usuariosAcceso'
+import { consultaPreviewPuedeEventos, leerUsuarioAcceso } from '@/lib/usuariosAcceso'
 import { useAuth } from '@/contexts/AuthContext'
 
 const PREVIEW_ROL_KEY = 'cuadrapp.preview-rol'
@@ -67,6 +67,7 @@ function perfilPreview(rol: RolAcceso): PerfilAcceso {
       numeroPlaca: null,
       nombre: 'Consulta jefes',
       fijo: false,
+      puedeEditarEventos: consultaPreviewPuedeEventos(),
     }
   }
   return {
@@ -136,6 +137,7 @@ export function AccesoProvider({ children }: { children: ReactNode }) {
             numeroPlaca: doc.numeroPlaca,
             nombre: doc.nombre,
             fijo: false,
+            puedeEditarEventos: doc.puedeEditarEventos === true,
           })
           setLoading(false)
           return
@@ -172,7 +174,12 @@ export function AccesoProvider({ children }: { children: ReactNode }) {
       perfil,
       loading: authLoading || loading,
       puedeVer: (ambito) => (rol ? puedeVer(rol, ambito) : false),
-      puedeEscribir: (ambito) => (rol ? puedeEscribir(rol, ambito) : false),
+      puedeEscribir: (ambito) =>
+        rol
+          ? puedeEscribir(rol, ambito, {
+              puedeEditarEventos: perfil?.puedeEditarEventos,
+            })
+          : false,
       inicio: rol ? rutaInicio(rol) : '/login',
       etiquetaRol: rol ? ETIQUETA_ROL_ACCESO[rol] : '',
       rolPreview,

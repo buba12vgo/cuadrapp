@@ -15,6 +15,7 @@ import { hydratePlanesAnuales } from '@/lib/planAnualStore'
 import { PERMISOS_INICIALES } from '@/lib/permisos'
 import { hydrateTiposPermiso } from '@/lib/permisosStore'
 import { hydratePuestosYMinimos } from '@/lib/puestosStore'
+import { sembrarUsuarioPreview } from '@/lib/usuariosAcceso'
 import { ANIO_REFERENCIA_VACACIONES_DEFECTO } from '@/lib/vacaciones'
 
 const PUESTOS_AGENTE: PuestoConfig[] = [
@@ -33,6 +34,17 @@ export function bootstrapDesignPreview() {
   hydrateEventos(mockEventosCalendario)
   hydratePuestosYMinimos(PUESTOS_AGENTE, crearMinimosSemana(PUESTOS_AGENTE))
   hydrateTiposPermiso(PERMISOS_INICIALES)
+  sembrarUsuarioPreview({
+    uid: 'preview-consulta-elena',
+    email: 'elena.jefa@cuadrapp.local',
+    rolAcceso: 'CONSULTA_JEFES',
+    numeroPlaca: '1001',
+    agenteId: 'ag-001',
+    nombre: 'Elena Vázquez Souto',
+    activo: true,
+    creadoEn: '2026-01-01T00:00:00.000Z',
+    puedeEditarEventos: false,
+  })
 
   const anio = ANIO_REFERENCIA_VACACIONES_DEFECTO
   const resultado = generarPlanAnual(

@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FileDown,
+  FileSpreadsheet,
   Moon,
   PartyPopper,
   Printer,
@@ -44,6 +45,7 @@ import {
   cuadranteVacio,
 } from '@/lib/cuadranteFirestore'
 import { getAgentes, getCuadranteJefes } from '@/lib/db'
+import { exportarCalendarioJefesExcel } from '@/lib/exportarCalendarioJefesExcel'
 import {
   celdasMesCalendario,
   detalleDiaCalendarioJefe,
@@ -431,26 +433,48 @@ export function CalendarioJefesPage() {
     setMes(siguienteMes)
   }
 
+  function opcionesExportacion() {
+    if (!agenteSeleccionado) return null
+    return {
+      anio,
+      mes,
+      agente: agenteSeleccionado,
+      cuadrante,
+      asignacionesDiarias,
+      puestos,
+      permisos: tiposPermiso,
+      eventos: eventosData,
+    }
+  }
+
   function exportarPdf() {
-    if (!agenteSeleccionado) {
+    const opciones = opcionesExportacion()
+    if (!opciones) {
       void alert('Selecciona un jefe de servicio.', 'Sin agente')
       return
     }
     try {
-      exportarCalendarioJefesPdf({
-        anio,
-        mes,
-        agente: agenteSeleccionado,
-        cuadrante,
-        asignacionesDiarias,
-        puestos,
-        permisos: tiposPermiso,
-        eventos: eventosData,
-      })
+      exportarCalendarioJefesPdf(opciones)
     } catch (err) {
       void alert(
         err instanceof Error ? err.message : 'No se pudo exportar el PDF',
         'Exportar PDF',
+      )
+    }
+  }
+
+  function exportarExcel() {
+    const opciones = opcionesExportacion()
+    if (!opciones) {
+      void alert('Selecciona un jefe de servicio.', 'Sin agente')
+      return
+    }
+    try {
+      exportarCalendarioJefesExcel(opciones)
+    } catch (err) {
+      void alert(
+        err instanceof Error ? err.message : 'No se pudo exportar el Excel',
+        'Exportar Excel',
       )
     }
   }
@@ -465,15 +489,26 @@ export function CalendarioJefesPage() {
         title="Calendario jefes"
         subtitle={`Vista mensual · cuadrante de jefes${loading ? ' · Cargando…' : ''}`}
         actions={
-          <button
-            type="button"
-            className={`${BTN_SECONDARY} h-8 px-2.5 text-xs`}
-            disabled={!agenteSeleccionado || loading}
-            onClick={exportarPdf}
-          >
-            <FileDown className="h-3.5 w-3.5" />
-            PDF
-          </button>
+          <>
+            <button
+              type="button"
+              className={`${BTN_SECONDARY} h-8 px-2.5 text-xs`}
+              disabled={!agenteSeleccionado || loading}
+              onClick={exportarExcel}
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5" />
+              Excel
+            </button>
+            <button
+              type="button"
+              className={`${BTN_SECONDARY} h-8 px-2.5 text-xs`}
+              disabled={!agenteSeleccionado || loading}
+              onClick={exportarPdf}
+            >
+              <FileDown className="h-3.5 w-3.5" />
+              PDF
+            </button>
+          </>
         }
         toolbar={
           <>
@@ -810,6 +845,15 @@ export function CalendarioJefesPage() {
               <button
                 type="button"
                 className={`${BTN_PRIMARY} h-8 w-full justify-center px-2 text-xs`}
+                disabled={!agenteSeleccionado || loading}
+                onClick={exportarExcel}
+              >
+                <FileSpreadsheet className="h-3.5 w-3.5" />
+                Exportar Excel
+              </button>
+              <button
+                type="button"
+                className={`${BTN_SECONDARY} h-8 w-full justify-center px-2 text-xs`}
                 disabled={!agenteSeleccionado || loading}
                 onClick={exportarPdf}
               >

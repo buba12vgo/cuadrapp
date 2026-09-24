@@ -179,7 +179,7 @@ export function exportarCalendarioJefesPdf(
   <meta charset="utf-8" />
   <title>${escapeHtml(titulo)}</title>
   <style>
-    @page { size: A4 portrait; margin: 10mm; }
+    @page { size: A4 landscape; margin: 8mm; }
     * { box-sizing: border-box; }
     body {
       margin: 0;
@@ -219,10 +219,10 @@ export function exportarCalendarioJefesPdf(
     }
     td.hueco {
       background: #f8fafc;
-      height: 88px;
+      height: 72px;
     }
     td.dia {
-      height: 88px;
+      height: 72px;
       padding: 5px 6px;
       text-align: left;
     }

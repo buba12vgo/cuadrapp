@@ -166,7 +166,14 @@ export async function guardarPermisoEventos(uid: string, puede: boolean) {
   const id = uid.trim()
   if (!id) throw new Error('Usuario sin identificador')
   const local = locales.find((item) => item.uid === id)
-  if (local) local.puedeEditarEventos = puede
+  if (local) {
+    local.puedeEditarEventos = puede
+    try {
+      sessionStorage.setItem('cuadrapp.preview-eventos', puede ? '1' : '0')
+    } catch {
+      /* ignore */
+    }
+  }
   const db = getDb()
   if (!db) {
     if (!local) throw new Error('Ese jefe todavía no tiene usuario.')

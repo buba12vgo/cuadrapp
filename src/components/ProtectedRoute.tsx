@@ -23,7 +23,11 @@ export function ProtectedRoute() {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />
   }
 
-  if (!puedeVerRuta(acceso.perfil.rol, location.pathname)) {
+  if (
+    !puedeVerRuta(acceso.perfil.rol, location.pathname, {
+      puedeEditarEventos: acceso.perfil.puedeEditarEventos,
+    })
+  ) {
     return <Navigate to={acceso.inicio} replace />
   }
 

@@ -67,7 +67,9 @@ function perfilPreview(rol: RolAcceso): PerfilAcceso {
       numeroPlaca: null,
       nombre: 'Consulta jefes',
       fijo: false,
-      puedeEditarEventos: consultaPreviewPuedeEventos(),
+      puedeEditarEventos:
+        consultaPreviewPuedeEventos() ||
+        sessionStorage.getItem('cuadrapp.preview-eventos') === '1',
     }
   }
   return {
@@ -173,7 +175,12 @@ export function AccesoProvider({ children }: { children: ReactNode }) {
     return {
       perfil,
       loading: authLoading || loading,
-      puedeVer: (ambito) => (rol ? puedeVer(rol, ambito) : false),
+      puedeVer: (ambito) =>
+        rol
+          ? puedeVer(rol, ambito, {
+              puedeEditarEventos: perfil?.puedeEditarEventos,
+            })
+          : false,
       puedeEscribir: (ambito) =>
         rol
           ? puedeEscribir(rol, ambito, {

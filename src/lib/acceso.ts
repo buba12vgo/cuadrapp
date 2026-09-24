@@ -127,9 +127,14 @@ export function ambitoDeRuta(path: string): Ambito | null {
   return prefijo ? RUTA_AMBITO[prefijo]! : null
 }
 
-export function puedeVer(rol: RolAcceso, ambito: Ambito) {
+export function puedeVer(
+  rol: RolAcceso,
+  ambito: Ambito,
+  opciones?: { puedeEditarEventos?: boolean },
+) {
   if (rol === 'SUPERADMIN') return true
   if (rol === 'ADMIN') return true
+  if (ambito === 'calendario' && opciones?.puedeEditarEventos) return true
   return (
     ambito === 'cuadrante-jefes' ||
     ambito === 'calendario-jefes' ||
@@ -142,7 +147,7 @@ export function puedeEscribir(
   ambito: Ambito,
   opciones?: { puedeEditarEventos?: boolean },
 ) {
-  if (!puedeVer(rol, ambito)) return false
+  if (!puedeVer(rol, ambito, opciones)) return false
   if (ambito === 'opciones') return false
   if (rol === 'SUPERADMIN') return true
   if (ambito === 'calendario' && opciones?.puedeEditarEventos) return true
@@ -150,10 +155,14 @@ export function puedeEscribir(
   return false
 }
 
-export function puedeVerRuta(rol: RolAcceso, path: string) {
+export function puedeVerRuta(
+  rol: RolAcceso,
+  path: string,
+  opciones?: { puedeEditarEventos?: boolean },
+) {
   const ambito = ambitoDeRuta(path)
   if (!ambito) return rol !== 'CONSULTA_JEFES'
-  return puedeVer(rol, ambito)
+  return puedeVer(rol, ambito, opciones)
 }
 
 export function rutaInicio(rol: RolAcceso) {

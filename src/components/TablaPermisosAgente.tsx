@@ -1,4 +1,6 @@
-import type { SaldoPermiso } from '@/lib/cuposPermiso'
+import { useEffect, useState } from 'react'
+import { normalizarDiasAnuales, type SaldoPermiso } from '@/lib/cuposPermiso'
+import { CAMPO_NUM } from '@/lib/uiStyles'
 
 function textoTotal(saldo: SaldoPermiso) {
   return saldo.cupo == null ? 'Sin tope' : String(saldo.cupo)
@@ -13,8 +15,47 @@ export function permisosConSaldo(saldos: SaldoPermiso[]) {
   return saldos.filter((saldo) => saldo.cupo != null || saldo.usados > 0)
 }
 
-export function TablaPermisosAgente({ saldos }: { saldos: SaldoPermiso[] }) {
-  const filas = permisosConSaldo(saldos)
+function CeldaTotal({
+  saldo,
+  onCambiarTotal,
+}: {
+  saldo: SaldoPermiso
+  onCambiarTotal: (codigo: string, dias: number) => void
+}) {
+  const [texto, setTexto] = useState(saldo.cupo == null ? '' : String(saldo.cupo))
+
+  useEffect(() => {
+    setTexto(saldo.cupo == null ? '' : String(saldo.cupo))
+  }, [saldo.cupo, saldo.codigo])
+
+  return (
+    <input
+      type="number"
+      min={0}
+      max={366}
+      aria-label={`Totales de ${saldo.nombre}`}
+      className={`${CAMPO_NUM} ml-auto w-16`}
+      placeholder={saldo.cupo == null ? 'Sin tope' : undefined}
+      value={texto}
+      onChange={(event) => setTexto(event.target.value)}
+      onBlur={() => {
+        if (texto.trim() === '') return
+        const dias = normalizarDiasAnuales(Number(texto))
+        if (dias === saldo.cupo) return
+        onCambiarTotal(saldo.codigo, dias)
+      }}
+    />
+  )
+}
+
+export function TablaPermisosAgente({
+  saldos,
+  onCambiarTotal,
+}: {
+  saldos: SaldoPermiso[]
+  onCambiarTotal?: (codigo: string, dias: number) => void
+}) {
+  const filas = onCambiarTotal ? saldos : permisosConSaldo(saldos)
   const total = filas.reduce((suma, saldo) => suma + (saldo.cupo ?? 0), 0)
   const disfrutados = filas.reduce((suma, saldo) => suma + saldo.usados, 0)
   const pendientes = filas.reduce(
@@ -48,7 +89,11 @@ export function TablaPermisosAgente({ saldos }: { saldos: SaldoPermiso[] }) {
               </span>
             </td>
             <td className="py-2 text-right font-semibold tabular-nums text-slate-800">
-              {textoTotal(saldo)}
+              {onCambiarTotal ? (
+                <CeldaTotal saldo={saldo} onCambiarTotal={onCambiarTotal} />
+              ) : (
+                textoTotal(saldo)
+              )}
             </td>
             <td className="py-2 text-right tabular-nums text-slate-700">{saldo.usados}</td>
             <td

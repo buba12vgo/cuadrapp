@@ -4,6 +4,7 @@ export type Ambito =
   | 'agentes'
   | 'puestos'
   | 'permisos'
+  | 'permisos-agentes'
   | 'minimos'
   | 'plan-anual'
   | 'cuadrante-mensual'
@@ -68,6 +69,7 @@ const RUTA_AMBITO: Record<string, Ambito> = {
   '/admin/agentes': 'agentes',
   '/admin/puestos': 'puestos',
   '/admin/permisos': 'permisos',
+  '/admin/permisos-agentes': 'permisos-agentes',
   '/admin/minimos': 'minimos',
   '/admin/plan-anual': 'plan-anual',
   '/admin/cuadrante-mensual': 'cuadrante-mensual',
@@ -139,6 +141,7 @@ export function puedeVer(
   return (
     ambito === 'cuadrante-jefes' ||
     ambito === 'calendario-jefes' ||
+    ambito === 'permisos-agentes' ||
     ambito === 'opciones'
   )
 }

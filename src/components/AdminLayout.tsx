@@ -46,6 +46,12 @@ const NAV_GROUPS: Array<{
       { to: '/admin/agentes', label: 'Agentes', icon: Users, ambito: 'agentes', end: true },
       { to: '/admin/puestos', label: 'Puestos', icon: Briefcase, ambito: 'puestos' },
       { to: '/admin/permisos', label: 'Permisos', icon: ClipboardList, ambito: 'permisos' },
+      {
+        to: '/admin/permisos-agentes',
+        label: 'Permisos agentes',
+        icon: ClipboardList,
+        ambito: 'permisos-agentes',
+      },
       { to: '/admin/minimos', label: 'Mínimos', icon: Gauge, ambito: 'minimos' },
       { to: '/admin/plan-anual', label: 'Plan anual', icon: CalendarRange, ambito: 'plan-anual' },
     ],

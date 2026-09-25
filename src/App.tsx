@@ -11,6 +11,8 @@ import { CuadranteMensualPage } from '@/pages/CuadranteMensualPage'
 import { MinimosPage } from '@/pages/MinimosPage'
 import { PlanAnualPage } from '@/pages/PlanAnualPage'
 import { PermisosPage } from '@/pages/PermisosPage'
+import { PermisosAgentesPage } from '@/pages/PermisosAgentesPage'
+import { MovilPermisosPage } from '@/pages/movil/MovilPermisosPage'
 import { PuestosPage } from '@/pages/PuestosPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { ListadosPage } from '@/pages/ListadosPage'
@@ -28,10 +30,12 @@ export default function App() {
           <Route path="/m" element={<Navigate to="/m/cuadrante" replace />} />
           <Route path="/m/cuadrante" element={<MovilCuadrantePage />} />
           <Route path="/m/calendario" element={<MovilCalendarioPage />} />
+          <Route path="/m/permisos" element={<MovilPermisosPage />} />
           <Route path="/" element={<InicioAcceso />} />
           <Route path="/admin/agentes" element={<AgentesPage />} />
           <Route path="/admin/puestos" element={<PuestosPage />} />
           <Route path="/admin/permisos" element={<PermisosPage />} />
+          <Route path="/admin/permisos-agentes" element={<PermisosAgentesPage />} />
           <Route path="/admin/minimos" element={<MinimosPage />} />
           <Route path="/admin/plan-anual" element={<PlanAnualPage />} />
           <Route

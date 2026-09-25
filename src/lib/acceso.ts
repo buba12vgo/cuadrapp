@@ -81,6 +81,7 @@ const RUTA_AMBITO: Record<string, Ambito> = {
 }
 
 const ESCRITURA_ADMIN = new Set<Ambito>([
+  'agentes',
   'permisos',
   'cuadrante-jefes',
   'calendario-jefes',

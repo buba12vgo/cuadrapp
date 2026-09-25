@@ -56,7 +56,7 @@ service cloud.firestore {
 
     match /agentes/{id} {
       allow read: if leeJefes();
-      allow write: if esSuperAdmin();
+      allow write: if esSuperAdmin() || esAdminJefes();
     }
 
     match /puestos/{id} {

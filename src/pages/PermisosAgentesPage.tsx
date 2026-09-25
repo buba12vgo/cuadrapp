@@ -29,12 +29,19 @@ const ORDEN_ROL: RolPolicia[] = [
   'POLICIA_BOLSA',
 ]
 
+function sinAcentos(valor: string) {
+  return valor
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+}
+
 function coincideBusqueda(agente: FichaPolicia, texto: string) {
-  const consulta = texto.trim().toLowerCase()
+  const consulta = sinAcentos(texto.trim())
   if (!consulta) return true
-  const nombre = `${agente.nombre} ${agente.apellidos}`.toLowerCase()
+  const nombre = sinAcentos(`${agente.nombre} ${agente.apellidos}`)
   if (nombre.includes(consulta)) return true
-  if (agente.numeroPlaca.toLowerCase().includes(consulta)) return true
+  if (sinAcentos(agente.numeroPlaca).includes(consulta)) return true
   const numero = Number(consulta)
   const placa = Number(agente.numeroPlaca)
   return Number.isInteger(numero) && Number.isInteger(placa) && numero === placa

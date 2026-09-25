@@ -4,8 +4,9 @@ import {
   etiquetaTurno,
 } from '@/lib/asignacionPuestos'
 import type { AsignacionesDiarias, PuestoConfig } from '@/lib/calendarioPuestos'
-import { diasDelMes, esFinDeSemana, totalDiasTrabajadosJefes } from '@/lib/convenio'
-import { nombresEventosFecha } from '@/lib/eventosStore'
+import { ETIQUETA_EVENTO } from '@/components/ChipEventoCalendario'
+import { diasDelMes, esDiaTrabajado, esFinDeSemana, totalDiasTrabajadosJefes } from '@/lib/convenio'
+import { eventosEnFecha } from '@/lib/eventosStore'
 import { esFestivo } from '@/lib/festivos'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
 import type { PermisoConfig } from '@/lib/permisos'
@@ -30,15 +31,25 @@ const MESES = [
 
 const DIAS_SEMANA = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const
 
-const COLOR_TURNO: Record<Turno, { fondo: string; texto: string }> = {
-  M: { fondo: '#dbeafe', texto: '#1d4ed8' },
-  T: { fondo: '#ffedd5', texto: '#c2410c' },
-  N: { fondo: '#ede9fe', texto: '#6d28d9' },
-  MT: { fondo: '#ccfbf1', texto: '#115e59' },
-  L: { fondo: '#fff1f2', texto: '#9f1239' },
-  P: { fondo: '#fff1f2', texto: '#9f1239' },
-  D: { fondo: '#ffffff', texto: '#64748b' },
-  V: { fondo: '#d1fae5', texto: '#047857' },
+/** Fondos, pastillas y filete izquierdo, alineados con la pantalla. */
+const ESTILO_TURNO: Record<
+  Turno,
+  { fondo: string; pill: string; pillTexto: string; borde: string }
+> = {
+  M: { fondo: '#eff6ff', pill: '#dbeafe', pillTexto: '#1e40af', borde: '#3b82f6' },
+  T: { fondo: '#fff7ed', pill: '#ffedd5', pillTexto: '#9a3412', borde: '#f97316' },
+  N: { fondo: '#f5f3ff', pill: '#ede9fe', pillTexto: '#5b21b6', borde: '#8b5cf6' },
+  MT: { fondo: '#f0fdfa', pill: '#ccfbf1', pillTexto: '#115e59', borde: '#14b8a6' },
+  L: { fondo: '#fff1f2', pill: '#ffe4e6', pillTexto: '#9f1239', borde: '#fb7185' },
+  P: { fondo: '#fff1f2', pill: '#ffe4e6', pillTexto: '#9f1239', borde: '#f43f5e' },
+  D: { fondo: '#f1f5f9', pill: '#e2e8f0', pillTexto: '#475569', borde: '#cbd5e1' },
+  V: { fondo: '#ecfdf5', pill: '#d1fae5', pillTexto: '#065f46', borde: '#10b981' },
+}
+
+const COLOR_EVENTO: Record<string, { fondo: string; texto: string }> = {
+  FESTIVO: { fondo: '#fee2e2', texto: '#7f1d1d' },
+  CRUCERO: { fondo: '#dbeafe', texto: '#1e3a8a' },
+  CONCIERTO: { fondo: '#fef9c3', texto: '#713f12' },
 }
 
 const LEYENDA_TURNOS: Array<{ turno: Turno; label: string }> = [
@@ -126,10 +137,22 @@ export function exportarCalendarioJefesPdf(
   const total = totalDiasTrabajadosJefes(fila, dias)
   const celdas = celdasMesCalendario(anio, mes)
 
-  const titulo = `Calendario · ${agente.numeroPlaca} · ${MESES[mes - 1]} ${anio}`
+  const titulo = `Calendario jefes · ${agente.numeroPlaca} · ${MESES[mes - 1]} ${anio}`
   const nombre = `${agente.nombre} ${agente.apellidos}`.trim()
   const rol = ROL_LABEL[agente.rolBase]
+  let noches = 0
+  let festivosTrabajados = 0
+  let permisosMes = 0
+  for (let dia = 1; dia <= nDias; dia++) {
+    const turno = (fila[dia - 1] ?? 'D') as Turno
+    if (turno === 'N') noches += 1
+    if (turno === 'P' || turno === 'L') permisosMes += 1
+    if (esDiaTrabajado(turno) && esFestivo(anio, mes, dia)) {
+      festivosTrabajados += 1
+    }
+  }
 
+  const semanas = celdas.length / 7
   const semanasHtml: string[] = []
   for (let i = 0; i < celdas.length; i += 7) {
     const semana = celdas.slice(i, i + 7)
@@ -146,20 +169,48 @@ export function exportarCalendarioJefesPdf(
           puestos,
           permisos,
         )
-        const nombres = nombresEventosFecha(opciones.eventos ?? [], fecha).join(' · ')
+        const eventosDia = eventosEnFecha(opciones.eventos ?? [], fecha)
         const especial =
           esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia)
-        const color = COLOR_TURNO[turno] ?? COLOR_TURNO.D
-        const fondo =
-          especial && (turno === 'D' || turno === 'V')
-            ? '#fffbeb'
-            : color.fondo
-        const numColor = especial ? '#dc2626' : '#0f172a'
-        return `<td class="dia" style="background:${fondo};color:${color.texto};">
-          <span class="num" style="color:${numColor};">${dia}</span>
-          <span class="turno">${escapeHtml(etiqueta)}</span>
-          ${detalle ? `<span class="detalle">${escapeHtml(detalle)}</span>` : ''}
-          ${nombres ? `<span class="detalle">${escapeHtml(nombres)}</span>` : ''}
+        const estilo = ESTILO_TURNO[turno] ?? ESTILO_TURNO.D
+        const fondo = especial && turno === 'V' ? '#fffbeb' : estilo.fondo
+        const puntos =
+          turno === 'D'
+            ? 'background-image:radial-gradient(circle,#94a3b8 0.55px,transparent 0.7px);background-size:6px 6px;'
+            : ''
+        const numColor = especial ? '#dc2626' : '#1e293b'
+        const eventosHtml = eventosDia
+          .map((evento) => {
+            const etiquetaEvento = ETIQUETA_EVENTO[evento.tipo]
+            const color = COLOR_EVENTO[evento.tipo] ?? {
+              fondo: '#f1f5f9',
+              texto: '#334155',
+            }
+            const texto =
+              evento.descripcion || etiquetaEvento?.texto || 'Evento'
+            const emoji = etiquetaEvento ? `${etiquetaEvento.emoji} ` : ''
+            return `<span class="ev" style="background:${color.fondo};color:${color.texto};">${emoji}${escapeHtml(texto)}</span>`
+          })
+          .join('')
+        const pie = detalle
+          ? `<span class="puesto">${escapeHtml(detalle)}</span>`
+          : esDiaTrabajado(turno)
+            ? `<span class="muted">Sin puesto</span>`
+            : turno === 'D'
+              ? `<span class="muted">Descanso</span>`
+              : turno === 'V'
+                ? `<span class="vacaciones">Vacaciones</span>`
+                : ''
+        return `<td class="dia" style="background-color:${fondo};${puntos}border-left:3px solid ${estilo.borde};">
+          <div class="cab">
+            <span class="num" style="color:${numColor};">${dia}</span>
+            ${especial ? '<span class="punto"></span>' : ''}
+          </div>
+          <div class="cuerpo">
+            <div class="eventos">${eventosHtml}</div>
+            <span class="pill" style="background:${estilo.pill};color:${estilo.pillTexto};">${escapeHtml(etiqueta)}</span>
+            ${pie}
+          </div>
         </td>`
       })
       .join('')
@@ -167,10 +218,8 @@ export function exportarCalendarioJefesPdf(
   }
 
   const chipsTurno = LEYENDA_TURNOS.map(({ turno, label }) => {
-    const c = COLOR_TURNO[turno]
-    return `<span class="chip" style="background:${c.fondo};color:${c.texto};">
-      <strong>${escapeHtml(etiquetaTurno(turno))}</strong>${escapeHtml(label)}
-    </span>`
+    const c = ESTILO_TURNO[turno]
+    return `<span class="chip" style="background:${c.pill};color:${c.pillTexto};" title="${escapeHtml(label)}">${escapeHtml(etiquetaTurno(turno))}</span>`
   }).join('')
 
   const html = `<!doctype html>
@@ -179,110 +228,207 @@ export function exportarCalendarioJefesPdf(
   <meta charset="utf-8" />
   <title>${escapeHtml(titulo)}</title>
   <style>
-    @page { size: A4 landscape; margin: 8mm; }
+    @page { size: A4 landscape; margin: 7mm; }
     * { box-sizing: border-box; }
+    html, body { height: 100%; }
     body {
       margin: 0;
       padding: 0;
+      height: 196mm;
+      display: flex;
+      flex-direction: column;
       color: #0f172a;
       font-family: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
+    .cabecera { margin: 0 0 6px; }
     .titulo {
-      margin: 0 0 4px;
-      font-size: 16px;
+      margin: 0;
+      font-size: 15px;
       font-weight: 800;
+      letter-spacing: -0.02em;
     }
     .sub {
-      margin: 0 0 12px;
-      font-size: 11px;
+      margin: 1px 0 6px;
+      font-size: 10px;
       color: #64748b;
+    }
+    .identidad {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 2px;
+    }
+    .placa {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid #e2e8f0;
+      background: #f8fafc;
+      border-radius: 6px;
+      padding: 1px 6px;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .nombre { margin: 0; font-size: 13px; font-weight: 800; }
+    .rol { margin-left: 4px; font-size: 11px; font-weight: 600; color: #475569; }
+    .kpis { display: flex; flex-wrap: wrap; gap: 4px; }
+    .kpi {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      height: 18px;
+      padding: 0 6px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .kpi b { font-size: 11px; letter-spacing: 0; text-transform: none; }
+    .kpi.trab { background: #f0f9ff; border-color: #bae6fd; color: #0c4a6e; }
+    .kpi.noches { background: #f5f3ff; border-color: #ddd6fe; color: #4c1d95; }
+    .kpi.fest { background: #fffbeb; border-color: #fde68a; color: #451a03; }
+    .kpi.perm { background: #fff1f2; border-color: #fecdd3; color: #881337; }
+    .marco {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #fff;
     }
     table.cal {
       width: 100%;
-      border-collapse: collapse;
+      height: 100%;
+      border-collapse: separate;
+      border-spacing: 1px;
       table-layout: fixed;
-    }
-    table.cal th,
-    table.cal td {
-      border: 0.6pt solid #cbd5e1;
-      vertical-align: top;
+      background: #e2e8f0;
     }
     th.dow {
-      padding: 6px 0;
-      font-size: 11px;
+      padding: 3px 0;
+      font-size: 9px;
       font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
       color: #64748b;
       background: #f8fafc;
       text-align: center;
     }
-    td.hueco {
-      background: #f8fafc;
-      height: 72px;
-    }
+    th.dow.finde { color: #dc2626; }
+    td.hueco { background: #f8fafc; }
     td.dia {
-      height: 72px;
-      padding: 5px 6px;
+      background-color: #fff;
+      padding: 3px 4px 4px;
       text-align: left;
+      vertical-align: top;
+      overflow: hidden;
     }
-    td.dia .num {
-      display: block;
-      font-size: 12px;
+    tr { height: ${Math.max(22, Math.floor(148 / semanas))}mm; }
+    .cab {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 2px;
+    }
+    .num {
+      font-size: 11px;
       font-weight: 800;
-      line-height: 1.1;
-      margin-bottom: 6px;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
     }
-    td.dia .turno {
-      display: block;
-      font-size: 18px;
-      font-weight: 800;
-      line-height: 1.05;
+    .punto {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: #ef4444;
     }
-    td.dia .detalle {
+    .cuerpo { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+    .eventos { display: flex; flex-direction: column; width: 100%; max-width: 100%; }
+    .ev {
       display: block;
-      margin-top: 3px;
-      font-size: 10px;
+      max-width: 100%;
+      margin-top: 1px;
+      padding: 0 2px;
+      border-radius: 3px;
+      font-size: 8px;
       font-weight: 700;
-      line-height: 1.15;
-      letter-spacing: -0.01em;
-      word-break: break-word;
+      line-height: 1.25;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 1px;
+      padding: 1px 6px;
+      border-radius: 999px;
+      font-size: 9px;
+      font-weight: 800;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+    }
+    .puesto, .muted, .vacaciones {
+      display: block;
+      max-width: 100%;
+      font-size: 8.5px;
+      line-height: 1.15;
+      overflow: hidden;
+    }
+    .puesto { font-weight: 800; color: #0f172a; }
+    .muted { font-weight: 600; color: #64748b; }
+    .vacaciones { font-weight: 600; color: #065f46; }
     .leyenda {
-      margin-top: 14px;
+      margin-top: 5px;
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
+      gap: 4px;
     }
     .chip {
       display: inline-flex;
       align-items: center;
-      gap: 4px;
-      padding: 3px 8px;
+      justify-content: center;
+      min-width: 22px;
+      padding: 1px 7px;
       border-radius: 999px;
-      font-size: 10px;
-      font-weight: 600;
-    }
-    .chip strong {
-      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 9px;
       font-weight: 800;
-    }
-    @media print {
-      body { padding: 0; }
     }
   </style>
 </head>
 <body>
-  <h1 class="titulo">${escapeHtml(titulo)}</h1>
-  <p class="sub">${escapeHtml(nombre)} · ${escapeHtml(rol)} · ${total}d trabajados (M-T = 2)</p>
-  <table class="cal">
-    <thead>
-      <tr>${DIAS_SEMANA.map((d) => `<th class="dow">${d}</th>`).join('')}</tr>
-    </thead>
-    <tbody>
-      ${semanasHtml.join('')}
-    </tbody>
-  </table>
+  <header class="cabecera">
+    <h1 class="titulo">Calendario jefes</h1>
+    <p class="sub">Vista mensual · ${escapeHtml(MESES[mes - 1])} ${anio}</p>
+    <div class="identidad">
+      <span class="placa">${escapeHtml(agente.numeroPlaca)}</span>
+      <p class="nombre">${escapeHtml(nombre)}<span class="rol">${escapeHtml(rol)}</span></p>
+      <div class="kpis">
+        <span class="kpi trab">Trab. <b>${total}d</b></span>
+        <span class="kpi noches">Noches <b>${noches}</b></span>
+        <span class="kpi fest">Fest. <b>${festivosTrabajados}</b></span>
+        <span class="kpi perm">Perm. <b>${permisosMes}</b></span>
+      </div>
+    </div>
+  </header>
+  <div class="marco">
+    <table class="cal">
+      <thead>
+        <tr>${DIAS_SEMANA.map((d, indice) => `<th class="dow${indice >= 5 ? ' finde' : ''}">${d}</th>`).join('')}</tr>
+      </thead>
+      <tbody>
+        ${semanasHtml.join('')}
+      </tbody>
+    </table>
+  </div>
   <div class="leyenda">${chipsTurno}</div>
 </body>
 </html>`

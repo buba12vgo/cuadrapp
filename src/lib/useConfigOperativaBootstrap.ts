@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react'
 import { hydrateAgentes } from '@/lib/agentesStore'
-import { cargarConfigOperativa, getAgentes, getPlanesAnuales } from '@/lib/db'
+import {
+  cargarConfigOperativa,
+  cargarConfigOperativaSoloLectura,
+  getAgentes,
+  getPlanesAnuales,
+} from '@/lib/db'
 import { hydrateEventos } from '@/lib/eventosStore'
 import { ensureFirebase, isFirebaseReady } from '@/lib/firebase'
 import {
@@ -76,7 +81,7 @@ export function useConfigOperativaBootstrap() {
 
       try {
         const [config, agentes] = await Promise.all([
-          cargarConfigOperativa(),
+          puedePlan ? cargarConfigOperativa() : cargarConfigOperativaSoloLectura(),
           getAgentes(),
         ])
         if (cancelado) return
@@ -98,7 +103,6 @@ export function useConfigOperativaBootstrap() {
             )
             marcarErrorCargaPlan(mensaje)
             console.error('[bootstrap] No se pudo cargar el plan anual', err)
-            setError(mensaje)
           }
         } else {
           hydratePlanesAnuales({}, {})

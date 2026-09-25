@@ -798,6 +798,29 @@ export async function seedMinimosSiVacios(
   return semana
 }
 
+/** Lectura sin sembrar. La consulta no puede escribir puestos, mínimos ni tipos. */
+export async function cargarConfigOperativaSoloLectura(): Promise<{
+  puestos: PuestoConfig[]
+  minimosSemana: MinimosSemana
+  eventos: EventoOperativo[]
+  tiposPermiso: PermisoConfig[]
+}> {
+  const [puestos, tiposPermiso] = await Promise.all([
+    getPuestos(),
+    getTiposPermiso(),
+  ])
+  const [minimosSemana, eventos] = await Promise.all([
+    getMinimosSemana(puestos),
+    getEventos(),
+  ])
+  return {
+    puestos,
+    minimosSemana: minimosSemana ?? crearMinimosSemana(puestos),
+    eventos,
+    tiposPermiso,
+  }
+}
+
 /** Carga puestos + mínimos + eventos + tipos de permiso; siembra si vacíos. */
 export async function cargarConfigOperativa(): Promise<{
   puestos: PuestoConfig[]

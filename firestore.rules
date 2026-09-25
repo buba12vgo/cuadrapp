@@ -92,7 +92,7 @@ service cloud.firestore {
     }
 
     match /planesAnuales/{id} {
-      allow read: if leeTodo();
+      allow read: if leeJefes();
       allow write: if esSuperAdmin();
     }
   }

@@ -62,10 +62,11 @@ function perfilPreview(rol: RolAcceso): PerfilAcceso {
   if (rol === 'CONSULTA_JEFES') {
     return {
       rol,
-      email: 'jefe.beta@cuadrapp.local',
+      email: 'elena.jefa@cuadrapp.local',
       uid: 'preview-consulta',
-      numeroPlaca: null,
-      nombre: 'Consulta jefes',
+      numeroPlaca: '1001',
+      agenteId: 'ag-001',
+      nombre: 'Elena Vázquez Souto',
       fijo: false,
       puedeEditarEventos:
         consultaPreviewPuedeEventos() ||
@@ -137,6 +138,7 @@ export function AccesoProvider({ children }: { children: ReactNode }) {
             email: doc.email,
             uid: doc.uid,
             numeroPlaca: doc.numeroPlaca,
+            agenteId: doc.agenteId,
             nombre: doc.nombre,
             fijo: false,
             puedeEditarEventos: doc.puedeEditarEventos === true,

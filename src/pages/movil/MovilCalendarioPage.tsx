@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ChipEventoCalendario } from '@/components/ChipEventoCalendario'
+import { useAcceso } from '@/contexts/AccesoContext'
+import { agenteDelPerfil, useSeleccionAgente } from '@/lib/agenteSesion'
 import { detalleDiaCalendarioJefe } from '@/lib/exportarCalendarioJefesPdf'
 import { esDiaTrabajado, totalDiasTrabajadosJefes } from '@/lib/convenio'
 import { eventosEnFecha } from '@/lib/eventosStore'
@@ -28,15 +30,14 @@ function etiquetaTurnoMovil(turno: Turno) {
 
 export function MovilCalendarioPage() {
   const { anio, mes, nombreMes } = useMovilMes()
+  const { perfil } = useAcceso()
   const datos = useCuadranteJefesMes(anio, mes)
-  const [agenteId, setAgenteId] = useState('')
+  const propio = useMemo(
+    () => agenteDelPerfil(datos.jefes, perfil),
+    [datos.jefes, perfil],
+  )
+  const { agenteId, elegir } = useSeleccionAgente(datos.jefes, propio)
   const [dia, setDia] = useState<number | null>(null)
-
-  useEffect(() => {
-    if (!datos.jefes.some((agente) => agente.id === agenteId)) {
-      setAgenteId(datos.jefes[0]?.id ?? '')
-    }
-  }, [datos.jefes, agenteId])
 
   useEffect(() => {
     const hoy = new Date()
@@ -88,7 +89,7 @@ export function MovilCalendarioPage() {
               className={`shrink-0 rounded-2xl px-3 py-2 text-left ${
                 activo ? 'bg-slate-950 text-white' : 'bg-white text-slate-800'
               }`}
-              onClick={() => setAgenteId(item.id)}
+              onClick={() => elegir(item.id)}
             >
               <span className="block text-sm font-extrabold">
                 {item.nombre} {item.apellidos.split(' ')[0]}

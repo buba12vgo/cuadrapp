@@ -21,10 +21,17 @@ export type PerfilAcceso = {
   email: string
   uid: string | null
   numeroPlaca: string | null
+  /** Ficha vinculada, cuando la cuenta de consulta la trae. */
+  agenteId?: string
   nombre: string
   fijo: boolean
   /** Consulta de jefes autorizada a crear eventos del calendario. */
   puedeEditarEventos?: boolean
+}
+
+/** Superadmin y admin consultan los permisos de toda la plantilla. */
+export function vePermisosDeTodos(rol: RolAcceso | null | undefined) {
+  return rol === 'SUPERADMIN' || rol === 'ADMIN'
 }
 
 export const ETIQUETA_ROL_ACCESO: Record<RolAcceso, string> = {

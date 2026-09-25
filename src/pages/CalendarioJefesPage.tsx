@@ -30,6 +30,8 @@ import {
   PAGE_SECTION,
   TITULO_BLOQUE,
 } from '@/lib/uiStyles'
+import { useAcceso } from '@/contexts/AccesoContext'
+import { agenteDelPerfil, useSeleccionAgente } from '@/lib/agenteSesion'
 import { useAgentesData } from '@/lib/agentesStore'
 import { ChipEventoCalendario } from '@/components/ChipEventoCalendario'
 import { eventosEnFecha, useEventosData } from '@/lib/eventosStore'
@@ -76,7 +78,6 @@ const MESES = [
 ] as const
 
 const DIAS_SEMANA = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const
-const ANIO_ACTUAL = 2026
 
 const LEYENDA: Array<{ turno: Turno; label: string }> = [
   { turno: 'M', label: 'Mañana' },
@@ -271,13 +272,13 @@ function BarraCompacta({
 
 export function CalendarioJefesPage() {
   const { alert } = useAppDialog()
+  const { perfil } = useAcceso()
   const [agentesData, setAgentesData] = useAgentesData()
   const [eventosData] = useEventosData()
   const [puestos] = usePuestosData()
   const [tiposPermiso] = useTiposPermiso()
-  const [anio, setAnio] = useState(ANIO_ACTUAL)
-  const [mes, setMes] = useState(new Date().getMonth() + 1)
-  const [agenteId, setAgenteId] = useState<string>('')
+  const [anio, setAnio] = useState(() => new Date().getFullYear())
+  const [mes, setMes] = useState(() => new Date().getMonth() + 1)
   const [cuadrante, setCuadrante] = useState<CuadranteMensual>({})
   const [asignacionesDiarias, setAsignacionesDiarias] =
     useState<AsignacionesDiarias>({})
@@ -292,6 +293,11 @@ export function CalendarioJefesPage() {
     () => jefes.map((agente) => agente.id).join('\0'),
     [jefes],
   )
+  const propio = useMemo(
+    () => agenteDelPerfil(jefes, perfil),
+    [jefes, perfil],
+  )
+  const { agenteId, elegir } = useSeleccionAgente(jefes, propio, agentesCargados)
   const agenteSeleccionado = useMemo(
     () => jefes.find((agente) => agente.id === agenteId) ?? null,
     [jefes, agenteId],
@@ -349,17 +355,6 @@ export function CalendarioJefesPage() {
       cancelado = true
     }
   }, [setAgentesData])
-
-  useEffect(() => {
-    if (!agentesCargados) return
-    if (jefes.length === 0) {
-      setAgenteId('')
-      return
-    }
-    if (!jefes.some((agente) => agente.id === agenteId)) {
-      setAgenteId(jefes[0]!.id)
-    }
-  }, [agentesCargados, jefes, jefesIdsKey, agenteId])
 
   useEffect(() => {
     if (!agentesCargados) return
@@ -569,7 +564,7 @@ export function CalendarioJefesPage() {
                 className={`${SELECT_TOOLBAR} w-[15.5rem] max-w-[40vw]`}
                 value={agenteId}
                 disabled={jefes.length === 0}
-                onChange={(event) => setAgenteId(event.target.value)}
+                onChange={(event) => elegir(event.target.value)}
               >
                 {jefes.map((agente) => (
                   <option key={agente.id} value={agente.id}>

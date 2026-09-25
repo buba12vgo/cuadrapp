@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { TablaPermisosAgente } from '@/components/TablaPermisosAgente'
 import { PageHeader, ToolbarSection } from '@/components/ui/PageHeader'
+import { useAcceso } from '@/contexts/AccesoContext'
+import { vePermisosDeTodos } from '@/lib/acceso'
+import { agenteDelPerfil, useSeleccionAgente } from '@/lib/agenteSesion'
 import { useAgentesData } from '@/lib/agentesStore'
 import { saldosPermisoAgente } from '@/lib/cuposPermiso'
 import { resumenPermisosVacio } from '@/lib/conteoPermisos'
@@ -9,9 +12,9 @@ import { useSaldosPermisosAnio } from '@/lib/useSaldosPermisosAnio'
 import { CAMPO, PAGE_SECTION } from '@/lib/uiStyles'
 
 export function PermisosAgentesPage() {
+  const { perfil } = useAcceso()
   const [agentesData] = useAgentesData()
   const [anio, setAnio] = useState(() => new Date().getFullYear())
-  const [agenteId, setAgenteId] = useState('')
   const agentes = useMemo(
     () =>
       [...agentesData].sort((a, b) =>
@@ -19,15 +22,19 @@ export function PermisosAgentesPage() {
       ),
     [agentesData],
   )
-  const { permisos, resumenes, loading } = useSaldosPermisosAnio(agentes, anio)
+  const propio = useMemo(
+    () => agenteDelPerfil(agentes, perfil),
+    [agentes, perfil],
+  )
+  const veTodos = vePermisosDeTodos(perfil?.rol)
+  const visibles = useMemo(
+    () => (veTodos ? agentes : propio ? [propio] : []),
+    [veTodos, agentes, propio],
+  )
+  const { agenteId, elegir } = useSeleccionAgente(visibles, propio)
+  const { permisos, resumenes, loading } = useSaldosPermisosAnio(visibles, anio)
 
-  useEffect(() => {
-    if (!agentes.some((agente) => agente.id === agenteId)) {
-      setAgenteId(agentes[0]?.id ?? '')
-    }
-  }, [agentes, agenteId])
-
-  const agente = agentes.find((item) => item.id === agenteId) ?? null
+  const agente = visibles.find((item) => item.id === agenteId) ?? null
   const saldos = agente
     ? saldosPermisoAgente(
         agente,
@@ -41,7 +48,11 @@ export function PermisosAgentesPage() {
     <section className={PAGE_SECTION}>
       <PageHeader
         title="Permisos"
-        subtitle="Totales, disfrutados y pendientes de cada agente"
+        subtitle={
+          veTodos
+            ? 'Totales, disfrutados y pendientes de cada agente'
+            : 'Totales, disfrutados y pendientes'
+        }
         toolbar={
           <ToolbarSection label="Año">
             <input
@@ -55,12 +66,19 @@ export function PermisosAgentesPage() {
           </ToolbarSection>
         }
       />
-      {agentes.length === 0 ? (
-        <p className="text-sm text-slate-500">No hay agentes en la plantilla.</p>
+      {visibles.length === 0 ? (
+        <p className="text-sm text-slate-500">
+          {veTodos
+            ? 'No hay agentes en la plantilla.'
+            : 'No hay una ficha vinculada a tu usuario.'}
+        </p>
       ) : (
-        <div className="grid gap-3 lg:grid-cols-[16rem_minmax(0,1fr)]">
+        <div
+          className={`grid gap-3 ${veTodos ? 'lg:grid-cols-[16rem_minmax(0,1fr)]' : ''}`}
+        >
+          {veTodos ? (
           <ul className="flex gap-2 overflow-x-auto lg:flex-col lg:overflow-visible">
-            {agentes.map((item) => {
+            {visibles.map((item) => {
               const activo = item.id === agente?.id
               return (
                 <li key={item.id} className="shrink-0 lg:shrink">
@@ -69,7 +87,7 @@ export function PermisosAgentesPage() {
                     className={`w-full rounded-xl px-3 py-2 text-left ${
                       activo ? 'bg-slate-950 text-white' : 'bg-white text-slate-800'
                     }`}
-                    onClick={() => setAgenteId(item.id)}
+                    onClick={() => elegir(item.id)}
                   >
                     <span className="block text-sm font-extrabold">
                       {item.nombre} {item.apellidos}
@@ -82,6 +100,7 @@ export function PermisosAgentesPage() {
               )
             })}
           </ul>
+          ) : null}
           <section className="rounded-2xl bg-white p-4 shadow-sm">
             {agente ? (
               <>

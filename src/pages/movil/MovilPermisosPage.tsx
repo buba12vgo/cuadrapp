@@ -5,6 +5,7 @@ import { vePermisosDeTodos } from '@/lib/acceso'
 import { agenteDelPerfil, useSeleccionAgente } from '@/lib/agenteSesion'
 import { saldosPermisoAgente } from '@/lib/cuposPermiso'
 import { resumenPermisosVacio } from '@/lib/conteoPermisos'
+import { saldosDePermisosVisibles } from '@/lib/permisos'
 import { ROL_LABEL, agentesCuadranteJefes } from '@/lib/rolesCuadrante'
 import { useAgentesData } from '@/lib/agentesStore'
 import { useSaldosPermisosAnio } from '@/lib/useSaldosPermisosAnio'
@@ -32,11 +33,14 @@ export function MovilPermisosPage() {
 
   const agente = visibles.find((item) => item.id === agenteId) ?? null
   const saldos = agente
-    ? saldosPermisoAgente(
-        agente,
+    ? saldosDePermisosVisibles(
+        saldosPermisoAgente(
+          agente,
+          permisos,
+          anio,
+          resumenes[agente.id] ?? resumenPermisosVacio(),
+        ),
         permisos,
-        anio,
-        resumenes[agente.id] ?? resumenPermisosVacio(),
       )
     : []
 

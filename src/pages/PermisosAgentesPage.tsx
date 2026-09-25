@@ -16,6 +16,7 @@ import { resumenPermisosVacio } from '@/lib/conteoPermisos'
 import { saveAgente } from '@/lib/db'
 import { ensureFirebase } from '@/lib/firebase'
 import { esLibrePorDisponibilidad } from '@/lib/jornadaDisponible'
+import { saldosDePermisosVisibles } from '@/lib/permisos'
 import { ROL_LABEL } from '@/lib/rolesCuadrante'
 import { useSaldosPermisosAnio } from '@/lib/useSaldosPermisosAnio'
 import { ALERT_ERROR, CAMPO, PAGE_SECTION } from '@/lib/uiStyles'
@@ -90,11 +91,14 @@ export function PermisosAgentesPage() {
 
   const agente = visibles.find((item) => item.id === agenteId) ?? null
   const saldos = agente
-    ? saldosPermisoAgente(
-        agente,
+    ? saldosDePermisosVisibles(
+        saldosPermisoAgente(
+          agente,
+          permisos,
+          anio,
+          resumenes[agente.id] ?? resumenPermisosVacio(),
+        ),
         permisos,
-        anio,
-        resumenes[agente.id] ?? resumenPermisosVacio(),
       )
     : []
 

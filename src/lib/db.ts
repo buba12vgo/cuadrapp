@@ -612,7 +612,13 @@ function permisoDesdeFirestore(
       : codigo === 'ASUNTOS_PROPIOS'
         ? 6
         : 0
-  return { codigo, nombre, abreviatura, diasAnuales }
+  return {
+    codigo,
+    nombre,
+    abreviatura,
+    diasAnuales,
+    visible: data.visible !== false,
+  }
 }
 
 function permisoParaFirestore(permiso: PermisoConfig): PermisoConfig {
@@ -627,7 +633,13 @@ function permisoParaFirestore(permiso: PermisoConfig): PermisoConfig {
       : codigo === 'ASUNTOS_PROPIOS'
         ? 6
         : 0
-  return { codigo, nombre, abreviatura, diasAnuales }
+  return {
+    codigo,
+    nombre,
+    abreviatura,
+    diasAnuales,
+    visible: permiso.visible !== false,
+  }
 }
 
 export async function getTiposPermiso(): Promise<PermisoConfig[]> {

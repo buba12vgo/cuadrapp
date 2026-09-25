@@ -169,6 +169,7 @@ function EditorModal({
             diasAnuales: esDiasAnoAnterior(form.codigo || form.nombre)
               ? 0
               : normalizarDiasAnuales(Number(form.diasAnuales)),
+            visible: true,
           })
         }}
       >
@@ -288,7 +289,11 @@ export function PermisosPage() {
     setGuardando(true)
     setError(null)
     try {
-      const guardado = await saveTipoPermiso(permiso)
+      const previo = permisos.find((item) => item.codigo === permiso.codigo)
+      const guardado = await saveTipoPermiso({
+        ...permiso,
+        visible: previo ? previo.visible !== false : permiso.visible !== false,
+      })
       if (modo === 'nuevo') {
         setPermisos((actual) => [...actual, guardado])
       } else if (editando) {
@@ -305,6 +310,33 @@ export function PermisosPage() {
         err instanceof Error
           ? err.message
           : 'No se pudo guardar el tipo de permiso'
+      setError(mensaje)
+      await showAlert(mensaje, 'Error al guardar')
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  async function cambiarVisible(permiso: PermisoConfig, visible: boolean) {
+    if (soloLectura) return
+    const siguiente = { ...permiso, visible }
+    setPermisos((actual) =>
+      actual.map((item) => (item.codigo === permiso.codigo ? siguiente : item)),
+    )
+    if (!firebaseOk) return
+    setGuardando(true)
+    setError(null)
+    try {
+      const guardado = await saveTipoPermiso(siguiente)
+      setPermisos((actual) =>
+        actual.map((item) => (item.codigo === guardado.codigo ? guardado : item)),
+      )
+    } catch (err) {
+      setPermisos((actual) =>
+        actual.map((item) => (item.codigo === permiso.codigo ? permiso : item)),
+      )
+      const mensaje =
+        err instanceof Error ? err.message : 'No se pudo cambiar la visibilidad'
       setError(mensaje)
       await showAlert(mensaje, 'Error al guardar')
     } finally {
@@ -354,7 +386,7 @@ export function PermisosPage() {
     <section className={PAGE_SECTION}>
       <PageHeader
         title="Permisos"
-        subtitle={`${permisos.length} tipos · tope anual por agente · cierre 31 dic 23:59 → DAA`}
+        subtitle={`${permisos.length} tipos · solo los visibles salen en la lista del agente`}
         actions={
           <button
             type="button"
@@ -383,6 +415,7 @@ export function PermisosPage() {
                   <th className={TH}>Código</th>
                   <th className={TH}>Abrev.</th>
                   <th className={`${TH} text-right`}>Días/año</th>
+                  <th className={TH}>Visible</th>
                   <th className={`${TH} text-right`}>Acciones</th>
                 </tr>
               </thead>
@@ -402,6 +435,18 @@ export function PermisosPage() {
                         : diasAnualesCatalogo(permiso) === 0
                           ? 'Sin tope'
                           : diasAnualesCatalogo(permiso)}
+                    </td>
+                    <td className={TD}>
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 accent-slate-950"
+                        checked={permiso.visible !== false}
+                        disabled={soloLectura || guardando}
+                        aria-label={`Visible para agentes: ${permiso.nombre}`}
+                        onChange={(event) =>
+                          void cambiarVisible(permiso, event.target.checked)
+                        }
+                      />
                     </td>
                     <td className={`${TD} text-right`}>
                       <button

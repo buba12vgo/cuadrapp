@@ -15,6 +15,23 @@ export type PermisoConfig = {
   abreviatura: string
   /** Días de cupo anual por agente. 0 = sin tope (no pasa a DAA). */
   diasAnuales?: number
+  /** Si es false, no sale en la lista de permisos del agente. */
+  visible?: boolean
+}
+
+/** Sin el campo, el permiso se muestra. */
+export function permisoEsVisible(permiso: Pick<PermisoConfig, 'visible'>) {
+  return permiso.visible !== false
+}
+
+export function saldosDePermisosVisibles<T extends { codigo: string }>(
+  saldos: T[],
+  permisos: PermisoConfig[],
+) {
+  const codigos = new Set(
+    permisos.filter(permisoEsVisible).map((permiso) => permiso.codigo),
+  )
+  return saldos.filter((saldo) => codigos.has(saldo.codigo))
 }
 
 export const PERMISO_LIBRE_DISPONIBILIDAD: PermisoConfig = {
@@ -60,6 +77,7 @@ export function clonarPermiso(permiso: PermisoConfig): PermisoConfig {
     nombre: permiso.nombre,
     abreviatura: permiso.abreviatura,
     diasAnuales: permiso.diasAnuales,
+    visible: permiso.visible !== false,
   }
 }
 

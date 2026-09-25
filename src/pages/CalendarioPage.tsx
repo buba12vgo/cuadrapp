@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { ChipEventoCalendario, ETIQUETA_EVENTO } from '@/components/ChipEventoCalendario'
 import { CalendarioResumenPanel } from '@/components/dashboard/CalendarioResumenPanel'
 import {
   DashboardBody,
@@ -39,7 +40,7 @@ import { isDesignPreview } from '@/lib/designPreview'
 import { eventosEnFecha, useEventosData } from '@/lib/eventosStore'
 import { isFirebaseReady } from '@/lib/firebase'
 import { useMinimosSemanaData, usePuestosData } from '@/lib/puestosStore'
-import type { EventoOperativo, TipoEvento } from '@/types'
+import type { EventoOperativo } from '@/types'
 
 const MESES = [
   'Enero',
@@ -58,26 +59,6 @@ const MESES = [
 
 const DIAS_SEMANA = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const
 const TURNOS = ['M', 'T', 'N'] as const
-
-const ETIQUETA_EVENTO: Partial<
-  Record<TipoEvento, { emoji: string; clase: string; texto: string }>
-> = {
-  FESTIVO: {
-    emoji: '🔴',
-    clase: 'bg-red-100 text-red-900',
-    texto: 'Festivo',
-  },
-  CRUCERO: {
-    emoji: '🚢',
-    clase: 'bg-blue-100 text-blue-900',
-    texto: 'Crucero',
-  },
-  CONCIERTO: {
-    emoji: '🎵',
-    clase: 'bg-yellow-100 text-yellow-900',
-    texto: 'Concierto',
-  },
-}
 
 function pad(n: number) {
   return String(n).padStart(2, '0')
@@ -544,20 +525,9 @@ export function CalendarioPage() {
                 }}
               >
                 <span className="text-sm font-bold text-slate-800">{dia}</span>
-                {eventosDia.map((item) => {
-                  const etiqueta = ETIQUETA_EVENTO[item.tipo]
-                  return (
-                    <span
-                      key={item.id}
-                      className={`mt-0.5 line-clamp-1 rounded px-0.5 py-0 text-xs font-semibold ${
-                        etiqueta ? etiqueta.clase : 'bg-slate-100 text-slate-700'
-                      }`}
-                    >
-                      {etiqueta ? `${etiqueta.emoji} ` : ''}
-                      {item.descripcion || etiqueta?.texto || 'Evento'}
-                    </span>
-                  )
-                })}
+                {eventosDia.map((item) => (
+                  <ChipEventoCalendario key={item.id} evento={item} />
+                ))}
               </button>
             )
           })}

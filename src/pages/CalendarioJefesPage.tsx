@@ -31,7 +31,8 @@ import {
   TITULO_BLOQUE,
 } from '@/lib/uiStyles'
 import { useAgentesData } from '@/lib/agentesStore'
-import { nombresEventosFecha, useEventosData } from '@/lib/eventosStore'
+import { ChipEventoCalendario } from '@/components/ChipEventoCalendario'
+import { eventosEnFecha, useEventosData } from '@/lib/eventosStore'
 import { etiquetaTurno } from '@/lib/asignacionPuestos'
 import type { AsignacionesDiarias } from '@/lib/calendarioPuestos'
 import {
@@ -684,7 +685,7 @@ export function CalendarioJefesPage() {
                         tiposPermiso,
                       )
                     : { etiqueta: etiquetaTurno(turno), detalle: null }
-                  const nombresEvento = nombresEventosFecha(eventosData, fecha)
+                  const eventosDia = eventosEnFecha(eventosData, fecha)
                   const finde = esFinDeSemana(anio, mes, dia)
                   const festivo = esFestivo(anio, mes, dia)
                   const especial = finde || festivo
@@ -703,7 +704,7 @@ export function CalendarioJefesPage() {
                       className={`group flex min-h-0 flex-col gap-1 overflow-hidden border-l-[3px] p-1.5 transition-opacity ${FOCUS_RING} ${fondoCelda} ${BORDE_CELDA[turno]} ${
                         esDescansoCelda ? 'opacity-[0.88]' : ''
                       } ${atenuada ? '!opacity-25' : ''}`}
-                      title={`${dia}/${mes}/${anio} · ${etiqueta}${detalle ? ` · ${detalle}` : ''}${nombresEvento.length ? ` · ${nombresEvento.join(' · ')}` : ''}`}
+                      title={`${dia}/${mes}/${anio} · ${etiqueta}${detalle ? ` · ${detalle}` : ''}${eventosDia.length ? ` · ${eventosDia.map((evento) => evento.descripcion).filter(Boolean).join(' · ')}` : ''}`}
                     >
                       <div className="flex shrink-0 items-center justify-between gap-0.5">
                         <span
@@ -718,36 +719,35 @@ export function CalendarioJefesPage() {
                         ) : null}
                       </div>
 
-                      <div className="mt-auto flex min-h-0 flex-col items-start gap-1 overflow-hidden">
-                        <PillTurno turno={turno} />
-                        {nombresEvento.length > 0 ? (
-                          <span
-                            className="line-clamp-2 max-w-full text-[10px] font-semibold leading-snug text-rose-800"
-                            title={nombresEvento.join(' · ')}
-                          >
-                            {nombresEvento.join(' · ')}
-                          </span>
-                        ) : null}
-                        {detalle ? (
-                          <span
-                            className="line-clamp-2 max-w-full text-[11px] font-bold leading-snug text-slate-900"
-                            title={detalle}
-                          >
-                            {detalle}
-                          </span>
-                        ) : esServicio ? (
-                          <span className="text-[11px] font-semibold text-slate-500">
-                            Sin puesto
-                          </span>
-                        ) : esDescansoCelda ? (
-                          <span className="text-[11px] font-semibold text-slate-500">
-                            Descanso
-                          </span>
-                        ) : turno === 'V' ? (
-                          <span className="text-[11px] font-semibold text-emerald-800">
-                            Vacaciones
-                          </span>
-                        ) : null}
+                      <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-hidden">
+                        <div className="flex min-h-0 flex-col overflow-hidden">
+                          {eventosDia.map((evento) => (
+                            <ChipEventoCalendario key={evento.id} evento={evento} />
+                          ))}
+                        </div>
+                        <div className="flex shrink-0 flex-col items-start gap-0.5">
+                          <PillTurno turno={turno} />
+                          {detalle ? (
+                            <span
+                              className="line-clamp-2 max-w-full text-[11px] font-bold leading-snug text-slate-900"
+                              title={detalle}
+                            >
+                              {detalle}
+                            </span>
+                          ) : esServicio ? (
+                            <span className="text-[11px] font-semibold text-slate-500">
+                              Sin puesto
+                            </span>
+                          ) : esDescansoCelda ? (
+                            <span className="text-[11px] font-semibold text-slate-500">
+                              Descanso
+                            </span>
+                          ) : turno === 'V' ? (
+                            <span className="text-[11px] font-semibold text-emerald-800">
+                              Vacaciones
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
                   )

@@ -21,7 +21,6 @@ import {
   PAGE_SECTION,
   SEMAFORO_KO,
   SEMAFORO_OK,
-  SEMAFORO_WARN,
 } from '@/lib/uiStyles'
 import { AvisoSoloLectura } from '@/components/AvisoSoloLectura'
 import { LeyendaTurnos } from '@/components/LeyendaTurnos'
@@ -78,7 +77,6 @@ import {
   diasDelMes,
   diasOperativosConvenio,
   esFinDeSemana,
-  totalFindesTrabajados,
   totalTrabajados,
 } from '@/lib/convenio'
 import { esFestivo } from '@/lib/festivos'
@@ -98,7 +96,6 @@ import {
   sumatorioFMensual,
   totalConciliaciones,
 } from '@/lib/variablesCobro'
-import { maxFindesConsecutivosLaborados, findesLaboradosEnMes, MAX_FINDES_MES, OBJETIVO_FINDES_MES } from '@/lib/finesSemana'
 import type { RolPolicia, Turno } from '@/types'
 import {
   ROLES_OPERATIVO_CUADRANTE,
@@ -151,7 +148,7 @@ const ANCHO_AGENTE = 32
 const CELDA =
   'overflow-hidden border border-line px-0 py-0 text-[10px] leading-none'
 const CELDA_PIE =
-  'overflow-hidden border border-line border-t-2 border-t-slate-300 px-0 py-0 text-[9px] leading-none'
+  'border border-line border-t-2 border-t-slate-300 px-0 py-0 text-[9px] leading-none'
 const CAMPO_TOOLBAR =
   'h-7 rounded-md border border-line bg-white px-1.5 text-xs text-ink outline-none focus:border-brand-400 focus-visible:ring-2 focus-visible:ring-brand-500/40'
 
@@ -278,28 +275,21 @@ function stickyDerecha(indice: number) {
   }
 }
 
-function claseIndicador(ok: boolean) {
-  return ok ? SEMAFORO_OK : SEMAFORO_KO
+const PIE_CLARO = 'font-bold tabular-nums text-slate-900'
+const PIE_ALERTA = `${SEMAFORO_KO} inline-block rounded-sm px-0.5`
+
+function claseDiasTrabajados(trabajados: number, objetivo: number) {
+  return trabajados === objetivo ? PIE_CLARO : PIE_ALERTA
 }
 
+/** Rojo solo si este valor se separa 2 o más de alguien del mismo turno. */
 function claseSumatorioF(valor: number, valoresGrupo: number[]) {
-  if (valoresGrupo.length < 2) {
-    return claseIndicador(true)
-  }
+  if (valoresGrupo.length < 2) return PIE_CLARO
   const minimo = Math.min(...valoresGrupo)
   const maximo = Math.max(...valoresGrupo)
-  const equilibrado = maximo - minimo <= 1 || valor <= minimo + 1
-  return claseIndicador(equilibrado)
-}
-
-function claseFindesMes(cantidad: number) {
-  if (cantidad < OBJETIVO_FINDES_MES || cantidad > MAX_FINDES_MES) {
-    return SEMAFORO_KO
-  }
-  if (cantidad > OBJETIVO_FINDES_MES) {
-    return SEMAFORO_WARN
-  }
-  return SEMAFORO_OK
+  if (maximo - minimo < 2) return PIE_CLARO
+  const seSepara = valor - minimo >= 2 || maximo - valor >= 2
+  return seSepara ? PIE_ALERTA : PIE_CLARO
 }
 
 export function CuadranteMensualPage() {
@@ -1670,9 +1660,6 @@ export function CuadranteMensualPage() {
                 const fila = cuadrante[agente.id] ?? []
                 const turnoPlan = turnoPlanMes(agente, planAnual, mes)
                 const trabajados = totalTrabajados(fila)
-                const findesDias = totalFindesTrabajados(fila, anio, mes)
-                const findesMes = findesLaboradosEnMes(fila, anio, mes)
-                const findesConsec = maxFindesConsecutivosLaborados(fila, anio, mes)
                 const variables = contarVariablesCobroAgente(
                   fila,
                   anio,
@@ -1686,26 +1673,29 @@ export function CuadranteMensualPage() {
                 const grupoF = sumatoriosFPorTurno.get(turnoClave) ?? [sumatorioF]
                 const objetivoFila =
                   turnoPlan === 'V' || turnoPlan == null ? 0 : objetivo
+                const cumpleDias = trabajados === objetivoFila
                 return (
                   <td
                     key={agente.id}
                     className={`${CELDA_PIE} bg-slate-200`}
                     style={{ width: ANCHO_AGENTE, minWidth: ANCHO_AGENTE }}
-                    title={`Trabajados ${trabajados} / ${objetivoFila} · Findes ${findesMes}/${OBJETIVO_FINDES_MES} (máx. ${MAX_FINDES_MES}, prohibido 0 y 1) · ${findesDias} días finde · Máx. seguidos ${findesConsec} · F=${sumatorioF} (${festivos} fest. + ${conciliaciones} conc.)`}
+                    title={`Días trabajados ${trabajados}/${objetivoFila}. Variables ${sumatorioF} (${festivos} festivos + ${conciliaciones} conciliaciones)${turnoPlan ? `, turno ${turnoPlan}` : ''}.`}
                   >
-                    <div
-                      className="flex h-full items-center justify-center gap-0.5 leading-none"
-                      title={`Trabajados ${trabajados} / ${objetivoFila} · Findes ${findesMes}/${OBJETIVO_FINDES_MES} · F=${sumatorioF}`}
-                    >
+                    <div className="flex h-full flex-col items-center justify-center gap-px py-0.5 leading-none">
                       <span
-                        className={claseIndicador(trabajados === objetivoFila)}
+                        className={`text-[11px] ${claseDiasTrabajados(trabajados, objetivoFila)}`}
+                        title={
+                          cumpleDias
+                            ? `Días trabajados: ${trabajados}`
+                            : `Días trabajados ${trabajados}, objetivo ${objetivoFila}`
+                        }
                       >
                         {trabajados}d
                       </span>
-                      <span className={claseFindesMes(findesMes)}>
-                        {findesMes}nf
-                      </span>
-                      <span className={claseSumatorioF(sumatorioF, grupoF)}>
+                      <span
+                        className={`text-[11px] ${claseSumatorioF(sumatorioF, grupoF)}`}
+                        title={`${sumatorioF} variables: ${festivos} festivos + ${conciliaciones} conciliaciones`}
+                      >
                         {sumatorioF}F
                       </span>
                     </div>

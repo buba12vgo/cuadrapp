@@ -308,7 +308,7 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
       'Cada policía debe trabajar 2 fines de semana al mes; excepcionalmente 3, nunca más. Prohibido 0 o 1 finde (se reparten mejor los cobros de festivos). Sábado y domingo cuentan como un finde si se trabaja alguno de los dos.',
     estado: 'implementada',
     detalle:
-      'Al autogenerar se priorizan filas con 2 findes laborados, se rechazan cuadrantes con más de 3 y se corrigen filas con 0 o 1 finde subiendo hasta 2. El pie del cuadrante muestra «nf» (findes del mes): verde 2, ámbar 3, rojo 0–1 o >3.',
+      'Al autogenerar se priorizan filas con 2 findes laborados, se rechazan cuadrantes con más de 3 y se corrigen filas con 0 o 1 finde subiendo hasta 2. El pie del cuadrante muestra los días trabajados y el sumatorio de variables (festivos + conciliaciones).',
     referencia:
       'OBJETIVO_FINDES_MES = 2 · MAX_FINDES_MES = 3 · MIN_FINDES_MES · equilibrarFindesUnicoMes',
   },

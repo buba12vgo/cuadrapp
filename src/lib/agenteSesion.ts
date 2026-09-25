@@ -2,6 +2,15 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PerfilAcceso } from '@/lib/acceso'
 import type { FichaPolicia } from '@/types'
 
+function placasIguales(a: string, b: string) {
+  const izquierda = a.trim()
+  const derecha = b.trim()
+  if (izquierda === derecha) return true
+  const na = Number(izquierda)
+  const nb = Number(derecha)
+  return Number.isInteger(na) && Number.isInteger(nb) && na === nb
+}
+
 /** Ficha del usuario: primero por id vinculado y, si no, por placa. */
 export function agenteDelPerfil(
   agentes: FichaPolicia[],
@@ -9,12 +18,18 @@ export function agenteDelPerfil(
 ): FichaPolicia | null {
   if (!perfil) return null
   if (perfil.agenteId) {
-    const porId = agentes.find((agente) => agente.id === perfil.agenteId)
+    const porId = agentes.find(
+      (agente) =>
+        agente.id === perfil.agenteId ||
+        placasIguales(agente.numeroPlaca, perfil.agenteId ?? ''),
+    )
     if (porId) return porId
   }
   const placa = perfil.numeroPlaca?.trim()
   if (!placa) return null
-  return agentes.find((agente) => agente.numeroPlaca.trim() === placa) ?? null
+  return (
+    agentes.find((agente) => placasIguales(agente.numeroPlaca, placa)) ?? null
+  )
 }
 
 /** El agente de la sesión si está en la lista; si no, el primero. */

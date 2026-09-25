@@ -15,14 +15,26 @@ import { hydratePuestosYMinimos } from '@/lib/puestosStore'
 import { hydrateTiposPermiso } from '@/lib/permisosStore'
 import { bootstrapDesignPreview } from '@/lib/designPreviewBootstrap'
 import { isDesignPreview } from '@/lib/designPreview'
+import { useAcceso } from '@/contexts/AccesoContext'
+import { vePermisosDeTodos } from '@/lib/acceso'
 
 type EstadoCarga = 'idle' | 'loading' | 'ready' | 'error'
 
 /**
- * Carga plantilla, plan anual, puestos, mínimos y eventos desde Firestore
- * una vez por sesión de admin.
+ * Carga plantilla, puestos, mínimos y eventos.
+ * El plan anual solo lo leen superadmin y admin: consulta no tiene esa regla.
  */
+function mensajeDeCarga(err: unknown, fallback: string) {
+  const raw = err instanceof Error ? err.message : ''
+  if (/insufficient permissions|permission-denied/i.test(raw)) {
+    return 'Tu usuario no tiene permiso para leer esos datos.'
+  }
+  return raw || fallback
+}
+
 export function useConfigOperativaBootstrap() {
+  const { perfil } = useAcceso()
+  const puedePlan = vePermisosDeTodos(perfil?.rol)
   const [estado, setEstado] = useState<EstadoCarga>(() =>
     isFirebaseReady() ? 'loading' : 'idle',
   )
@@ -73,28 +85,32 @@ export function useConfigOperativaBootstrap() {
         hydrateAgentes(agentes)
         hydrateTiposPermiso(config.tiposPermiso)
 
-        try {
-          const planes = await getPlanesAnuales(agentes)
-          if (cancelado) return
-          hydratePlanesAnuales(planes.planes, planes.objetivos)
-        } catch (err) {
-          if (cancelado) return
-          const mensaje =
-            err instanceof Error
-              ? err.message
-              : 'No se pudo cargar el plan anual desde Firestore'
-          marcarErrorCargaPlan(mensaje)
-          console.error('[bootstrap] No se pudo cargar el plan anual', err)
-          setError(mensaje)
+        if (puedePlan) {
+          try {
+            const planes = await getPlanesAnuales(agentes)
+            if (cancelado) return
+            hydratePlanesAnuales(planes.planes, planes.objetivos)
+          } catch (err) {
+            if (cancelado) return
+            const mensaje = mensajeDeCarga(
+              err,
+              'No se pudo cargar el plan anual desde Firestore',
+            )
+            marcarErrorCargaPlan(mensaje)
+            console.error('[bootstrap] No se pudo cargar el plan anual', err)
+            setError(mensaje)
+          }
+        } else {
+          hydratePlanesAnuales({}, {})
         }
 
         setEstado('ready')
       } catch (err) {
         if (cancelado) return
-        const mensaje =
-          err instanceof Error
-            ? err.message
-            : 'No se pudo cargar la configuración operativa desde Firestore'
+        const mensaje = mensajeDeCarga(
+          err,
+          'No se pudo cargar la configuración operativa desde Firestore',
+        )
         marcarErrorCargaPlan(mensaje)
         setError(mensaje)
         setEstado('error')
@@ -105,7 +121,7 @@ export function useConfigOperativaBootstrap() {
     return () => {
       cancelado = true
     }
-  }, [])
+  }, [puedePlan])
 
   return { estado, error, firebaseOk }
 }

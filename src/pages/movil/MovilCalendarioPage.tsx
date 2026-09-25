@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { ChipEventoCalendario } from '@/components/ChipEventoCalendario'
 import { detalleDiaCalendarioJefe } from '@/lib/exportarCalendarioJefesPdf'
-import { esDiaTrabajado, esFinDeSemana, totalDiasTrabajadosJefes } from '@/lib/convenio'
-import { esFestivo } from '@/lib/festivos'
+import { esDiaTrabajado, totalDiasTrabajadosJefes } from '@/lib/convenio'
 import { eventosEnFecha } from '@/lib/eventosStore'
 import { ROL_LABEL } from '@/lib/rolesCuadrante'
 import { useCuadranteJefesMes } from '@/lib/useCuadranteJefesMes'
 import type { Turno } from '@/types'
+import { RejillaMesMovil } from '@/pages/movil/RejillaMesMovil'
 import { etiquetaDia, isoFechaMovil, useMovilMes } from '@/pages/movil/movilMes'
 
 const PILLA: Record<string, string> = {
@@ -27,9 +27,10 @@ function etiquetaTurnoMovil(turno: Turno) {
 }
 
 export function MovilCalendarioPage() {
-  const { anio, mes } = useMovilMes()
+  const { anio, mes, nombreMes } = useMovilMes()
   const datos = useCuadranteJefesMes(anio, mes)
   const [agenteId, setAgenteId] = useState('')
+  const [dia, setDia] = useState<number | null>(null)
 
   useEffect(() => {
     if (!datos.jefes.some((agente) => agente.id === agenteId)) {
@@ -37,15 +38,45 @@ export function MovilCalendarioPage() {
     }
   }, [datos.jefes, agenteId])
 
+  useEffect(() => {
+    const hoy = new Date()
+    const enEsteMes = hoy.getFullYear() === anio && hoy.getMonth() + 1 === mes
+    setDia(enEsteMes ? hoy.getDate() : 1)
+  }, [anio, mes])
+
   const agente = datos.jefes.find((item) => item.id === agenteId) ?? null
   const fila = agente ? (datos.cuadrante[agente.id] ?? []) : []
   const dias = Array.from({ length: datos.nDias }, (_, i) => i + 1)
   const trabajados = agente ? totalDiasTrabajadosJefes(fila, dias) : 0
+  const diaAbierto = dia != null && dia <= datos.nDias ? dia : null
+  const fecha = diaAbierto ? isoFechaMovil(anio, mes, diaAbierto) : ''
+  const turno = (diaAbierto ? (fila[diaAbierto - 1] ?? 'D') : 'D') as Turno
+  const eventos = fecha ? eventosEnFecha(datos.eventos, fecha) : []
+  const detalle = agente && fecha
+    ? detalleDiaCalendarioJefe(
+        turno,
+        fecha,
+        agente.id,
+        datos.asignaciones,
+        datos.puestos,
+        datos.tiposPermiso,
+      ).detalle
+    : null
+  const pie = detalle
+    ? detalle
+    : esDiaTrabajado(turno)
+      ? 'Sin puesto'
+      : turno === 'V'
+        ? 'Vacaciones'
+        : turno === 'P' || turno === 'L'
+          ? 'Permiso'
+          : 'Descanso'
+  const nombreDia = diaAbierto ? etiquetaDia(anio, mes, diaAbierto).largo : ''
 
   return (
     <div className="flex flex-col gap-3">
       <p className="px-1 text-sm text-slate-500">
-        Calendario del mes de cada jefe o responsable. Solo consulta.
+        Calendario del mes. Pulsa un día para ver los eventos.
       </p>
       <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1">
         {datos.jefes.map((item) => {
@@ -63,7 +94,7 @@ export function MovilCalendarioPage() {
                 {item.nombre} {item.apellidos.split(' ')[0]}
               </span>
               <span className={`block text-[11px] font-semibold ${activo ? 'text-slate-300' : 'text-slate-500'}`}>
-                {ROL_LABEL[item.rolBase]}
+                {ROL_LABEL[item.rolBase]} · {totalDiasTrabajadosJefes(datos.cuadrante[item.id] ?? [], dias)}d
               </span>
             </button>
           )
@@ -74,78 +105,45 @@ export function MovilCalendarioPage() {
         <p className="rounded-2xl bg-rose-50 px-3 py-2 text-sm text-rose-800">{datos.error}</p>
       ) : null}
       {agente ? (
-        <section className="overflow-hidden rounded-3xl bg-white shadow-sm">
-          <header className="flex items-end justify-between gap-3 border-b border-slate-100 px-4 py-3">
-            <div>
-              <p className="text-base font-extrabold text-slate-950">
-                {agente.nombre} {agente.apellidos}
+        <>
+          <RejillaMesMovil
+            anio={anio}
+            mes={mes}
+            diaSeleccionado={diaAbierto}
+            onElegir={setDia}
+            marca={(numero) => {
+              const turnoDia = (fila[numero - 1] ?? 'D') as Turno
+              const hayEvento = eventosEnFecha(datos.eventos, isoFechaMovil(anio, mes, numero)).length > 0
+              return {
+                texto: etiquetaTurnoMovil(turnoDia),
+                aviso: hayEvento,
+              }
+            }}
+          />
+          {diaAbierto ? (
+            <section className="rounded-3xl bg-white px-4 py-3 shadow-sm">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                {nombreDia} {diaAbierto} {nombreMes}
               </p>
-              <p className="text-xs font-semibold text-slate-500">
-                {agente.numeroPlaca} · {ROL_LABEL[agente.rolBase]}
-              </p>
-            </div>
-            <p className="text-right text-sm font-extrabold text-slate-950">
-              {trabajados}d
-              <span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                trabajados
-              </span>
-            </p>
-          </header>
-          <ol>
-            {dias.map((dia) => {
-              const turno = (fila[dia - 1] ?? 'D') as Turno
-              const fecha = isoFechaMovil(anio, mes, dia)
-              const { corto } = etiquetaDia(anio, mes, dia)
-              const especial = esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia)
-              const { detalle } = detalleDiaCalendarioJefe(
-                turno,
-                fecha,
-                agente.id,
-                datos.asignaciones,
-                datos.puestos,
-                datos.tiposPermiso,
-              )
-              const eventos = eventosEnFecha(datos.eventos, fecha)
-              const pie = detalle
-                ? detalle
-                : esDiaTrabajado(turno)
-                  ? 'Sin puesto'
-                  : turno === 'V'
-                    ? 'Vacaciones'
-                    : turno === 'P' || turno === 'L'
-                      ? 'Permiso'
-                      : 'Descanso'
-              return (
-                <li
-                  key={fecha}
-                  className={`flex gap-3 border-t border-slate-100 px-4 py-3 ${
-                    especial ? 'bg-rose-50/70' : ''
-                  }`}
-                >
-                  <div className="w-10 shrink-0 text-center">
-                    <p className={`text-[10px] font-bold uppercase ${especial ? 'text-rose-600' : 'text-slate-400'}`}>
-                      {corto}
-                    </p>
-                    <p className={`text-xl font-extrabold leading-none ${especial ? 'text-rose-700' : 'text-slate-950'}`}>
-                      {dia}
-                    </p>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${PILLA[turno] ?? PILLA.D}`}>
-                        {etiquetaTurnoMovil(turno)}
-                      </span>
-                      <span className="truncate text-sm font-semibold text-slate-800">{pie}</span>
-                    </div>
-                    {eventos.map((evento) => (
-                      <ChipEventoCalendario key={evento.id} evento={evento} />
-                    ))}
-                  </div>
-                </li>
-              )
-            })}
-          </ol>
-        </section>
+              <div className="mt-2 flex items-center gap-2">
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${PILLA[turno] ?? PILLA.D}`}>
+                  {etiquetaTurnoMovil(turno)}
+                </span>
+                <span className="text-sm font-semibold text-slate-800">{pie}</span>
+                <span className="ml-auto text-xs font-semibold text-slate-400">{trabajados}d</span>
+              </div>
+              <div className="mt-3 flex flex-col gap-1">
+                {eventos.length === 0 ? (
+                  <p className="text-sm text-slate-500">Este día no hay eventos.</p>
+                ) : (
+                  eventos.map((evento) => (
+                    <ChipEventoCalendario key={evento.id} evento={evento} />
+                  ))
+                )}
+              </div>
+            </section>
+          ) : null}
+        </>
       ) : !datos.loading ? (
         <p className="rounded-2xl bg-white px-3 py-4 text-sm text-slate-600">
           No hay jefes ni responsables en la plantilla.

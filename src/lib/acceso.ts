@@ -161,6 +161,7 @@ export function puedeVerRuta(
   path: string,
   opciones?: { puedeEditarEventos?: boolean },
 ) {
+  if (path === '/m' || path.startsWith('/m/')) return true
   const ambito = ambitoDeRuta(path)
   if (!ambito) return rol !== 'CONSULTA_JEFES'
   return puedeVer(rol, ambito, opciones)

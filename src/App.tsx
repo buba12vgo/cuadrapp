@@ -1,5 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
-import { AdminLayout } from '@/components/AdminLayout'
+import { AccesoShell } from '@/components/AccesoShell'
+import { MovilCalendarioPage } from '@/pages/movil/MovilCalendarioPage'
+import { MovilCuadrantePage } from '@/pages/movil/MovilCuadrantePage'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { AgentesPage } from '@/pages/AgentesPage'
 import { CalendarioPage } from '@/pages/CalendarioPage'
@@ -22,7 +24,10 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route element={<ProtectedRoute />}>
-        <Route element={<AdminLayout />}>
+        <Route element={<AccesoShell />}>
+          <Route path="/m" element={<Navigate to="/m/cuadrante" replace />} />
+          <Route path="/m/cuadrante" element={<MovilCuadrantePage />} />
+          <Route path="/m/calendario" element={<MovilCalendarioPage />} />
           <Route path="/" element={<InicioAcceso />} />
           <Route path="/admin/agentes" element={<AgentesPage />} />
           <Route path="/admin/puestos" element={<PuestosPage />} />

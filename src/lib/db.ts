@@ -4,7 +4,9 @@ import {
   doc,
   getDoc,
   getDocs,
+  query,
   setDoc,
+  where,
   writeBatch,
 } from 'firebase/firestore'
 import { ensureFirebase, getDb } from '@/lib/firebase'
@@ -23,8 +25,15 @@ import {
 } from '@/lib/calendarioPuestos'
 import {
   PERMISOS_INICIALES,
+  permisoRequiereSaldo,
   type PermisoConfig,
 } from '@/lib/permisos'
+import {
+  ordenarSolicitudes,
+  type EstadoSolicitud,
+  type Solicitud,
+  type TipoSolicitud,
+} from '@/lib/solicitudes'
 import {
   idDocumentoCuadrante,
   parseCuadranteFirestore,
@@ -57,6 +66,7 @@ const COLECCION_CUADRANTES_JEFES = 'cuadrantesJefes'
 const COLECCION_EVENTOS = 'eventos'
 const COLECCION_PUESTOS = 'puestos'
 const COLECCION_TIPOS_PERMISO = 'tiposPermiso'
+const COLECCION_SOLICITUDES = 'solicitudes'
 const COLECCION_CONFIG = 'config'
 const COLECCION_PLANES_ANUALES = 'planesAnuales'
 const DOC_MINIMOS_SEMANA = 'minimosSemana'
@@ -620,6 +630,8 @@ function permisoDesdeFirestore(
     abreviatura,
     diasAnuales,
     visible: data.visible !== false,
+    requiereSaldo:
+      typeof data.requiereSaldo === 'boolean' ? data.requiereSaldo : undefined,
   }
 }
 
@@ -641,6 +653,7 @@ function permisoParaFirestore(permiso: PermisoConfig): PermisoConfig {
     abreviatura,
     diasAnuales,
     visible: permiso.visible !== false,
+    requiereSaldo: permisoRequiereSaldo(permiso),
   }
 }
 
@@ -851,6 +864,91 @@ export async function cargarConfigOperativa(): Promise<{
     getEventos(),
   ])
   return { puestos, minimosSemana, eventos, tiposPermiso }
+}
+
+const TIPOS_SOLICITUD = new Set<TipoSolicitud>([
+  'PERMISO',
+  'CAMBIO_DIA',
+  'CAMBIO_MES',
+  'VACACIONES',
+])
+
+const ESTADOS_SOLICITUD = new Set<EstadoSolicitud>([
+  'PENDIENTE',
+  'ACEPTADA',
+  'RECHAZADA',
+])
+
+function texto(valor: unknown) {
+  return typeof valor === 'string' ? valor.trim() : ''
+}
+
+function solicitudDesdeFirestore(
+  id: string,
+  data: Record<string, unknown>,
+): Solicitud | null {
+  const tipo = data.tipo
+  const estado = data.estado
+  const agenteId = texto(data.agenteId)
+  const fecha = texto(data.fecha)
+  const creadaEn = texto(data.creadaEn)
+  if (!TIPOS_SOLICITUD.has(tipo as TipoSolicitud)) return null
+  if (!ESTADOS_SOLICITUD.has(estado as EstadoSolicitud)) return null
+  if (!agenteId || !/^\d{4}-\d{2}-\d{2}$/.test(fecha) || !creadaEn) return null
+  const solicitud: Solicitud = {
+    id,
+    tipo: tipo as TipoSolicitud,
+    estado: estado as EstadoSolicitud,
+    agenteId,
+    placa: texto(data.placa),
+    nombreAgente: texto(data.nombreAgente),
+    fecha,
+    creadaEn,
+  }
+  const fechaFin = texto(data.fechaFin)
+  const mesDestino = texto(data.mesDestino)
+  const detalle = texto(data.detalle)
+  const permisoCodigo = texto(data.permisoCodigo)
+  const permisoNombre = texto(data.permisoNombre)
+  const resueltaEn = texto(data.resueltaEn)
+  const cobertura = texto(data.cobertura)
+  const coberturaNombre = texto(data.coberturaNombre)
+  if (fechaFin) solicitud.fechaFin = fechaFin
+  if (mesDestino) solicitud.mesDestino = mesDestino
+  if (detalle) solicitud.detalle = detalle
+  if (permisoCodigo) solicitud.permisoCodigo = permisoCodigo
+  if (permisoNombre) solicitud.permisoNombre = permisoNombre
+  if (resueltaEn) solicitud.resueltaEn = resueltaEn
+  if (cobertura) solicitud.cobertura = cobertura
+  if (coberturaNombre) solicitud.coberturaNombre = coberturaNombre
+  return solicitud
+}
+
+export async function listarSolicitudes(agenteId?: string): Promise<Solicitud[]> {
+  const firestore = await requireDb()
+  const base = collection(firestore, COLECCION_SOLICITUDES)
+  const consulta = agenteId
+    ? query(base, where('agenteId', '==', agenteId))
+    : base
+  const snapshot = await getDocs(consulta)
+  const lista: Solicitud[] = []
+  for (const documento of snapshot.docs) {
+    const solicitud = solicitudDesdeFirestore(documento.id, documento.data())
+    if (solicitud) lista.push(solicitud)
+  }
+  return ordenarSolicitudes(lista)
+}
+
+export async function guardarSolicitud(solicitud: Solicitud): Promise<Solicitud> {
+  const firestore = await requireDb()
+  const id = solicitud.id.trim()
+  if (!id) throw new Error('La solicitud no tiene identificador')
+  const payload = solicitudDesdeFirestore(id, { ...solicitud })
+  if (!payload) throw new Error('La solicitud no es válida')
+  await conTiempoLimite(
+    setDoc(doc(firestore, COLECCION_SOLICITUDES, id), payload, { merge: true }),
+  )
+  return payload
 }
 
 export type { CuadranteMensualFirestore } from '@/lib/cuadranteFirestore'

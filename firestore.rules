@@ -108,5 +108,18 @@ service cloud.firestore {
     match /roadmap/{id} {
       allow read, write: if leeTodo();
     }
+
+    match /solicitudes/{id} {
+      allow read: if esSuperAdmin()
+        || esAdminJefes()
+        || (esConsulta()
+          && resource.data.agenteId == perfilConsulta().agenteId);
+      allow create: if esConsulta()
+        && request.resource.data.agenteId == perfilConsulta().agenteId
+        && request.resource.data.estado == 'PENDIENTE'
+        && request.resource.data.tipo in ['PERMISO', 'CAMBIO_DIA', 'CAMBIO_MES', 'VACACIONES'];
+      allow update: if esSuperAdmin();
+      allow delete: if false;
+    }
   }
 }

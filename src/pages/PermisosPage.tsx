@@ -31,7 +31,7 @@ import {
   esDiasAnoAnterior,
   normalizarDiasAnuales,
 } from '@/lib/cuposPermiso'
-import type { PermisoConfig } from '@/lib/permisos'
+import { permisoRequiereSaldo, type PermisoConfig } from '@/lib/permisos'
 import { useTiposPermiso } from '@/lib/permisosStore'
 import { FileText, Hash } from 'lucide-react'
 
@@ -42,10 +42,17 @@ type Formulario = {
   nombre: string
   abreviatura: string
   diasAnuales: string
+  requiereSaldo: boolean
 }
 
 function formularioVacio(): Formulario {
-  return { codigo: '', nombre: '', abreviatura: '', diasAnuales: '0' }
+  return {
+    codigo: '',
+    nombre: '',
+    abreviatura: '',
+    diasAnuales: '0',
+    requiereSaldo: false,
+  }
 }
 
 function formularioDesde(permiso: PermisoConfig): Formulario {
@@ -54,6 +61,7 @@ function formularioDesde(permiso: PermisoConfig): Formulario {
     nombre: permiso.nombre,
     abreviatura: permiso.abreviatura,
     diasAnuales: String(diasAnualesCatalogo(permiso)),
+    requiereSaldo: permisoRequiereSaldo(permiso),
   }
 }
 
@@ -170,6 +178,7 @@ function EditorModal({
               ? 0
               : normalizarDiasAnuales(Number(form.diasAnuales)),
             visible: true,
+            requiereSaldo: form.requiereSaldo,
           })
         }}
       >
@@ -255,6 +264,26 @@ function EditorModal({
                 {esDiasAnoAnterior(editandoCodigo ?? form.codigo)
                   ? 'Este cupo se llena el 31 de diciembre a las 23:59 con los días no gastados.'
                   : 'Ej. 6 en Asuntos propios. 0 = sin tope anual (no pasa a Días del Año Anterior).'}
+              </span>
+            </label>
+            <label className="flex items-start gap-2 text-sm text-slate-800">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 accent-slate-950"
+                checked={form.requiereSaldo}
+                onChange={(event) =>
+                  setForm((actual) => ({
+                    ...actual,
+                    requiereSaldo: event.target.checked,
+                  }))
+                }
+              />
+              <span>
+                <span className="font-semibold">Exige saldo</span>
+                <span className="mt-0.5 block text-slate-500">
+                  Si está marcado, el agente solo puede pedirlo cuando le queden
+                  días. Si no, puede pedirlo sin saldo.
+                </span>
               </span>
             </label>
           </div>
@@ -415,6 +444,7 @@ export function PermisosPage() {
                   <th className={TH}>Código</th>
                   <th className={TH}>Abrev.</th>
                   <th className={`${TH} text-right`}>Días/año</th>
+                  <th className={TH}>Saldo</th>
                   <th className={TH}>Visible</th>
                   <th className={`${TH} text-right`}>Acciones</th>
                 </tr>
@@ -435,6 +465,9 @@ export function PermisosPage() {
                         : diasAnualesCatalogo(permiso) === 0
                           ? 'Sin tope'
                           : diasAnualesCatalogo(permiso)}
+                    </td>
+                    <td className={TD}>
+                      {permisoRequiereSaldo(permiso) ? 'Con saldo' : 'Sin saldo'}
                     </td>
                     <td className={TD}>
                       <input

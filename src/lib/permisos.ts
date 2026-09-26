@@ -6,6 +6,7 @@ import {
 import {
   ABREV_DIAS_ANO_ANTERIOR,
   CODIGO_DIAS_ANO_ANTERIOR,
+  esTopeFinito,
   NOMBRE_DIAS_ANO_ANTERIOR,
 } from '@/lib/cuposPermiso'
 
@@ -17,6 +18,18 @@ export type PermisoConfig = {
   diasAnuales?: number
   /** Si es false, no sale en la lista de permisos del agente. */
   visible?: boolean
+  /**
+   * true = solo se puede pedir si queda saldo.
+   * false = se puede pedir sin saldo.
+   * Si falta, se deduce del cupo: con tope exige saldo.
+   */
+  requiereSaldo?: boolean
+}
+
+/** Con saldo obligatorio, salvo que el catálogo lo marque como sin saldo. */
+export function permisoRequiereSaldo(permiso: PermisoConfig) {
+  if (typeof permiso.requiereSaldo === 'boolean') return permiso.requiereSaldo
+  return esTopeFinito(permiso)
 }
 
 /** Sin el campo, el permiso se muestra. */
@@ -39,6 +52,7 @@ export const PERMISO_LIBRE_DISPONIBILIDAD: PermisoConfig = {
   nombre: NOMBRE_LIBRE_DISPONIBILIDAD,
   abreviatura: ABREV_LIBRE_DISPONIBILIDAD,
   diasAnuales: 0,
+  requiereSaldo: true,
 }
 
 export const PERMISO_DIAS_ANO_ANTERIOR: PermisoConfig = {
@@ -46,6 +60,7 @@ export const PERMISO_DIAS_ANO_ANTERIOR: PermisoConfig = {
   nombre: NOMBRE_DIAS_ANO_ANTERIOR,
   abreviatura: ABREV_DIAS_ANO_ANTERIOR,
   diasAnuales: 0,
+  requiereSaldo: true,
 }
 
 export const PERMISOS_INICIALES: PermisoConfig[] = [
@@ -54,18 +69,21 @@ export const PERMISOS_INICIALES: PermisoConfig[] = [
     nombre: 'Asuntos propios',
     abreviatura: 'AP',
     diasAnuales: 6,
+    requiereSaldo: true,
   },
   {
     codigo: 'ENFERMEDAD_FAMILIAR',
     nombre: 'Enfermedad de familiar',
     abreviatura: 'EF',
     diasAnuales: 0,
+    requiereSaldo: false,
   },
   {
     codigo: 'IT',
     nombre: 'IT',
     abreviatura: 'IT',
     diasAnuales: 0,
+    requiereSaldo: false,
   },
   PERMISO_LIBRE_DISPONIBILIDAD,
   PERMISO_DIAS_ANO_ANTERIOR,
@@ -78,6 +96,7 @@ export function clonarPermiso(permiso: PermisoConfig): PermisoConfig {
     abreviatura: permiso.abreviatura,
     diasAnuales: permiso.diasAnuales,
     visible: permiso.visible !== false,
+    requiereSaldo: permiso.requiereSaldo,
   }
 }
 

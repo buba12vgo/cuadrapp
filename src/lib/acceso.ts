@@ -12,6 +12,7 @@ export type Ambito =
   | 'calendario-jefes'
   | 'calendario-agente'
   | 'diario-agentes'
+  | 'solicitudes'
   | 'calendario'
   | 'listados'
   | 'reglas'
@@ -87,6 +88,7 @@ const RUTA_AMBITO: Record<string, Ambito> = {
   '/admin/calendario-jefes': 'calendario-jefes',
   '/admin/calendario-agente': 'calendario-agente',
   '/admin/diario-agentes': 'diario-agentes',
+  '/admin/solicitudes': 'solicitudes',
   '/admin/calendario': 'calendario',
   '/admin/listados': 'listados',
   '/admin/reglas': 'reglas',
@@ -165,6 +167,7 @@ export function puedeVer(
   return (
     ambito === 'calendario-agente' ||
     ambito === 'diario-agentes' ||
+    ambito === 'solicitudes' ||
     ambito === 'permisos-agentes' ||
     ambito === 'opciones'
   )

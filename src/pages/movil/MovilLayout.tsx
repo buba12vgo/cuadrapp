@@ -1,4 +1,4 @@
-import { CalendarCheck, CalendarRange, ClipboardList, LayoutList, ListChecks } from 'lucide-react'
+import { CalendarCheck, CalendarRange, ClipboardList, Inbox, LayoutList, ListChecks } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { AppDialogProvider } from '@/components/ui/ConfirmDialog'
 import { useAcceso } from '@/contexts/AccesoContext'
@@ -62,7 +62,7 @@ export function MovilLayout() {
   const veEventos = puedeVer('calendario') && !veCalendario
   const veDiario = puedeVer('diario-agentes')
   const columnas =
-    2 + Number(veCuadrante) + Number(veCalendario) + Number(veEventos) + Number(veDiario)
+    3 + Number(veCuadrante) + Number(veCalendario) + Number(veEventos) + Number(veDiario)
   return (
     <AppDialogProvider>
       <MovilMesProvider>
@@ -155,6 +155,17 @@ export function MovilLayout() {
                 Diario
               </NavLink>
             ) : null}
+            <NavLink
+              to="/m/solicitudes"
+              className={({ isActive }) =>
+                `flex flex-col items-center gap-0.5 rounded-2xl py-2 text-xs font-bold ${FOCUS_RING} ${
+                  isActive ? 'bg-slate-950 text-white' : 'text-slate-500'
+                }`
+              }
+            >
+              <Inbox className="h-4 w-4" aria-hidden />
+              Solicitudes
+            </NavLink>
             <NavLink
               to="/m/permisos"
               className={({ isActive }) =>

@@ -9,6 +9,7 @@ import { AgentesPage } from '@/pages/AgentesPage'
 import { CalendarioPage } from '@/pages/CalendarioPage'
 import { CalendarioAgentePage } from '@/pages/CalendarioAgentePage'
 import { DiarioAgentesPage } from '@/pages/DiarioAgentesPage'
+import { SolicitudesPage } from '@/pages/SolicitudesPage'
 import { CalendarioJefesPage } from '@/pages/CalendarioJefesPage'
 import { CuadranteJefesPage } from '@/pages/CuadranteJefesPage'
 import { CuadranteMensualPage } from '@/pages/CuadranteMensualPage'
@@ -53,6 +54,7 @@ export default function App() {
           <Route path="/m/diario" element={<MovilDiarioPage />} />
           <Route path="/m/eventos" element={<MovilEventosPage />} />
           <Route path="/m/permisos" element={<MovilPermisosPage />} />
+          <Route path="/m/solicitudes" element={<SolicitudesPage />} />
           <Route path="/" element={<InicioAcceso />} />
           <Route path="/admin/agentes" element={<AgentesPage />} />
           <Route path="/admin/puestos" element={<PuestosPage />} />
@@ -69,6 +71,7 @@ export default function App() {
           <Route path="/admin/calendario-jefes" element={<CalendarioJefesPage />} />
           <Route path="/admin/calendario-agente" element={<CalendarioAgentePage />} />
           <Route path="/admin/diario-agentes" element={<DiarioAgentesPage />} />
+          <Route path="/admin/solicitudes" element={<SolicitudesPage />} />
           <Route
             path="/admin/cuadrante"
             element={<Navigate to="/admin/cuadrante-mensual" replace />}

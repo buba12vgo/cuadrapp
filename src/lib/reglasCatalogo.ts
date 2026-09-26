@@ -173,6 +173,17 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     referencia: 'puestosExcluidos · puestoExcluidoParaAgente',
   },
   {
+    id: 'completar-asignaciones',
+    categoria: 'PUESTOS',
+    titulo: 'Completar asignaciones del mes',
+    descripcion:
+      'En el cuadrante mensual, Completar asignaciones rellena los puestos vacíos de cada turno. Solo usa puestos habilitados en la ficha, cubre primero los mínimos del día y reparte a quien sobra entre Patrulla Muelles, Patrulla Arenal y Patrulla Bouzas, en ese orden.',
+    estado: 'implementada',
+    detalle:
+      'No cambia una celda que ya tiene puesto ni una Jornada Disponible. Si faltan las tres patrullas en el catálogo, el sobrante se queda sin puesto.',
+    referencia: 'completarAsignacionesMes · CuadranteMensualPage',
+  },
+  {
     id: 'preferencia-anual',
     categoria: 'PLANTILLA',
     titulo: 'Preferencia anual M / T / N',

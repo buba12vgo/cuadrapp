@@ -46,6 +46,7 @@ import {
   puestosPermitidosParaAgente,
   quitarAsignacionCelda,
 } from '@/lib/asignacionPuestos'
+import { completarAsignacionesMes } from '@/lib/completarAsignaciones'
 import {
   type AsignacionesDiarias,
   abreviaturaDesdePuestos,
@@ -927,6 +928,33 @@ export function CuadranteMensualPage() {
     marcarEditado()
   }
 
+  function completarAsignaciones() {
+    if (soloLectura || !cuadranteListo) return
+    const resultado = completarAsignacionesMes({
+      cuadrante,
+      asignaciones: asignacionesDiarias,
+      agentes: agentesOperativos,
+      puestos: puestosOperativos,
+      minimosDeFecha: crearMinimosDeFecha(
+        eventosData,
+        minimosSemana,
+        puestosOperativos,
+      ),
+      anio,
+      mes,
+      nDias,
+      isoFecha,
+    })
+    setAsignacionesDiarias(resultado.asignaciones)
+    if (resultado.asignadas > 0) marcarEditado()
+    if (resultado.sinPuesto > 0) {
+      void alert(
+        `${resultado.sinPuesto} turno${resultado.sinPuesto === 1 ? '' : 's'} se quedaron sin puesto: el agente no tiene habilitado ningún mínimo pendiente ni Patrulla Muelles, Arenal o Bouzas.`,
+        'Asignaciones incompletas',
+      )
+    }
+  }
+
   function aplicarPermisoMesAgente(agenteId: string, permiso: string) {
     if (soloLectura) return
     const fechasPermiso = fechasOperativasAgenteMes(
@@ -1324,6 +1352,15 @@ export function CuadranteMensualPage() {
               onClick={() => void autogenerar()}
             >
               {generandoCuadrante ? 'Generando…' : 'Autogenerar'}
+            </button>
+            <button
+              type="button"
+              className={BTN_SECONDARY}
+              disabled={soloLectura || !cuadranteListo || generandoCuadrante}
+              title="Cubre los mínimos con los puestos habilitados de cada agente. Quien sobra va a Patrulla Muelles, Arenal y Bouzas, en ese orden."
+              onClick={completarAsignaciones}
+            >
+              Completar asignaciones
             </button>
             <button
               type="button"

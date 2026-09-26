@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { DiaCoberturaPanel } from '@/components/DiaCoberturaPanel'
 import { vePermisosDeTodos } from '@/lib/acceso'
 import { agenteDelPerfil, useSeleccionAgente } from '@/lib/agenteSesion'
+import { puestoEnCelda } from '@/lib/asignacionPuestos'
 import { minimosParaFecha } from '@/lib/calendarioPuestos'
 import { resumenDiaServicio } from '@/lib/coberturaDia'
 import { totalTrabajados } from '@/lib/convenio'
@@ -120,6 +121,13 @@ export function MovilServicioPage() {
             marca={(numero) => {
               const turnoDia = (fila[numero - 1] ?? 'D') as Turno
               const fechaDia = isoFechaMovil(anio, mes, numero)
+              const puesto = puestoEnCelda(
+                datos.asignaciones,
+                fechaDia,
+                agente.id,
+                turnoDia,
+                puestos,
+              )
               const semaforos = resumenDiaServicio({
                 cuadrante: datos.cuadrante,
                 asignaciones: datos.asignaciones,
@@ -130,7 +138,9 @@ export function MovilServicioPage() {
                 dia: numero,
               }).turnos
               return {
-                texto: etiquetaCorta(turnoDia),
+                texto: puesto
+                  ? `${etiquetaCorta(turnoDia)} ${puesto.abreviatura}`
+                  : etiquetaCorta(turnoDia),
                 puntos: [semaforos.M.nivel, semaforos.T.nivel, semaforos.N.nivel],
               }
             }}

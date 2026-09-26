@@ -68,6 +68,25 @@ export function abreviaturaPuesto(
   return abreviaturaDesdePuestos(puestos, puesto)
 }
 
+/** Puesto asignado a un agente en un día trabajado. */
+export function puestoEnCelda(
+  asignaciones: AsignacionesDiarias,
+  fecha: string,
+  agenteId: string,
+  turno: string | undefined,
+  puestos: PuestoConfig[] = getPuestos(),
+): { nombre: string; abreviatura: string } | null {
+  if (!esTurnoAsignable(turno)) return null
+  const crudo = asignaciones[fecha]?.[turno]?.[agenteId]
+  if (!crudo) return null
+  const abreviatura = abreviaturaPuesto(asignaciones, fecha, agenteId, turno, puestos)
+  if (!abreviatura) return null
+  return {
+    nombre: esJornadaDisponible(crudo) ? 'Jornada disponible' : crudo,
+    abreviatura,
+  }
+}
+
 export function puestosPermitidosParaAgente(
   agente: FichaPolicia,
   puestos: PuestoConfig[] = getPuestos(),

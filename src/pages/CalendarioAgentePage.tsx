@@ -18,6 +18,7 @@ import {
 import { vePermisosDeTodos } from '@/lib/acceso'
 import { useAcceso } from '@/contexts/AccesoContext'
 import { agenteDelPerfil, useSeleccionAgente } from '@/lib/agenteSesion'
+import { puestoEnCelda } from '@/lib/asignacionPuestos'
 import { minimosParaFecha } from '@/lib/calendarioPuestos'
 import {
   CLASE_SEMAFORO,
@@ -303,9 +304,23 @@ export function CalendarioAgentePage() {
                   const especial = esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia)
                   const semaforos = cobertura(dia).turnos
                   const abierto = dia === diaAbierto
+                  const puesto = agente
+                    ? puestoEnCelda(
+                        datos.asignaciones,
+                        fecha,
+                        agente.id,
+                        turno,
+                        puestosOperativos,
+                      )
+                    : null
                   const textoSemaforo = TURNOS_COBERTURA.map(
                     (codigo) => `${codigo} ${ETIQUETA_SEMAFORO[semaforos[codigo].nivel]}`,
                   ).join(', ')
+                  const textoPuesto = puesto
+                    ? `${puesto.abreviatura} ${puesto.nombre}`
+                    : esDiaTrabajado(turno)
+                      ? 'Sin puesto'
+                      : ''
                   return (
                     <button
                       key={dia}
@@ -314,7 +329,7 @@ export function CalendarioAgentePage() {
                         especial && turno === 'V' ? 'bg-amber-50' : 'bg-white'
                       } ${abierto ? 'ring-2 ring-inset ring-brand-500' : ''}`}
                       aria-pressed={abierto}
-                      aria-label={`${dia} ${MESES[mes - 1]}, ${etiquetaCorta(turno)}, ${textoSemaforo}`}
+                      aria-label={`${dia} ${MESES[mes - 1]}, ${etiquetaCorta(turno)}${textoPuesto ? `, ${textoPuesto}` : ''}, ${textoSemaforo}`}
                       onClick={() => setSeleccionDia({ clave: claveMes, dia })}
                     >
                       <span className="flex items-center justify-between gap-1">
@@ -344,7 +359,14 @@ export function CalendarioAgentePage() {
                       >
                         {etiquetaCorta(turno)}
                       </span>
-                      {esDiaTrabajado(turno) ? null : (
+                      {esDiaTrabajado(turno) ? (
+                        <span
+                          className="truncate text-[10px] font-bold leading-tight text-slate-700"
+                          title={puesto?.nombre ?? 'Sin puesto'}
+                        >
+                          {puesto ? `${puesto.abreviatura} ${puesto.nombre}` : 'Sin puesto'}
+                        </span>
+                      ) : (
                         <span className="text-[10px] font-semibold text-slate-400">
                           {turno === 'V' ? 'Vacaciones' : turno === 'P' || turno === 'L' ? 'Permiso' : 'Descanso'}
                         </span>

@@ -8,7 +8,7 @@ const server = await createServer({
 const puestosMod = await server.ssrLoadModule('/src/lib/asignacionPuestos.ts')
 const coberturaMod = await server.ssrLoadModule('/src/lib/coberturaDia.ts')
 const accesoMod = await server.ssrLoadModule('/src/lib/acceso.ts')
-const { asignarPuestoEnCelda, puestosPermitidosParaAgente } = puestosMod
+const { asignarPuestoEnCelda, puestoEnCelda, puestosPermitidosParaAgente } = puestosMod
 const { resumenDiaServicio } = coberturaMod
 const { puedeVer, puedeEscribir } = accesoMod
 
@@ -78,6 +78,13 @@ resumen = resumenDiaServicio({
 })
 const lonjas2 = resumen.lineas.find((l) => l.puesto === 'Lonjas' && l.turno === 'M')
 const control2 = resumen.lineas.find((l) => l.puesto === 'Centro de Control' && l.turno === 'M')
+const celda = puestoEnCelda(asignaciones, '2026-09-01', 'a', 'M', puestos)
+if (!celda || celda.abreviatura !== 'LNJ' || celda.nombre !== 'Lonjas') {
+  fallos.push(`puesto en dia ${JSON.stringify(celda)}`)
+}
+if (puestoEnCelda(asignaciones, '2026-09-01', 'a', 'D', puestos)) {
+  fallos.push('descanso no lleva puesto')
+}
 if (!lonjas2 || lonjas2.personas.length !== 1) fallos.push('lonjas tras mover')
 if (!control2 || control2.personas.length !== 0 || control2.minimo !== 1) {
   fallos.push('control queda descubierto')

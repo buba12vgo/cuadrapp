@@ -11,6 +11,7 @@ export type Ambito =
   | 'cuadrante-jefes'
   | 'calendario-jefes'
   | 'calendario-agente'
+  | 'diario-agentes'
   | 'calendario'
   | 'listados'
   | 'reglas'
@@ -85,6 +86,7 @@ const RUTA_AMBITO: Record<string, Ambito> = {
   '/admin/cuadrante-jefes': 'cuadrante-jefes',
   '/admin/calendario-jefes': 'calendario-jefes',
   '/admin/calendario-agente': 'calendario-agente',
+  '/admin/diario-agentes': 'diario-agentes',
   '/admin/calendario': 'calendario',
   '/admin/listados': 'listados',
   '/admin/reglas': 'reglas',
@@ -101,6 +103,7 @@ const ESCRITURA_ADMIN = new Set<Ambito>([
   'calendario',
   'usuarios',
   'roadmap',
+  'diario-agentes',
 ])
 
 let rolActivo: RolAcceso | null = null
@@ -154,6 +157,7 @@ export function puedeVer(
     ambito === 'cuadrante-jefes' ||
     ambito === 'calendario-jefes' ||
     ambito === 'calendario-agente' ||
+    ambito === 'diario-agentes' ||
     ambito === 'permisos-agentes' ||
     ambito === 'opciones'
   )
@@ -169,6 +173,7 @@ export function puedeEscribir(
   if (rol === 'SUPERADMIN') return true
   if (ambito === 'calendario' && opciones?.puedeEditarEventos) return true
   if (rol === 'ADMIN') return ESCRITURA_ADMIN.has(ambito)
+  if (rol === 'CONSULTA_JEFES' && ambito === 'diario-agentes') return true
   return false
 }
 

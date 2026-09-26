@@ -1,6 +1,7 @@
-import { CalendarCheck, CalendarRange, ClipboardList, LayoutList } from 'lucide-react'
+import { CalendarCheck, CalendarRange, ClipboardList, LayoutList, ListChecks } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { AppDialogProvider } from '@/components/ui/ConfirmDialog'
+import { useAcceso } from '@/contexts/AccesoContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { useConfigOperativaBootstrap } from '@/lib/useConfigOperativaBootstrap'
 import { FOCUS_RING } from '@/lib/uiStyles'
@@ -55,6 +56,8 @@ function CabeceraMes() {
 
 export function MovilLayout() {
   const { estado, error } = useConfigOperativaBootstrap()
+  const { puedeVer } = useAcceso()
+  const veDiario = puedeVer('diario-agentes')
   return (
     <AppDialogProvider>
       <MovilMesProvider>
@@ -72,7 +75,9 @@ export function MovilLayout() {
             <Outlet />
           </main>
           <nav
-            className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 gap-1 border-t border-slate-200 bg-white px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+            className={`fixed inset-x-0 bottom-0 z-20 grid gap-1 border-t border-slate-200 bg-white px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] ${
+              veDiario ? 'grid-cols-5' : 'grid-cols-4'
+            }`}
             aria-label="Consulta móvil"
           >
             <NavLink
@@ -108,6 +113,19 @@ export function MovilLayout() {
               <CalendarCheck className="h-4 w-4" aria-hidden />
               Agente
             </NavLink>
+            {veDiario ? (
+              <NavLink
+                to="/m/diario"
+                className={({ isActive }) =>
+                  `flex flex-col items-center gap-0.5 rounded-2xl py-2 text-xs font-bold ${FOCUS_RING} ${
+                    isActive ? 'bg-slate-950 text-white' : 'text-slate-500'
+                  }`
+                }
+              >
+                <ListChecks className="h-4 w-4" aria-hidden />
+                Diario
+              </NavLink>
+            ) : null}
             <NavLink
               to="/m/permisos"
               className={({ isActive }) =>

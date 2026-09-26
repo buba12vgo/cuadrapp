@@ -195,6 +195,17 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     referencia: 'CalendarioAgentePage · nivelSemaforo · resumenDiaServicio',
   },
   {
+    id: 'diario-agentes',
+    categoria: 'CUADRANTE',
+    titulo: 'Diario agentes',
+    descripcion:
+      'Listado por días del servicio. Al abrir un día se ven los puestos y quién está asignado. Un puesto de los mínimos sin cubrir aparece en rojo. Desde ahí se puede cambiar el puesto de un trabajador.',
+    estado: 'implementada',
+    detalle:
+      'Visible y editable para jefes de servicio, responsables, admin y superadmin. No cambia el turno, solo el puesto, y respeta los puestos desactivados en la ficha.',
+    referencia: 'ListaDiarioAgentes · asignarPuestoEnCelda',
+  },
+  {
     id: 'preferencia-anual',
     categoria: 'PLANTILLA',
     titulo: 'Preferencia anual M / T / N',

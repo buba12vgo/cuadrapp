@@ -4,7 +4,7 @@ import { useAcceso } from '@/contexts/AccesoContext'
 import { useAgentesData } from '@/lib/agentesStore'
 import { cuentasFijas, ETIQUETA_ROL_ACCESO } from '@/lib/acceso'
 import { isDesignPreview } from '@/lib/designPreview'
-import { esRolCuadranteJefes, ROL_LABEL } from '@/lib/rolesCuadrante'
+import { ROL_LABEL } from '@/lib/rolesCuadrante'
 import {
   crearUsuarioConsulta,
   guardarPermisoEventos,
@@ -36,8 +36,14 @@ export function UsuariosPage() {
   const [aviso, setAviso] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
 
-  const jefes = useMemo(
-    () => agentes.filter((agente) => esRolCuadranteJefes(agente.rolBase)),
+  const plantilla = useMemo(
+    () =>
+      [...agentes].sort((a, b) => {
+        const na = Number.parseInt(a.numeroPlaca, 10)
+        const nb = Number.parseInt(b.numeroPlaca, 10)
+        if (Number.isFinite(na) && Number.isFinite(nb) && na !== nb) return na - nb
+        return a.numeroPlaca.localeCompare(b.numeroPlaca, 'es')
+      }),
     [agentes],
   )
 
@@ -65,9 +71,9 @@ export function UsuariosPage() {
     event.preventDefault()
     setError(null)
     setAviso(null)
-    const agente = jefes.find((item) => item.id === agenteId)
+    const agente = plantilla.find((item) => item.id === agenteId)
     if (!agente) {
-      setError('Elige un jefe de servicio o un responsable.')
+      setError('Elige un agente de la plantilla.')
       return
     }
     if (acceso.perfil?.rol !== 'SUPERADMIN') {
@@ -136,17 +142,17 @@ export function UsuariosPage() {
         title="Usuarios"
         subtitle={
           esSuperadmin
-            ? 'Cuentas de consulta para jefes de servicio y responsables'
-            : 'Autoriza qué jefes pueden meter eventos en el calendario'
+            ? 'Cuentas de consulta para cualquier agente de la plantilla'
+            : 'Autoriza qué usuarios pueden meter eventos en el calendario'
         }
       />
       <div className="min-h-0 flex-1 overflow-auto">
         <div className="flex flex-col gap-3">
           <p className={ALERT_INFO}>
             Tú (placa 102, buba12@gmail.com) eres superadmin. Jonathan (placa 108,
-            jonymivi@gmail.com) es admin. Al resto de jefes les creas aquí un correo
-            y una contraseña temporal. Entran en el login y la cambian en Opciones.
-            Más adelante el mismo alta servirá para policía, jefe de equipo y bolsa.
+            jonymivi@gmail.com) es admin. A cualquier agente de la plantilla le
+            creas aquí un correo y una contraseña temporal. Entran en el login y
+            la cambian en Opciones.
           </p>
           {isDesignPreview ? (
             <p className="text-sm text-slate-500">
@@ -184,7 +190,7 @@ export function UsuariosPage() {
 
           {esSuperadmin ? (
           <section className={BLOQUE}>
-            <h2 className={TITULO_BLOQUE}>Dar de alta un jefe</h2>
+            <h2 className={TITULO_BLOQUE}>Dar de alta un agente</h2>
             <form className="grid gap-2 sm:grid-cols-2" onSubmit={(event) => void alta(event)}>
               <label className="flex flex-col gap-0.5 sm:col-span-2">
                 <span className="text-sm font-semibold text-slate-600">Agente</span>
@@ -194,8 +200,8 @@ export function UsuariosPage() {
                   onChange={(event) => setAgenteId(event.target.value)}
                   required
                 >
-                  <option value="">Elige jefe o responsable</option>
-                  {jefes.map((agente) => (
+                  <option value="">Elige un agente</option>
+                  {plantilla.map((agente) => (
                     <option key={agente.id} value={agente.id}>
                       {agente.numeroPlaca} · {agente.apellidos}, {agente.nombre} (
                       {ROL_LABEL[agente.rolBase]})
@@ -237,8 +243,8 @@ export function UsuariosPage() {
           </section>
           ) : (
             <p className={ALERT_INFO}>
-              Puedes autorizar a un jefe con usuario a meter eventos en el
-              calendario. El alta de cuentas sigue en el superadmin.
+              Puedes autorizar a un usuario a meter eventos en el calendario.
+              El alta de cuentas sigue en el superadmin.
             </p>
           )}
           {!esSuperadmin && error ? (
@@ -246,7 +252,7 @@ export function UsuariosPage() {
           ) : null}
 
           <section className={BLOQUE}>
-            <h2 className={TITULO_BLOQUE}>Jefes y responsables</h2>
+            <h2 className={TITULO_BLOQUE}>Plantilla</h2>
             <table className={TABLE}>
               <thead>
                 <tr>
@@ -258,7 +264,7 @@ export function UsuariosPage() {
                 </tr>
               </thead>
               <tbody>
-                {jefes.map((agente) => {
+                {plantilla.map((agente) => {
                   const usuario = porPlaca.get(agente.numeroPlaca)
                   return (
                     <tr key={agente.id}>
@@ -289,10 +295,10 @@ export function UsuariosPage() {
                     </tr>
                   )
                 })}
-                {jefes.length === 0 ? (
+                {plantilla.length === 0 ? (
                   <tr>
                     <td className={`${TD} text-slate-500`} colSpan={5}>
-                      No hay jefes de servicio ni responsables en la plantilla cargada.
+                      No hay agentes en la plantilla cargada.
                     </td>
                   </tr>
                 ) : null}

@@ -145,17 +145,24 @@ export function ambitoDeRuta(path: string): Ambito | null {
   return prefijo ? RUTA_AMBITO[prefijo]! : null
 }
 
+export type OpcionesAcceso = {
+  puedeEditarEventos?: boolean
+  /** Consulta vinculada a jefe de servicio o responsable. */
+  esJefatura?: boolean
+}
+
 export function puedeVer(
   rol: RolAcceso,
   ambito: Ambito,
-  opciones?: { puedeEditarEventos?: boolean },
+  opciones?: OpcionesAcceso,
 ) {
   if (rol === 'SUPERADMIN') return true
   if (rol === 'ADMIN') return true
   if (ambito === 'calendario' && opciones?.puedeEditarEventos) return true
+  if (ambito === 'cuadrante-jefes' || ambito === 'calendario-jefes') {
+    return rol === 'CONSULTA_JEFES' && opciones?.esJefatura === true
+  }
   return (
-    ambito === 'cuadrante-jefes' ||
-    ambito === 'calendario-jefes' ||
     ambito === 'calendario-agente' ||
     ambito === 'diario-agentes' ||
     ambito === 'permisos-agentes' ||
@@ -166,31 +173,46 @@ export function puedeVer(
 export function puedeEscribir(
   rol: RolAcceso,
   ambito: Ambito,
-  opciones?: { puedeEditarEventos?: boolean },
+  opciones?: OpcionesAcceso,
 ) {
   if (!puedeVer(rol, ambito, opciones)) return false
   if (ambito === 'opciones') return false
   if (rol === 'SUPERADMIN') return true
   if (ambito === 'calendario' && opciones?.puedeEditarEventos) return true
   if (rol === 'ADMIN') return ESCRITURA_ADMIN.has(ambito)
-  if (rol === 'CONSULTA_JEFES' && ambito === 'diario-agentes') return true
+  if (rol === 'CONSULTA_JEFES' && ambito === 'diario-agentes') {
+    return opciones?.esJefatura === true
+  }
   return false
 }
 
 export function puedeVerRuta(
   rol: RolAcceso,
   path: string,
-  opciones?: { puedeEditarEventos?: boolean },
+  opciones?: OpcionesAcceso,
 ) {
+  if (path === '/m/cuadrante' || path.startsWith('/m/cuadrante/')) {
+    return puedeVer(rol, 'cuadrante-jefes', opciones)
+  }
+  if (path === '/m/calendario' || path.startsWith('/m/calendario/')) {
+    return puedeVer(rol, 'calendario-jefes', opciones)
+  }
   if (path === '/m' || path.startsWith('/m/')) return true
   const ambito = ambitoDeRuta(path)
   if (!ambito) return rol !== 'CONSULTA_JEFES'
   return puedeVer(rol, ambito, opciones)
 }
 
-export function rutaInicio(rol: RolAcceso) {
-  if (rol === 'CONSULTA_JEFES') return '/admin/cuadrante-jefes'
+export function rutaInicio(rol: RolAcceso, opciones?: OpcionesAcceso) {
+  if (rol === 'CONSULTA_JEFES') {
+    return opciones?.esJefatura ? '/admin/cuadrante-jefes' : '/admin/calendario-agente'
+  }
   return '/admin/agentes'
+}
+
+export function inicioMovil(rol: RolAcceso, opciones?: OpcionesAcceso) {
+  if (puedeVer(rol, 'cuadrante-jefes', opciones)) return '/m/cuadrante'
+  return '/m/servicio'
 }
 
 export function mensajeSinPermiso(ambito: Ambito) {

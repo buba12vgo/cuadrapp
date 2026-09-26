@@ -17,29 +17,39 @@ import {
   type PerfilAcceso,
   type RolAcceso,
 } from '@/lib/acceso'
+import { useAgentesData } from '@/lib/agentesStore'
+import { esRolCuadranteJefes } from '@/lib/rolesCuadrante'
 import { isDesignPreview } from '@/lib/designPreview'
 import { consultaPreviewPuedeEventos, leerUsuarioAcceso } from '@/lib/usuariosAcceso'
 import { useAuth } from '@/contexts/AuthContext'
 
 const PREVIEW_ROL_KEY = 'cuadrapp.preview-rol'
 
+export type RolPreview = RolAcceso | 'AGENTE'
+
 type AccesoContextValue = {
   perfil: PerfilAcceso | null
   loading: boolean
+  esJefatura: boolean
   puedeVer: (ambito: Ambito) => boolean
   puedeEscribir: (ambito: Ambito) => boolean
   inicio: string
   etiquetaRol: string
-  rolPreview: RolAcceso
-  setRolPreview: (rol: RolAcceso) => void
+  rolPreview: RolPreview
+  setRolPreview: (rol: RolPreview) => void
 }
 
 const AccesoContext = createContext<AccesoContextValue | null>(null)
 
-function leerRolPreview(): RolAcceso {
+function leerRolPreview(): RolPreview {
   try {
     const valor = sessionStorage.getItem(PREVIEW_ROL_KEY)
-    if (valor === 'ADMIN' || valor === 'CONSULTA_JEFES' || valor === 'SUPERADMIN') {
+    if (
+      valor === 'ADMIN' ||
+      valor === 'CONSULTA_JEFES' ||
+      valor === 'SUPERADMIN' ||
+      valor === 'AGENTE'
+    ) {
       return valor
     }
   } catch {
@@ -48,7 +58,18 @@ function leerRolPreview(): RolAcceso {
   return 'SUPERADMIN'
 }
 
-function perfilPreview(rol: RolAcceso): PerfilAcceso {
+function perfilPreview(rol: RolPreview): PerfilAcceso {
+  if (rol === 'AGENTE') {
+    return {
+      rol: 'CONSULTA_JEFES',
+      email: 'xoan.agente@cuadrapp.local',
+      uid: 'preview-agente',
+      numeroPlaca: '1108',
+      agenteId: 'ag-003',
+      nombre: 'Xoán Pérez Otero',
+      fijo: false,
+    }
+  }
   if (rol === 'ADMIN') {
     return {
       rol,
@@ -87,7 +108,8 @@ export function AccesoProvider({ children }: { children: ReactNode }) {
   const { user, loading: authLoading, signOut, notificar } = useAuth()
   const [perfil, setPerfil] = useState<PerfilAcceso | null>(null)
   const [loading, setLoading] = useState(true)
-  const [rolPreview, setRolPreviewState] = useState<RolAcceso>(leerRolPreview)
+  const [rolPreview, setRolPreviewState] = useState<RolPreview>(leerRolPreview)
+  const [agentes] = useAgentesData()
 
   useEffect(() => {
     fijarRolAccesoActivo(perfil?.rol ?? null)
@@ -163,7 +185,17 @@ export function AccesoProvider({ children }: { children: ReactNode }) {
     }
   }, [user, authLoading, rolPreview, signOut, notificar])
 
-  function setRolPreview(rol: RolAcceso) {
+  const esJefatura = useMemo(() => {
+    if (!perfil || perfil.rol !== 'CONSULTA_JEFES') return false
+    const agente =
+      agentes.find((item) => item.id === perfil.agenteId) ??
+      agentes.find(
+        (item) => perfil.numeroPlaca != null && item.numeroPlaca === perfil.numeroPlaca,
+      )
+    return agente ? esRolCuadranteJefes(agente.rolBase) : false
+  }, [perfil, agentes])
+
+  function setRolPreview(rol: RolPreview) {
     try {
       sessionStorage.setItem(PREVIEW_ROL_KEY, rol)
     } catch {
@@ -177,24 +209,27 @@ export function AccesoProvider({ children }: { children: ReactNode }) {
     return {
       perfil,
       loading: authLoading || loading,
+      esJefatura,
       puedeVer: (ambito) =>
         rol
           ? puedeVer(rol, ambito, {
               puedeEditarEventos: perfil?.puedeEditarEventos,
+              esJefatura,
             })
           : false,
       puedeEscribir: (ambito) =>
         rol
           ? puedeEscribir(rol, ambito, {
               puedeEditarEventos: perfil?.puedeEditarEventos,
+              esJefatura,
             })
           : false,
-      inicio: rol ? rutaInicio(rol) : '/login',
+      inicio: rol ? rutaInicio(rol, { esJefatura }) : '/login',
       etiquetaRol: rol ? ETIQUETA_ROL_ACCESO[rol] : '',
       rolPreview,
       setRolPreview,
     }
-  }, [perfil, authLoading, loading, rolPreview])
+  }, [perfil, authLoading, loading, rolPreview, esJefatura])
 
   return <AccesoContext.Provider value={value}>{children}</AccesoContext.Provider>
 }

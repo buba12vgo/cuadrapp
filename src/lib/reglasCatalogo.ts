@@ -202,7 +202,7 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
       'Listado por días del servicio. Al abrir un día se ven los puestos y quién está asignado. Un puesto de los mínimos sin cubrir aparece en rojo. Desde ahí se puede cambiar el puesto de un trabajador.',
     estado: 'implementada',
     detalle:
-      'Visible y editable para jefes de servicio, responsables, admin y superadmin. No cambia el turno, solo el puesto, y respeta los puestos desactivados en la ficha.',
+      'Lo consulta toda la plantilla con usuario. Solo jefes de servicio, responsables, admin y superadmin cambian el puesto. No cambia el turno y respeta los puestos desactivados en la ficha. Cuadrante jefes y calendario jefes quedan fuera de policía, jefe de equipo y bolsa.',
     referencia: 'ListaDiarioAgentes · asignarPuestoEnCelda',
   },
   {

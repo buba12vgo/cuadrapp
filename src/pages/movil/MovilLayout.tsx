@@ -57,7 +57,11 @@ function CabeceraMes() {
 export function MovilLayout() {
   const { estado, error } = useConfigOperativaBootstrap()
   const { puedeVer } = useAcceso()
+  const veCuadrante = puedeVer('cuadrante-jefes')
+  const veCalendario = puedeVer('calendario-jefes')
   const veDiario = puedeVer('diario-agentes')
+  const columnas =
+    2 + Number(veCuadrante) + Number(veCalendario) + Number(veDiario)
   return (
     <AppDialogProvider>
       <MovilMesProvider>
@@ -75,11 +79,11 @@ export function MovilLayout() {
             <Outlet />
           </main>
           <nav
-            className={`fixed inset-x-0 bottom-0 z-20 grid gap-1 border-t border-slate-200 bg-white px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] ${
-              veDiario ? 'grid-cols-5' : 'grid-cols-4'
-            }`}
+            className="fixed inset-x-0 bottom-0 z-20 grid gap-1 border-t border-slate-200 bg-white px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+            style={{ gridTemplateColumns: `repeat(${columnas}, minmax(0, 1fr))` }}
             aria-label="Consulta móvil"
           >
+            {veCuadrante ? (
             <NavLink
               to="/m/cuadrante"
               className={({ isActive }) =>
@@ -91,6 +95,8 @@ export function MovilLayout() {
               <LayoutList className="h-4 w-4" aria-hidden />
               Cuadrante
             </NavLink>
+            ) : null}
+            {veCalendario ? (
             <NavLink
               to="/m/calendario"
               className={({ isActive }) =>
@@ -106,6 +112,7 @@ export function MovilLayout() {
                 Eventos
               </span>
             </NavLink>
+            ) : null}
             <NavLink
               to="/m/servicio"
               className={({ isActive }) =>

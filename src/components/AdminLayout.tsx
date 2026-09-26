@@ -21,10 +21,10 @@ import {
 import { Fragment, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { AppDialogProvider } from '@/components/ui/ConfirmDialog'
-import { useAcceso } from '@/contexts/AccesoContext'
+import { useAcceso, type RolPreview } from '@/contexts/AccesoContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAgentUser } from '@/lib/authAllowlist'
-import { type Ambito, type RolAcceso } from '@/lib/acceso'
+import { type Ambito } from '@/lib/acceso'
 import { isDesignPreview } from '@/lib/designPreview'
 import { FOCUS_RING } from '@/lib/uiStyles'
 import { useConfigOperativaBootstrap } from '@/lib/useConfigOperativaBootstrap'
@@ -231,7 +231,7 @@ function BrandMark({ compact = false }: { compact?: boolean }) {
   )
 }
 
-const ROLES_PREVIEW: RolAcceso[] = ['SUPERADMIN', 'ADMIN', 'CONSULTA_JEFES']
+const ROLES_PREVIEW: RolPreview[] = ['SUPERADMIN', 'ADMIN', 'CONSULTA_JEFES', 'AGENTE']
 
 export function AdminLayout() {
   const { user, signOut } = useAuth()
@@ -349,7 +349,7 @@ export function AdminLayout() {
                     className="h-7 rounded-md border border-brand-200 bg-white px-1.5 text-xs text-ink"
                     value={acceso.rolPreview}
                     onChange={(event) =>
-                      acceso.setRolPreview(event.target.value as RolAcceso)
+                      acceso.setRolPreview(event.target.value as RolPreview)
                     }
                   >
                     {ROLES_PREVIEW.map((rol) => (
@@ -358,7 +358,9 @@ export function AdminLayout() {
                           ? 'Superadmin'
                           : rol === 'ADMIN'
                             ? 'Admin'
-                            : 'Consulta jefes'}
+                            : rol === 'AGENTE'
+                              ? 'Agente'
+                              : 'Consulta jefes'}
                       </option>
                     ))}
                   </select>

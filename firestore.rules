@@ -45,6 +45,15 @@ service cloud.firestore {
       return leeTodo() || esConsulta();
     }
 
+    function esJefaturaConsulta() {
+      return esConsulta()
+        && perfilConsulta().agenteId is string
+        && perfilConsulta().agenteId.size() > 0
+        && exists(/databases/$(database)/documents/agentes/$(perfilConsulta().agenteId))
+        && get(/databases/$(database)/documents/agentes/$(perfilConsulta().agenteId)).data.rolBase
+          in ['JEFE_SERVICIO', 'RESPONSABLE'];
+    }
+
     match /usuarios/{uid} {
       allow get: if sesion() && request.auth.uid == uid;
       allow list: if esSuperAdmin() || esAdminJefes();
@@ -70,7 +79,7 @@ service cloud.firestore {
     }
 
     match /cuadrantesJefes/{id} {
-      allow read: if leeJefes();
+      allow read: if leeTodo() || esJefaturaConsulta();
       allow write: if esSuperAdmin() || esAdminJefes();
     }
 
@@ -88,7 +97,7 @@ service cloud.firestore {
 
     match /cuadrantes/{id} {
       allow read: if leeJefes();
-      allow write: if leeJefes();
+      allow write: if leeTodo() || esJefaturaConsulta();
     }
 
     match /planesAnuales/{id} {

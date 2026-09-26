@@ -1,4 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
+import { useAcceso } from '@/contexts/AccesoContext'
+import { inicioMovil } from '@/lib/acceso'
 import { AccesoShell } from '@/components/AccesoShell'
 import { MovilCalendarioPage } from '@/pages/movil/MovilCalendarioPage'
 import { MovilCuadrantePage } from '@/pages/movil/MovilCuadrantePage'
@@ -26,13 +28,24 @@ import { RoadmapTimeline } from '@/components/RoadmapTimeline'
 import { UsuariosPage } from '@/pages/UsuariosPage'
 import { InicioAcceso } from '@/components/InicioAcceso'
 
+function InicioMovil() {
+  const acceso = useAcceso()
+  const destino = acceso.perfil
+    ? inicioMovil(acceso.perfil.rol, {
+        esJefatura: acceso.esJefatura,
+        puedeEditarEventos: acceso.perfil.puedeEditarEventos,
+      })
+    : '/m/servicio'
+  return <Navigate to={destino} replace />
+}
+
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AccesoShell />}>
-          <Route path="/m" element={<Navigate to="/m/cuadrante" replace />} />
+          <Route path="/m" element={<InicioMovil />} />
           <Route path="/m/cuadrante" element={<MovilCuadrantePage />} />
           <Route path="/m/calendario" element={<MovilCalendarioPage />} />
           <Route path="/m/servicio" element={<MovilServicioPage />} />

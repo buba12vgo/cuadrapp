@@ -26,6 +26,7 @@ export function ProtectedRoute() {
   if (
     !puedeVerRuta(acceso.perfil.rol, location.pathname, {
       puedeEditarEventos: acceso.perfil.puedeEditarEventos,
+      esJefatura: acceso.esJefatura,
     })
   ) {
     return <Navigate to={acceso.inicio} replace />

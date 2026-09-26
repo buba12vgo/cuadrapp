@@ -83,11 +83,23 @@ if (!control2 || control2.personas.length !== 0 || control2.minimo !== 1) {
   fallos.push('control queda descubierto')
 }
 
-for (const rol of ['SUPERADMIN', 'ADMIN', 'CONSULTA_JEFES']) {
+for (const rol of ['SUPERADMIN', 'ADMIN']) {
   if (!puedeVer(rol, 'diario-agentes') || !puedeEscribir(rol, 'diario-agentes')) {
     fallos.push(`acceso ${rol}`)
   }
+  if (!puedeVer(rol, 'cuadrante-jefes') || !puedeVer(rol, 'calendario-jefes')) {
+    fallos.push(`jefes ${rol}`)
+  }
 }
+const jefatura = { esJefatura: true }
+if (!puedeVer('CONSULTA_JEFES', 'diario-agentes', jefatura)) fallos.push('jefe ve diario')
+if (!puedeEscribir('CONSULTA_JEFES', 'diario-agentes', jefatura)) fallos.push('jefe edita diario')
+if (!puedeVer('CONSULTA_JEFES', 'cuadrante-jefes', jefatura)) fallos.push('jefe ve cuadrante')
+if (!puedeVer('CONSULTA_JEFES', 'calendario-jefes', jefatura)) fallos.push('jefe ve calendario')
+if (!puedeVer('CONSULTA_JEFES', 'diario-agentes')) fallos.push('agente ve diario')
+if (puedeEscribir('CONSULTA_JEFES', 'diario-agentes')) fallos.push('agente edita diario')
+if (puedeVer('CONSULTA_JEFES', 'cuadrante-jefes')) fallos.push('agente ve cuadrante')
+if (puedeVer('CONSULTA_JEFES', 'calendario-jefes')) fallos.push('agente ve calendario')
 
 await server.close()
 if (fallos.length) {

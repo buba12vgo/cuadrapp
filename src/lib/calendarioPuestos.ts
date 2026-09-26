@@ -17,6 +17,8 @@ export type PuestoConfig = {
   abreviatura: string
   /** Por defecto OPERATIVO si falta (datos legacy). */
   ambito: AmbitoPuesto
+  /** Posición en los listados. 0 si aún no se ha asignado. */
+  orden: number
 }
 
 /** Lunes=1 … Domingo=7 (ISO). */
@@ -39,24 +41,28 @@ export const PUESTOS_INICIALES: PuestoConfig[] = [
     nombre: 'Centro de Control',
     abreviatura: 'CTR',
     ambito: 'OPERATIVO',
+    orden: 1,
   },
   {
     codigo: 'LONJAS',
     nombre: 'Lonjas',
     abreviatura: 'LNJ',
     ambito: 'OPERATIVO',
+    orden: 2,
   },
   {
     codigo: 'BERBES',
     nombre: 'Berbés Acceso',
     abreviatura: 'BRB',
     ambito: 'OPERATIVO',
+    orden: 3,
   },
   {
     codigo: 'RETEN',
     nombre: 'Retén',
     abreviatura: 'RTN',
     ambito: 'OPERATIVO',
+    orden: 4,
   },
 ]
 
@@ -69,11 +75,38 @@ export function normalizarAmbitoPuesto(valor: unknown): AmbitoPuesto {
   return valor === 'JEFE_SERVICIO' ? 'JEFE_SERVICIO' : 'OPERATIVO'
 }
 
+/** Entero de 0 a 999. Si falta o no es un número, queda en 0. */
+export function normalizarOrdenPuesto(valor: unknown): number {
+  const numero = typeof valor === 'number' ? valor : Number(valor)
+  if (!Number.isFinite(numero)) return 0
+  return Math.min(999, Math.max(0, Math.round(numero)))
+}
+
+export function ordenarPuestos<T extends { orden?: number; nombre: string }>(
+  puestos: readonly T[],
+): T[] {
+  return [...puestos].sort((a, b) => {
+    const porOrden = normalizarOrdenPuesto(a.orden) - normalizarOrdenPuesto(b.orden)
+    if (porOrden !== 0) return porOrden
+    return a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' })
+  })
+}
+
+export function siguienteOrden(
+  puestos: readonly PuestoConfig[],
+  ambito: AmbitoPuesto,
+) {
+  const maximo = puestos
+    .filter((puesto) => puesto.ambito === ambito)
+    .reduce((mayor, puesto) => Math.max(mayor, normalizarOrdenPuesto(puesto.orden)), 0)
+  return Math.min(999, maximo + 1)
+}
+
 export function puestosDeAmbito(
   puestos: PuestoConfig[],
   ambito: AmbitoPuesto,
 ) {
-  return puestos.filter((puesto) => puesto.ambito === ambito)
+  return ordenarPuestos(puestos.filter((puesto) => puesto.ambito === ambito))
 }
 
 /** @deprecated Usar lista desde puestosStore; se mantiene para seeds. */

@@ -25,6 +25,7 @@ const PUESTOS_AGENTE: PuestoConfig[] = [
     nombre: 'Jefe de servicio',
     abreviatura: 'JS',
     ambito: 'JEFE_SERVICIO',
+    orden: 1,
   },
 ]
 

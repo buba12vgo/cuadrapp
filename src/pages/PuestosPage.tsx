@@ -5,7 +5,7 @@ import {
   DashboardMain,
   DashboardMainScroll,
 } from '@/components/ui/DashboardLayout'
-import { PageHeader } from '@/components/ui/PageHeader'
+import { PageHeader, ToolbarSection } from '@/components/ui/PageHeader'
 import { Modal } from '@/components/ui/Modal'
 import { AvisoSoloLectura } from '@/components/AvisoSoloLectura'
 import { useAppDialog } from '@/components/ui/ConfirmDialog'
@@ -16,6 +16,7 @@ import {
   BTN_GHOST,
   BTN_PRIMARY,
   CAMPO,
+  FOCUS_RING,
   PAGE_SECTION,
   TABLE,
   TD,
@@ -26,6 +27,8 @@ import {
   AMBITO_PUESTO_LABEL,
   normalizarAmbitoPuesto,
   normalizarCodigo,
+  normalizarOrdenPuesto,
+  siguienteOrden,
   sugerirAbreviatura,
   type AmbitoPuesto,
   type PuestoConfig,
@@ -51,10 +54,11 @@ type FormularioPuesto = {
   nombre: string
   abreviatura: string
   ambito: AmbitoPuesto
+  orden: number
 }
 
-function formularioVacio(): FormularioPuesto {
-  return { codigo: '', nombre: '', abreviatura: '', ambito: 'OPERATIVO' }
+function formularioVacio(ambito: AmbitoPuesto, orden: number): FormularioPuesto {
+  return { codigo: '', nombre: '', abreviatura: '', ambito, orden }
 }
 
 function formularioDesde(puesto: PuestoConfig): FormularioPuesto {
@@ -63,6 +67,7 @@ function formularioDesde(puesto: PuestoConfig): FormularioPuesto {
     nombre: puesto.nombre,
     abreviatura: puesto.abreviatura,
     ambito: normalizarAmbitoPuesto(puesto.ambito),
+    orden: normalizarOrdenPuesto(puesto.orden),
   }
 }
 
@@ -74,8 +79,12 @@ function validar(
   const nombre = form.nombre.trim()
   const codigo = normalizarCodigo(form.codigo || form.nombre)
   const abreviatura = form.abreviatura.trim().toUpperCase()
+  const orden = normalizarOrdenPuesto(form.orden)
 
   if (!nombre) return 'El nombre es obligatorio'
+  if (!Number.isInteger(form.orden) || orden !== form.orden) {
+    return 'El orden tiene que ser un número entero entre 0 y 999'
+  }
   if (!codigo) return 'El código es obligatorio'
   if (!abreviatura) return 'La abreviatura es obligatoria'
   if (abreviatura.length > 5) return 'La abreviatura máximo 5 caracteres'
@@ -137,7 +146,7 @@ function EditorPuestoModal({
       subtitle={
         editandoCodigo == null
           ? 'Al crearlo se activa automáticamente para agentes del mismo ámbito.'
-          : 'Nombre, código, abreviatura y ámbito del puesto'
+          : 'Nombre, orden, código, abreviatura y ámbito del puesto'
       }
       onClose={onCancelar}
       size="sm"
@@ -178,6 +187,7 @@ function EditorPuestoModal({
             nombre: form.nombre.trim(),
             abreviatura: form.abreviatura.trim().toUpperCase(),
             ambito: form.ambito,
+            orden: normalizarOrdenPuesto(form.orden),
           })
         }}
       >
@@ -209,6 +219,29 @@ function EditorPuestoModal({
                 <span className="text-sm text-slate-500">
                   Operativo = cuadrante mensual. Jefes y responsables =
                   cuadrante jefes.
+                </span>
+              </label>
+              <label className="flex flex-col gap-0.5">
+                <span className="text-sm font-semibold text-slate-600">
+                  Orden
+                </span>
+                <input
+                  className={CAMPO_FULL}
+                  type="number"
+                  min={0}
+                  max={999}
+                  step={1}
+                  value={Number.isFinite(form.orden) ? form.orden : ''}
+                  onChange={(event) => {
+                    const crudo = event.target.value
+                    setForm((actual) => ({
+                      ...actual,
+                      orden: crudo === '' ? Number.NaN : Number(crudo),
+                    }))
+                  }}
+                />
+                <span className="text-sm text-slate-500">
+                  Los listados muestran primero el número más bajo.
                 </span>
               </label>
               <label className="flex flex-col gap-0.5">
@@ -289,11 +322,15 @@ export function PuestosPage() {
   const { puedeEscribir } = useAcceso()
   const soloLectura = !puedeEscribir('puestos')
   const [puestos, setPuestos] = usePuestosData()
+  const [filtro, setFiltro] = useState<AmbitoPuesto>('OPERATIVO')
   const [modo, setModo] = useState<'nuevo' | 'editar' | null>(null)
   const [editando, setEditando] = useState<PuestoConfig | null>(null)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const firebaseOk = isFirebaseReady()
+  const visibles = puestos.filter(
+    (puesto) => normalizarAmbitoPuesto(puesto.ambito) === filtro,
+  )
 
   function abrirNuevo() {
     setEditando(null)
@@ -411,7 +448,26 @@ export function PuestosPage() {
     <section className={PAGE_SECTION}>
       <PageHeader
         title="Puestos"
-        subtitle={`${puestos.length} puestos · operativo y jefes · Firestore`}
+        subtitle={`${visibles.length} ${AMBITO_PUESTO_LABEL[filtro].toLowerCase()} · ${puestos.length} en total`}
+        toolbar={
+          <ToolbarSection label="Ámbito">
+            {(Object.keys(AMBITO_PUESTO_LABEL) as AmbitoPuesto[]).map((ambito) => (
+              <button
+                key={ambito}
+                type="button"
+                className={`h-7 rounded-md px-2.5 text-xs font-semibold ${FOCUS_RING} ${
+                  filtro === ambito
+                    ? 'bg-brand-600 text-white'
+                    : 'border border-line bg-white text-slate-700 hover:bg-brand-50'
+                }`}
+                aria-pressed={filtro === ambito}
+                onClick={() => setFiltro(ambito)}
+              >
+                {AMBITO_PUESTO_LABEL[ambito]}
+              </button>
+            ))}
+          </ToolbarSection>
+        }
         actions={
           <button
             type="button"
@@ -433,6 +489,7 @@ export function PuestosPage() {
             <table className={TABLE}>
           <thead className="sticky top-0 z-10 bg-slate-50">
             <tr>
+              <th className={`${TH} w-16`}>Orden</th>
               <th className={TH}>Nombre</th>
               <th className={TH}>Ámbito</th>
               <th className={TH}>Código</th>
@@ -441,8 +498,11 @@ export function PuestosPage() {
             </tr>
           </thead>
           <tbody>
-            {puestos.map((puesto) => (
+            {visibles.map((puesto) => (
               <tr key={puesto.codigo} className="hover:bg-slate-50/70">
+                <td className={`${TD} font-mono tabular-nums text-slate-500`}>
+                  {puesto.orden}
+                </td>
                 <td className={`${TD} font-medium`}>{puesto.nombre}</td>
                 <td className={TD}>
                   {AMBITO_PUESTO_LABEL[normalizarAmbitoPuesto(puesto.ambito)]}
@@ -473,10 +533,10 @@ export function PuestosPage() {
                 </td>
               </tr>
             ))}
-            {puestos.length === 0 ? (
+            {visibles.length === 0 ? (
               <tr>
-                <td colSpan={5} className={`${TD} py-6 text-center text-slate-500`}>
-                  No hay puestos. Crea el primero para configurar mínimos.
+                <td colSpan={6} className={`${TD} py-6 text-center text-slate-500`}>
+                  No hay puestos de {AMBITO_PUESTO_LABEL[filtro].toLowerCase()}.
                 </td>
               </tr>
             ) : null}
@@ -490,7 +550,7 @@ export function PuestosPage() {
       {modo === 'nuevo' ? (
         <EditorPuestoModal
           titulo="Nuevo puesto"
-          inicial={formularioVacio()}
+          inicial={formularioVacio(filtro, siguienteOrden(puestos, filtro))}
           editandoCodigo={null}
           puestos={puestos}
           guardando={guardando}

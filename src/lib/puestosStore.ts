@@ -5,6 +5,8 @@ import {
   clonarMinimosSemana,
   crearMinimosSemana,
   nombresPuestos,
+  normalizarOrdenPuesto,
+  ordenarPuestos,
   type MinimosDia,
   type MinimosPuesto,
   type MinimosSemana,
@@ -16,11 +18,12 @@ function clonarPuesto(puesto: PuestoConfig): PuestoConfig {
   return {
     ...puesto,
     ambito: puesto.ambito === 'JEFE_SERVICIO' ? 'JEFE_SERVICIO' : 'OPERATIVO',
+    orden: normalizarOrdenPuesto(puesto.orden),
   }
 }
 
 function clonarPuestos(puestos: PuestoConfig[]) {
-  return puestos.map(clonarPuesto)
+  return ordenarPuestos(puestos.map(clonarPuesto))
 }
 
 function clonarMinimosPuesto(minimos: MinimosPuesto): MinimosPuesto {

@@ -5,7 +5,6 @@ import {
   LayoutTemplate,
   RotateCcw,
   Sigma,
-  Sparkles,
 } from 'lucide-react'
 import {
   DashboardBody,
@@ -41,10 +40,7 @@ import {
 import { saveMinimosSemana } from '@/lib/db'
 import { exportarMinimosExcel } from '@/lib/exportarMinimosExcel'
 import { isFirebaseReady } from '@/lib/firebase'
-import {
-  agruparPuestosPorCategoria,
-  sumatoriosDia,
-} from '@/lib/minimosEstadisticas'
+import { sumatoriosDia } from '@/lib/minimosEstadisticas'
 import {
   agentesCuadranteJefes,
   agentesOperativosCuadrante,
@@ -154,10 +150,6 @@ export function MinimosPage() {
     DIAS_SEMANA_CONFIG[0]
   const diasDisponibles = DIAS_SEMANA_CONFIG.filter(
     (item) => item.dia !== diaActivo,
-  )
-  const gruposPuestos = useMemo(
-    () => agruparPuestosPorCategoria(puestos),
-    [puestos],
   )
   const plantilla = useMemo(
     () =>
@@ -607,27 +599,7 @@ export function MinimosPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {gruposPuestos.length <= 1
-                    ? puestos.map((puesto) => renderFilaPuesto(puesto))
-                    : gruposPuestos.flatMap((grupo) => [
-                        <tr
-                          key={`cat-${grupo.categoria}`}
-                          className="bg-slate-50/90"
-                        >
-                          <td
-                            colSpan={1 + DIAS_SEMANA_CONFIG.length * 3}
-                            className="sticky left-0 border-y border-slate-200 px-1 py-0.5 text-sm font-bold uppercase tracking-wider text-slate-500"
-                          >
-                            <span className="inline-flex items-center gap-1">
-                              <Sparkles className="h-2.5 w-2.5" />
-                              {grupo.categoria}
-                            </span>
-                          </td>
-                        </tr>,
-                        ...grupo.puestos.map((puesto) =>
-                          renderFilaPuesto(puesto),
-                        ),
-                      ])}
+                  {puestos.map((puesto) => renderFilaPuesto(puesto))}
                 </tbody>
                 <tfoot className="text-sm">
                   <tr className="bg-slate-800 text-white">

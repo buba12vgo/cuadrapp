@@ -13,6 +13,8 @@ import {
   clonarMinimosPuesto,
   crearMinimosSemana,
   normalizarAmbitoPuesto,
+  normalizarOrdenPuesto,
+  ordenarPuestos,
   type DiaSemana,
   type MinimosDia,
   type MinimosPuesto,
@@ -524,6 +526,7 @@ function puestoDesdeFirestore(
     nombre,
     abreviatura,
     ambito: normalizarAmbitoPuesto(data.ambito),
+    orden: normalizarOrdenPuesto(data.orden),
   }
 }
 
@@ -539,6 +542,7 @@ function puestoParaFirestore(puesto: PuestoConfig): PuestoConfig {
     nombre,
     abreviatura,
     ambito: normalizarAmbitoPuesto(puesto.ambito),
+    orden: normalizarOrdenPuesto(puesto.orden),
   }
 }
 
@@ -550,9 +554,7 @@ export async function getPuestos(): Promise<PuestoConfig[]> {
     const puesto = puestoDesdeFirestore(documento.id, documento.data())
     if (puesto) puestos.push(puesto)
   }
-  return puestos.sort((a, b) =>
-    a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }),
-  )
+  return ordenarPuestos(puestos)
 }
 
 export async function savePuesto(puesto: PuestoConfig): Promise<PuestoConfig> {

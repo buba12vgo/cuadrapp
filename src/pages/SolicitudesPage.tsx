@@ -325,7 +325,7 @@ export function SolicitudesPage() {
     )
     if (!firebaseOk) {
       const puestos = ['Centro de Control', 'Lonjas', 'Berbés Acceso']
-      const demo = grupo
+      const demo = agentes
         .filter((item) => item.id !== solicitud.agenteId)
         .slice(0, 6)
         .map((item, indice) => ({

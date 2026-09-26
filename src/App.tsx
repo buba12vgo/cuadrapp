@@ -5,6 +5,7 @@ import { MovilCuadrantePage } from '@/pages/movil/MovilCuadrantePage'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { AgentesPage } from '@/pages/AgentesPage'
 import { CalendarioPage } from '@/pages/CalendarioPage'
+import { CalendarioAgentePage } from '@/pages/CalendarioAgentePage'
 import { CalendarioJefesPage } from '@/pages/CalendarioJefesPage'
 import { CuadranteJefesPage } from '@/pages/CuadranteJefesPage'
 import { CuadranteMensualPage } from '@/pages/CuadranteMensualPage'
@@ -13,6 +14,7 @@ import { PlanAnualPage } from '@/pages/PlanAnualPage'
 import { PermisosPage } from '@/pages/PermisosPage'
 import { PermisosAgentesPage } from '@/pages/PermisosAgentesPage'
 import { MovilPermisosPage } from '@/pages/movil/MovilPermisosPage'
+import { MovilServicioPage } from '@/pages/movil/MovilServicioPage'
 import { PuestosPage } from '@/pages/PuestosPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { ListadosPage } from '@/pages/ListadosPage'
@@ -31,6 +33,7 @@ export default function App() {
           <Route path="/m" element={<Navigate to="/m/cuadrante" replace />} />
           <Route path="/m/cuadrante" element={<MovilCuadrantePage />} />
           <Route path="/m/calendario" element={<MovilCalendarioPage />} />
+          <Route path="/m/servicio" element={<MovilServicioPage />} />
           <Route path="/m/permisos" element={<MovilPermisosPage />} />
           <Route path="/" element={<InicioAcceso />} />
           <Route path="/admin/agentes" element={<AgentesPage />} />
@@ -46,6 +49,7 @@ export default function App() {
           <Route path="/admin/cuadrante-mensual" element={<CuadranteMensualPage />} />
           <Route path="/admin/cuadrante-jefes" element={<CuadranteJefesPage />} />
           <Route path="/admin/calendario-jefes" element={<CalendarioJefesPage />} />
+          <Route path="/admin/calendario-agente" element={<CalendarioAgentePage />} />
           <Route
             path="/admin/cuadrante"
             element={<Navigate to="/admin/cuadrante-mensual" replace />}

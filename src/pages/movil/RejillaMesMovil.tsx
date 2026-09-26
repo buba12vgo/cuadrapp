@@ -16,7 +16,11 @@ export function RejillaMesMovil({
   mes: number
   diaSeleccionado: number | null
   onElegir: (dia: number) => void
-  marca?: (dia: number) => { aviso?: boolean; texto?: string }
+  marca?: (dia: number) => {
+    aviso?: boolean
+    texto?: string
+    punto?: 'verde' | 'ambar' | 'rojo'
+  }
 }) {
   const celdas = useMemo(() => celdasMesCalendario(anio, mes), [anio, mes])
 
@@ -70,11 +74,17 @@ export function RejillaMesMovil({
               ) : null}
               <span
                 className={`h-1.5 w-1.5 rounded-full ${
-                  extra?.aviso
-                    ? seleccionado
-                      ? 'bg-amber-300'
-                      : 'bg-amber-500'
-                    : 'bg-transparent'
+                  extra?.punto === 'verde'
+                    ? 'bg-emerald-500'
+                    : extra?.punto === 'ambar'
+                      ? 'bg-amber-400'
+                      : extra?.punto === 'rojo'
+                        ? 'bg-rose-500'
+                        : extra?.aviso
+                          ? seleccionado
+                            ? 'bg-amber-300'
+                            : 'bg-amber-500'
+                          : 'bg-transparent'
                 }`}
               />
             </button>

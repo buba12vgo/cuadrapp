@@ -87,7 +87,7 @@ service cloud.firestore {
     }
 
     match /cuadrantes/{id} {
-      allow read: if leeTodo();
+      allow read: if leeJefes();
       allow write: if esSuperAdmin();
     }
 

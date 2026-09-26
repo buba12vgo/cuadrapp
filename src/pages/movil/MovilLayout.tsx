@@ -1,4 +1,4 @@
-import { CalendarRange, ClipboardList, LayoutList } from 'lucide-react'
+import { CalendarCheck, CalendarRange, ClipboardList, LayoutList } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { AppDialogProvider } from '@/components/ui/ConfirmDialog'
 import { useAuth } from '@/contexts/AuthContext'
@@ -72,7 +72,7 @@ export function MovilLayout() {
             <Outlet />
           </main>
           <nav
-            className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-3 gap-1 border-t border-slate-200 bg-white px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+            className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 gap-1 border-t border-slate-200 bg-white px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
             aria-label="Consulta móvil"
           >
             <NavLink
@@ -96,6 +96,17 @@ export function MovilLayout() {
             >
               <CalendarRange className="h-4 w-4" aria-hidden />
               Calendario
+            </NavLink>
+            <NavLink
+              to="/m/servicio"
+              className={({ isActive }) =>
+                `flex flex-col items-center gap-0.5 rounded-2xl py-2 text-xs font-bold ${FOCUS_RING} ${
+                  isActive ? 'bg-slate-950 text-white' : 'text-slate-500'
+                }`
+              }
+            >
+              <CalendarCheck className="h-4 w-4" aria-hidden />
+              Agente
             </NavLink>
             <NavLink
               to="/m/permisos"

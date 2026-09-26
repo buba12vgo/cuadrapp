@@ -6,6 +6,7 @@ import {
   CalendarRange,
   ClipboardList,
   Gauge,
+  Layers,
   List,
   PanelLeftClose,
   PanelLeftOpen,
@@ -89,6 +90,7 @@ const NAV_GROUPS: Array<{
       { to: '/admin/usuarios', label: 'Usuarios', icon: UserCog, ambito: 'usuarios' },
       { to: '/admin/opciones', label: 'Opciones', icon: Settings, ambito: 'opciones' },
       { to: '/admin/reglas', label: 'Reglas', icon: BookOpen, ambito: 'reglas' },
+      { to: '/admin/roadmap', label: 'Roadmap', icon: Layers, ambito: 'roadmap' },
     ],
   },
 ]

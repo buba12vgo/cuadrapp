@@ -1,0 +1,42 @@
+[
+  {
+    "id": "1",
+    "fase": "Fase 1: Cuadrante y Mínimos",
+    "titulo": "Rediseño de la vista de Mínimos Semanales",
+    "descripcion": "Integrar panel lateral de KPIs y gráficos de distribución por turno.",
+    "prioridad": "Alta",
+    "estado": "En Progreso"
+  },
+  {
+    "id": "2",
+    "fase": "Fase 1: Cuadrante y Mínimos",
+    "titulo": "Optimización de la vista del Calendario de Jefes",
+    "descripcion": "Añadir badges visuales por tipo de servicio y simplificar la vista de descansos.",
+    "prioridad": "Alta",
+    "estado": "Pendiente"
+  },
+  {
+    "id": "3",
+    "fase": "Fase 2: Gestión de Cambios y Permutas",
+    "titulo": "Módulo de permutas entre agentes",
+    "descripcion": "Sistema de solicitud de cambio de turno entre compañeros con aprobación del Jefe de Servicio.",
+    "prioridad": "Media",
+    "estado": "Pendiente"
+  },
+  {
+    "id": "4",
+    "fase": "Fase 2: Gestión de Cambios y Permutas",
+    "titulo": "Notificaciones automáticas",
+    "descripcion": "Avisos por correo/push cuando se modifica un turno asignado o se aprueba una permuta.",
+    "prioridad": "Baja",
+    "estado": "Pendiente"
+  },
+  {
+    "id": "5",
+    "fase": "Fase 3: Informes y Auditoría",
+    "titulo": "Exportación avanzada a PDF y Excel",
+    "descripcion": "Generación de partes mensuales oficiales de servicio para Jefatura.",
+    "prioridad": "Media",
+    "estado": "Pendiente"
+  }
+]

@@ -18,6 +18,7 @@ import { LoginPage } from '@/pages/LoginPage'
 import { ListadosPage } from '@/pages/ListadosPage'
 import { OpcionesPage } from '@/pages/OpcionesPage'
 import { ReglasPage } from '@/pages/ReglasPage'
+import { RoadmapTimeline } from '@/components/RoadmapTimeline'
 import { UsuariosPage } from '@/pages/UsuariosPage'
 import { InicioAcceso } from '@/components/InicioAcceso'
 
@@ -54,6 +55,7 @@ export default function App() {
           <Route path="/admin/reglas" element={<ReglasPage />} />
           <Route path="/admin/usuarios" element={<UsuariosPage />} />
           <Route path="/admin/opciones" element={<OpcionesPage />} />
+          <Route path="/admin/roadmap" element={<RoadmapTimeline />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/login" replace />} />

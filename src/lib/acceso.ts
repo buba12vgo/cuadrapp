@@ -15,6 +15,7 @@ export type Ambito =
   | 'reglas'
   | 'usuarios'
   | 'opciones'
+  | 'roadmap'
 
 export type PerfilAcceso = {
   rol: RolAcceso
@@ -87,6 +88,7 @@ const RUTA_AMBITO: Record<string, Ambito> = {
   '/admin/reglas': 'reglas',
   '/admin/usuarios': 'usuarios',
   '/admin/opciones': 'opciones',
+  '/admin/roadmap': 'roadmap',
 }
 
 const ESCRITURA_ADMIN = new Set<Ambito>([
@@ -96,6 +98,7 @@ const ESCRITURA_ADMIN = new Set<Ambito>([
   'calendario-jefes',
   'calendario',
   'usuarios',
+  'roadmap',
 ])
 
 let rolActivo: RolAcceso | null = null

@@ -89,7 +89,7 @@ const NAV_GROUPS: Array<{
       },
       {
         to: '/admin/diario-agentes',
-        label: 'Calendario',
+        label: 'Diario agentes',
         icon: ListChecks,
         ambito: 'diario-agentes',
       },

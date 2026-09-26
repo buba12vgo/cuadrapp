@@ -127,7 +127,7 @@ export function MovilLayout() {
                 }
               >
                 <ListChecks className="h-4 w-4" aria-hidden />
-                Calendario
+                Diario
               </NavLink>
             ) : null}
             <NavLink

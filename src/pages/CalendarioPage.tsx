@@ -448,7 +448,7 @@ export function CalendarioPage() {
   return (
     <section className={PAGE_SECTION}>
       <PageHeader
-        title="Calendario operativo"
+        title="Calendario Eventos"
         subtitle={`${eventosData.length} eventos · varios por día · Firestore`}
         actions={
           <>

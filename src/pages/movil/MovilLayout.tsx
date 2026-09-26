@@ -100,7 +100,11 @@ export function MovilLayout() {
               }
             >
               <CalendarRange className="h-4 w-4" aria-hidden />
-              Calendario
+              <span className="text-center leading-tight">
+                Calendario
+                <br />
+                Eventos
+              </span>
             </NavLink>
             <NavLink
               to="/m/servicio"
@@ -123,7 +127,7 @@ export function MovilLayout() {
                 }
               >
                 <ListChecks className="h-4 w-4" aria-hidden />
-                Diario
+                Calendario
               </NavLink>
             ) : null}
             <NavLink

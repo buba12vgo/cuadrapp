@@ -89,11 +89,11 @@ const NAV_GROUPS: Array<{
       },
       {
         to: '/admin/diario-agentes',
-        label: 'Diario agentes',
+        label: 'Calendario',
         icon: ListChecks,
         ambito: 'diario-agentes',
       },
-      { to: '/admin/calendario', label: 'Calendario', icon: CalendarDays, ambito: 'calendario' },
+      { to: '/admin/calendario', label: 'Calendario Eventos', icon: CalendarDays, ambito: 'calendario' },
       { to: '/admin/listados', label: 'Listados', icon: List, ambito: 'listados' },
     ],
   },

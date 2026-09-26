@@ -40,7 +40,7 @@ export function DiarioAgentesPage() {
   return (
     <section className={`${PAGE_SECTION} gap-1.5 overflow-hidden`}>
       <PageHeader
-        title="Diario agentes"
+        title="Calendario"
         subtitle="Puestos del día y cambios de asignación"
         toolbar={
           <ToolbarSection label="Periodo">

@@ -197,7 +197,7 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
   {
     id: 'diario-agentes',
     categoria: 'CUADRANTE',
-    titulo: 'Diario agentes',
+    titulo: 'Calendario',
     descripcion:
       'Listado por días del servicio. Al abrir un día se ven los puestos y quién está asignado. Un puesto de los mínimos sin cubrir aparece en rojo. Desde ahí se puede cambiar el puesto de un trabajador.',
     estado: 'implementada',

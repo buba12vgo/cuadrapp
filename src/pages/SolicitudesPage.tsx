@@ -694,18 +694,19 @@ export function SolicitudesPage() {
             : 'Peticiones de permiso, cambios de días, de mes y de vacaciones'
         }
       />
-      {error ? <p className={ALERT_ERROR}>{error}</p> : null}
+      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain">
+      {error ? <p className={`${ALERT_ERROR} shrink-0`}>{error}</p> : null}
       {!firebaseOk ? (
-        <p className={ALERT_INFO}>
+        <p className={`${ALERT_INFO} shrink-0`}>
           Sin Firestore las solicitudes se ven en esta sesión, pero no se guardan en el servidor.
         </p>
       ) : null}
       {!veBandeja && !agente ? (
-        <p className={ALERT_INFO}>Tu usuario no está vinculado a un agente.</p>
+        <p className={`${ALERT_INFO} shrink-0`}>Tu usuario no está vinculado a un agente.</p>
       ) : null}
 
       {!veBandeja && agente ? (
-        <form className="flex flex-col gap-3" onSubmit={(event) => void enviar(event)}>
+        <form className="flex shrink-0 flex-col gap-3" onSubmit={(event) => void enviar(event)}>
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
             {TIPOS_SOLICITUD.map((item) => (
               <button
@@ -846,7 +847,7 @@ export function SolicitudesPage() {
         </form>
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-slate-200 bg-white">
+      <div className="shrink-0 overflow-x-auto rounded-xl border border-slate-200 bg-white">
         {cargando ? <p className="px-3 py-4 text-sm text-slate-500">Cargando solicitudes…</p> : null}
         {!cargando && lista.length === 0 ? (
           <p className="px-3 py-4 text-sm text-slate-500">No hay solicitudes.</p>
@@ -1009,6 +1010,7 @@ export function SolicitudesPage() {
             </tbody>
           </table>
         ) : null}
+      </div>
       </div>
     </section>
   )

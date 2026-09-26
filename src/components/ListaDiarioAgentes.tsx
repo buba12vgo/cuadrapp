@@ -482,6 +482,18 @@ function SelectorPuesto({
   puedeEditar: boolean
   onCambiar: (puesto: string) => void
 }) {
+  const etiqueta =
+    valor === NOMBRE_JORNADA_DISPONIBLE
+      ? 'Jornada disponible'
+      : valor || 'Sin puesto'
+  if (!puedeEditar) {
+    return (
+      <p className="flex flex-col gap-0.5 text-xs text-slate-700 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+        <span className="font-semibold">{nombre}</span>
+        <span className="font-medium text-slate-800">{etiqueta}</span>
+      </p>
+    )
+  }
   const opciones = opcionesPuesto(agente, puestos, valor)
   return (
     <label className="flex flex-col gap-0.5 text-xs text-slate-700 sm:flex-row sm:items-center sm:justify-between sm:gap-2">

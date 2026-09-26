@@ -158,7 +158,7 @@ export function puedeVer(
 ) {
   if (rol === 'SUPERADMIN') return true
   if (rol === 'ADMIN') return true
-  if (ambito === 'calendario' && opciones?.puedeEditarEventos) return true
+  if (ambito === 'calendario' && rol === 'CONSULTA_JEFES') return true
   if (ambito === 'cuadrante-jefes' || ambito === 'calendario-jefes') {
     return rol === 'CONSULTA_JEFES' && opciones?.esJefatura === true
   }

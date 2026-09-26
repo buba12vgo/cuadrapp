@@ -59,9 +59,10 @@ export function MovilLayout() {
   const { puedeVer } = useAcceso()
   const veCuadrante = puedeVer('cuadrante-jefes')
   const veCalendario = puedeVer('calendario-jefes')
+  const veEventos = puedeVer('calendario') && !veCalendario
   const veDiario = puedeVer('diario-agentes')
   const columnas =
-    2 + Number(veCuadrante) + Number(veCalendario) + Number(veDiario)
+    2 + Number(veCuadrante) + Number(veCalendario) + Number(veEventos) + Number(veDiario)
   return (
     <AppDialogProvider>
       <MovilMesProvider>
@@ -112,6 +113,23 @@ export function MovilLayout() {
                 Eventos
               </span>
             </NavLink>
+            ) : null}
+            {veEventos ? (
+              <NavLink
+                to="/m/eventos"
+                className={({ isActive }) =>
+                  `flex flex-col items-center gap-0.5 rounded-2xl py-2 text-xs font-bold ${FOCUS_RING} ${
+                    isActive ? 'bg-slate-950 text-white' : 'text-slate-500'
+                  }`
+                }
+              >
+                <CalendarRange className="h-4 w-4" aria-hidden />
+                <span className="text-center leading-tight">
+                  Calendario
+                  <br />
+                  Eventos
+                </span>
+              </NavLink>
             ) : null}
             <NavLink
               to="/m/servicio"

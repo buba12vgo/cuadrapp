@@ -100,6 +100,11 @@ if (!puedeVer('CONSULTA_JEFES', 'diario-agentes')) fallos.push('agente ve diario
 if (puedeEscribir('CONSULTA_JEFES', 'diario-agentes')) fallos.push('agente edita diario')
 if (puedeVer('CONSULTA_JEFES', 'cuadrante-jefes')) fallos.push('agente ve cuadrante')
 if (puedeVer('CONSULTA_JEFES', 'calendario-jefes')) fallos.push('agente ve calendario')
+if (!puedeVer('CONSULTA_JEFES', 'calendario')) fallos.push('agente ve eventos')
+if (puedeEscribir('CONSULTA_JEFES', 'calendario')) fallos.push('agente edita eventos')
+if (!puedeEscribir('CONSULTA_JEFES', 'calendario', { puedeEditarEventos: true })) {
+  fallos.push('jefe con permiso edita eventos')
+}
 
 await server.close()
 if (fallos.length) {

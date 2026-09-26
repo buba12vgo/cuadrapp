@@ -18,6 +18,7 @@ import { PermisosPage } from '@/pages/PermisosPage'
 import { PermisosAgentesPage } from '@/pages/PermisosAgentesPage'
 import { MovilPermisosPage } from '@/pages/movil/MovilPermisosPage'
 import { MovilDiarioPage } from '@/pages/movil/MovilDiarioPage'
+import { MovilEventosPage } from '@/pages/movil/MovilEventosPage'
 import { MovilServicioPage } from '@/pages/movil/MovilServicioPage'
 import { PuestosPage } from '@/pages/PuestosPage'
 import { LoginPage } from '@/pages/LoginPage'
@@ -50,6 +51,7 @@ export default function App() {
           <Route path="/m/calendario" element={<MovilCalendarioPage />} />
           <Route path="/m/servicio" element={<MovilServicioPage />} />
           <Route path="/m/diario" element={<MovilDiarioPage />} />
+          <Route path="/m/eventos" element={<MovilEventosPage />} />
           <Route path="/m/permisos" element={<MovilPermisosPage />} />
           <Route path="/" element={<InicioAcceso />} />
           <Route path="/admin/agentes" element={<AgentesPage />} />

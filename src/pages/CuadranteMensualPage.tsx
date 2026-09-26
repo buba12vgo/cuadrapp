@@ -140,7 +140,6 @@ const MESES = [
 
 const DIA_SEMANA = ['D', 'L', 'M', 'X', 'J', 'V', 'S'] as const
 const ROLES = ROLES_OPERATIVO_CUADRANTE
-const ANIO_ACTUAL = 2026
 const ANCHO_DIA = 28
 const ANCHO_TOT = 24
 const ANCHO_AGENTE = 32
@@ -302,10 +301,13 @@ export function CuadranteMensualPage() {
   const [puestos] = usePuestosData()
   const [minimosSemana] = useMinimosSemanaData()
   const { plan: planAnual, setAnio: setAnioPlan } = usePlanAnual()
-  const [anio, setAnio] = useState(ANIO_ACTUAL)
-  const [mes, setMes] = useState(8)
+  const [anio, setAnio] = useState(() => new Date().getFullYear())
+  const [mes, setMes] = useState(() => new Date().getMonth() + 1)
   const [diaDesde, setDiaDesde] = useState(1)
-  const [diaHasta, setDiaHasta] = useState(() => diasDelMes(ANIO_ACTUAL, 8))
+  const [diaHasta, setDiaHasta] = useState(() => {
+    const hoy = new Date()
+    return diasDelMes(hoy.getFullYear(), hoy.getMonth() + 1)
+  })
   const [rolFiltro, setRolFiltro] = useState<'TODOS' | RolPolicia>('TODOS')
   const [filtroVistaTurno, setFiltroVistaTurno] =
     useState<FiltroVistaTurno>('TODOS')

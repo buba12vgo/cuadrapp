@@ -120,7 +120,7 @@ export function MovilServicioPage() {
             marca={(numero) => {
               const turnoDia = (fila[numero - 1] ?? 'D') as Turno
               const fechaDia = isoFechaMovil(anio, mes, numero)
-              const nivel = resumenDiaServicio({
+              const semaforos = resumenDiaServicio({
                 cuadrante: datos.cuadrante,
                 asignaciones: datos.asignaciones,
                 agentes: datos.operativos,
@@ -128,8 +128,11 @@ export function MovilServicioPage() {
                 minimos: minimosParaFecha(fechaDia, datos.eventos, minimosSemana, puestos),
                 fecha: fechaDia,
                 dia: numero,
-              }).nivel
-              return { texto: etiquetaCorta(turnoDia), punto: nivel }
+              }).turnos
+              return {
+                texto: etiquetaCorta(turnoDia),
+                puntos: [semaforos.M.nivel, semaforos.T.nivel, semaforos.N.nivel],
+              }
             }}
           />
           {resumen && diaAbierto ? (

@@ -95,5 +95,9 @@ service cloud.firestore {
       allow read: if leeJefes();
       allow write: if esSuperAdmin();
     }
+
+    match /roadmap/{id} {
+      allow read, write: if leeTodo();
+    }
   }
 }

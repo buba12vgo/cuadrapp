@@ -188,7 +188,7 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     categoria: 'CUADRANTE',
     titulo: 'Calendario de consulta del agente',
     descripcion:
-      'El agente consulta su servicio del mes. Al pulsar un día ve los mínimos y quién trabaja en cada puesto. El semáforo del día es verde con 2 o más agentes por encima del mínimo, ámbar con 1 y rojo si está justo o falta gente.',
+      'El agente consulta su servicio del mes. Al pulsar un día ve los mínimos y quién trabaja en cada puesto. Cada turno (M, T y N) tiene su semáforo: verde con 2 o más agentes por encima del mínimo de ese turno, ámbar con 1 y rojo si está justo o falta gente.',
     estado: 'implementada',
     detalle:
       'Solo consulta. Superadmin y admin pueden cambiar de agente. La consulta ve únicamente su ficha si está en el cuadrante mensual.',

@@ -22,6 +22,7 @@ import { minimosParaFecha } from '@/lib/calendarioPuestos'
 import {
   CLASE_SEMAFORO,
   ETIQUETA_SEMAFORO,
+  TURNOS_COBERTURA,
   resumenDiaServicio,
 } from '@/lib/coberturaDia'
 import { esDiaTrabajado, esFinDeSemana, totalTrabajados } from '@/lib/convenio'
@@ -300,8 +301,11 @@ export function CalendarioAgentePage() {
                   const fecha = isoFecha(anio, mes, dia)
                   const eventosDia = eventosEnFecha(datos.eventos, fecha)
                   const especial = esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia)
-                  const nivel = cobertura(dia).nivel
+                  const semaforos = cobertura(dia).turnos
                   const abierto = dia === diaAbierto
+                  const textoSemaforo = TURNOS_COBERTURA.map(
+                    (codigo) => `${codigo} ${ETIQUETA_SEMAFORO[semaforos[codigo].nivel]}`,
+                  ).join(', ')
                   return (
                     <button
                       key={dia}
@@ -310,7 +314,7 @@ export function CalendarioAgentePage() {
                         especial && turno === 'V' ? 'bg-amber-50' : 'bg-white'
                       } ${abierto ? 'ring-2 ring-inset ring-brand-500' : ''}`}
                       aria-pressed={abierto}
-                      aria-label={`${dia} ${MESES[mes - 1]}, ${etiquetaCorta(turno)}, ${ETIQUETA_SEMAFORO[nivel]}`}
+                      aria-label={`${dia} ${MESES[mes - 1]}, ${etiquetaCorta(turno)}, ${textoSemaforo}`}
                       onClick={() => setSeleccionDia({ clave: claveMes, dia })}
                     >
                       <span className="flex items-center justify-between gap-1">
@@ -321,10 +325,19 @@ export function CalendarioAgentePage() {
                         >
                           {dia}
                         </span>
-                        <span
-                          className={`h-2.5 w-2.5 shrink-0 rounded-full ${CLASE_SEMAFORO[nivel]}`}
-                          title={ETIQUETA_SEMAFORO[nivel]}
-                        />
+                        <span className="flex items-center gap-1">
+                          {TURNOS_COBERTURA.map((codigo) => (
+                            <span key={codigo} className="flex items-center gap-0.5">
+                              <span className="text-[9px] font-extrabold leading-none text-slate-500">
+                                {codigo}
+                              </span>
+                              <span
+                                className={`h-2 w-2 shrink-0 rounded-full ${CLASE_SEMAFORO[semaforos[codigo].nivel]}`}
+                                title={`${codigo}: ${ETIQUETA_SEMAFORO[semaforos[codigo].nivel]}`}
+                              />
+                            </span>
+                          ))}
+                        </span>
                       </span>
                       <span
                         className={`w-fit rounded px-1 text-[10px] font-extrabold ${PILDORA[turno]}`}
@@ -348,7 +361,7 @@ export function CalendarioAgentePage() {
         </DashboardMain>
         <DashboardSidebar className="gap-2">
           <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-            <p className={`${TITULO_BLOQUE} mb-2`}>Semáforo</p>
+            <p className={`${TITULO_BLOQUE} mb-2`}>Semáforo por turno</p>
             <ul className="flex flex-col gap-1 text-xs text-slate-600">
               {(['verde', 'ambar', 'rojo'] as const).map((nivel) => (
                 <li key={nivel} className="flex items-center gap-2">

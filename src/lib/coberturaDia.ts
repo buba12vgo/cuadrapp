@@ -49,11 +49,16 @@ export type LineaPuestoDia = {
 
 export type PersonaTurno = PersonaServicio & { turno: TurnoOperativo }
 
-export type ResumenDiaServicio = {
+export type CoberturaTurno = {
+  turno: TurnoOperativo
   trabajando: number
   minimo: number
   sobrante: number
   nivel: NivelSemaforo
+}
+
+export type ResumenDiaServicio = {
+  turnos: Record<TurnoOperativo, CoberturaTurno>
   lineas: LineaPuestoDia[]
   sinPuesto: PersonaTurno[]
   jornadaDisponible: PersonaTurno[]
@@ -102,12 +107,19 @@ export function resumenDiaServicio(opts: {
     lista.sort((a, b) => placaDe(a) - placaDe(b) || a.id.localeCompare(b.id))
   }
 
-  let trabajando = 0
-  let minimo = 0
+  const turnos = {} as Record<TurnoOperativo, CoberturaTurno>
   for (const turno of TURNOS_COBERTURA) {
-    trabajando += porTurno.get(turno)?.length ?? 0
+    const gente = porTurno.get(turno)?.length ?? 0
+    let minimoTurno = 0
     for (const puesto of operativos) {
-      minimo += opts.minimos[puesto.nombre]?.[turno] ?? 0
+      minimoTurno += opts.minimos[puesto.nombre]?.[turno] ?? 0
+    }
+    turnos[turno] = {
+      turno,
+      trabajando: gente,
+      minimo: minimoTurno,
+      sobrante: gente - minimoTurno,
+      nivel: nivelSemaforo(gente, minimoTurno),
     }
   }
 
@@ -151,10 +163,7 @@ export function resumenDiaServicio(opts: {
   }
 
   return {
-    trabajando,
-    minimo,
-    sobrante: trabajando - minimo,
-    nivel: nivelSemaforo(trabajando, minimo),
+    turnos,
     lineas,
     sinPuesto,
     jornadaDisponible,

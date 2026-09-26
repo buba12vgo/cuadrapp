@@ -1,4 +1,9 @@
-import { CLASE_SEMAFORO, ETIQUETA_SEMAFORO, type ResumenDiaServicio } from '@/lib/coberturaDia'
+import {
+  CLASE_SEMAFORO,
+  ETIQUETA_SEMAFORO,
+  TURNOS_COBERTURA,
+  type ResumenDiaServicio,
+} from '@/lib/coberturaDia'
 import type { Turno } from '@/types'
 
 const TURNO_LABEL: Record<'M' | 'T' | 'N', string> = {
@@ -29,17 +34,24 @@ export function DiaCoberturaPanel({
     <div className="flex flex-col gap-3">
       <div>
         <p className="text-sm font-bold text-ink">{titulo}</p>
-        <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-          <span
-            className={`inline-block h-2.5 w-2.5 rounded-full ${CLASE_SEMAFORO[resumen.nivel]}`}
-            title={ETIQUETA_SEMAFORO[resumen.nivel]}
-          />
-          <span>{ETIQUETA_SEMAFORO[resumen.nivel]}</span>
-          <span className="font-semibold text-slate-800">
-            {resumen.trabajando} trabajando · mínimo {resumen.minimo} ·{' '}
-            {textoSobrante(resumen.sobrante)}
-          </span>
-        </p>
+        <ul className="mt-2 flex flex-col gap-1">
+          {TURNOS_COBERTURA.map((turno) => {
+            const cobertura = resumen.turnos[turno]
+            return (
+              <li key={turno} className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                <span className="w-4 font-extrabold text-slate-800">{turno}</span>
+                <span
+                  className={`inline-block h-2.5 w-2.5 rounded-full ${CLASE_SEMAFORO[cobertura.nivel]}`}
+                  title={`${TURNO_LABEL[turno]}: ${ETIQUETA_SEMAFORO[cobertura.nivel]}`}
+                />
+                <span>
+                  {TURNO_LABEL[turno]} · {cobertura.trabajando} trabajando · mínimo{' '}
+                  {cobertura.minimo} · {textoSobrante(cobertura.sobrante)}
+                </span>
+              </li>
+            )
+          })}
+        </ul>
         {turnoPropio ? (
           <p className="mt-1 text-xs text-slate-500">
             Tu servicio: <strong className="text-slate-800">{etiquetaTurno(turnoPropio)}</strong>

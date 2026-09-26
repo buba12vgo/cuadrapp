@@ -11,6 +11,9 @@ import {
 import semillaJson from '@/data/roadmap.json' with { type: 'json' }
 import { Modal } from '@/components/ui/Modal'
 import { useAppDialog } from '@/components/ui/ConfirmDialog'
+import { useAcceso } from '@/contexts/AccesoContext'
+import { ETIQUETA_ROL_ACCESO } from '@/lib/acceso'
+import { guardarRoadmapRemoto, leerRoadmapRemoto } from '@/lib/roadmapRemoto'
 import { BTN_GHOST, BTN_PRIMARY, CAMPO, FOCUS_RING } from '@/lib/uiStyles'
 
 const CLAVE = 'cuadrapp.roadmap'
@@ -31,6 +34,8 @@ export type TareaRoadmap = {
   descripcion: string
   prioridad: PrioridadTarea
   estado: EstadoTarea
+  /** Rol de acceso que creó la tarea. Las de la semilla no lo traen. */
+  creadoPor?: string
 }
 
 type Borrador = {
@@ -79,7 +84,8 @@ function esTarea(valor: unknown): valor is TareaRoadmap {
     typeof tarea.titulo === 'string' &&
     typeof tarea.descripcion === 'string' &&
     esPrioridad(tarea.prioridad) &&
-    esEstado(tarea.estado)
+    esEstado(tarea.estado) &&
+    (tarea.creadoPor == null || typeof tarea.creadoPor === 'string')
   )
 }
 
@@ -124,19 +130,45 @@ function estadoDelFiltro(filtro: FiltroEstado): EstadoTarea | null {
 
 export function RoadmapTimeline() {
   const { confirm } = useAppDialog()
+  const { perfil, puedeEscribir } = useAcceso()
+  const puedeEditar = puedeEscribir('roadmap')
+  const rolActual = perfil ? ETIQUETA_ROL_ACCESO[perfil.rol] : null
   const [tareas, setTareas] = useState<TareaRoadmap[]>(leerTareas)
   const [filtro, setFiltro] = useState<FiltroEstado>('Todas')
   const [borrador, setBorrador] = useState<Borrador | null>(null)
   const [errorForm, setErrorForm] = useState<string | null>(null)
-  const persistir = useRef(false)
+  const cargadoRemoto = useRef(false)
+
+  function publicar(siguiente: TareaRoadmap[]) {
+    guardarTareas(siguiente)
+    void guardarRoadmapRemoto(siguiente).catch(() => {})
+    return siguiente
+  }
 
   useEffect(() => {
-    if (!persistir.current) {
-      persistir.current = true
-      return
+    if (cargadoRemoto.current) return
+    cargadoRemoto.current = true
+    let cancelado = false
+    async function cargar() {
+      try {
+        const remoto = await leerRoadmapRemoto()
+        if (cancelado) return
+        if (remoto) {
+          const validas = remoto.filter(esTarea)
+          setTareas(validas)
+          guardarTareas(validas)
+          return
+        }
+        await guardarRoadmapRemoto(leerTareas())
+      } catch {
+        /* sigue la copia de este navegador */
+      }
     }
-    guardarTareas(tareas)
-  }, [tareas])
+    void cargar()
+    return () => {
+      cancelado = true
+    }
+  }, [])
 
   const total = tareas.length
   const completadas = tareas.filter((tarea) => tarea.estado === 'Completado').length
@@ -173,8 +205,11 @@ export function RoadmapTimeline() {
   }, [tareas])
 
   function actualizar(id: string, parcial: Partial<TareaRoadmap>) {
+    if (!puedeEditar) return
     setTareas((actual) =>
-      actual.map((tarea) => (tarea.id === id ? { ...tarea, ...parcial } : tarea)),
+      publicar(
+        actual.map((tarea) => (tarea.id === id ? { ...tarea, ...parcial } : tarea)),
+      ),
     )
   }
 
@@ -184,11 +219,12 @@ export function RoadmapTimeline() {
       'Eliminar tarea',
       true,
     )
-    if (!ok) return
-    setTareas((actual) => actual.filter((item) => item.id !== tarea.id))
+    if (!ok || !puedeEditar) return
+    setTareas((actual) => publicar(actual.filter((item) => item.id !== tarea.id)))
   }
 
   function abrirNueva() {
+    if (!puedeEditar) return
     setErrorForm(null)
     setBorrador(borradorNuevo(fasesConocidas[0] ?? 'Fase 1'))
   }
@@ -218,10 +254,14 @@ export function RoadmapTimeline() {
       descripcion,
       prioridad: borrador.prioridad,
       estado: borrador.estado,
+      creadoPor: borrador.id
+        ? tareas.find((item) => item.id === borrador.id)?.creadoPor
+        : (rolActual ?? undefined),
     }
+    if (!puedeEditar) return
     setTareas((actual) => {
-      if (!borrador.id) return [...actual, tarea]
-      return actual.map((item) => (item.id === tarea.id ? tarea : item))
+      if (!borrador.id) return publicar([...actual, tarea])
+      return publicar(actual.map((item) => (item.id === tarea.id ? { ...item, ...tarea, creadoPor: item.creadoPor } : item)))
     })
     setBorrador(null)
   }
@@ -238,14 +278,16 @@ export function RoadmapTimeline() {
               Roadmap
             </h1>
             <p className="mt-1 max-w-xl text-sm text-slate-500">
-              Seguimiento de lo que queda por hacer. Los cambios se guardan en
-              este navegador; la base inicial está en el archivo de datos.
+              Superadmin y admin ven y editan el mismo tablero. Cada tarea nueva
+              indica el rol que la añadió.
             </p>
           </div>
-          <button type="button" className={BTN_PRIMARY} onClick={abrirNueva}>
-            <Plus className="h-4 w-4" aria-hidden />
-            Nueva tarea
-          </button>
+          {puedeEditar ? (
+            <button type="button" className={BTN_PRIMARY} onClick={abrirNueva}>
+              <Plus className="h-4 w-4" aria-hidden />
+              Nueva tarea
+            </button>
+          ) : null}
         </div>
 
         <div className="mt-4">
@@ -354,6 +396,11 @@ export function RoadmapTimeline() {
                               >
                                 {tarea.prioridad}
                               </span>
+                              {tarea.creadoPor ? (
+                                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-200">
+                                  Añadida por {tarea.creadoPor}
+                                </span>
+                              ) : null}
                             </div>
                             <p className="mt-1.5 text-sm leading-relaxed text-slate-600">
                               {tarea.descripcion}
@@ -367,6 +414,7 @@ export function RoadmapTimeline() {
                               id={`estado-${tarea.id}`}
                               className={`h-8 rounded-lg px-2 text-xs font-bold ring-1 ${ESTILO_ESTADO[tarea.estado]} ${FOCUS_RING}`}
                               value={tarea.estado}
+                              disabled={!puedeEditar}
                               onChange={(event) =>
                                 actualizar(tarea.id, {
                                   estado: event.target.value as EstadoTarea,
@@ -379,22 +427,26 @@ export function RoadmapTimeline() {
                                 </option>
                               ))}
                             </select>
-                            <button
-                              type="button"
-                              className={`rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 ${FOCUS_RING}`}
-                              aria-label={`Editar ${tarea.titulo}`}
-                              onClick={() => abrirEdicion(tarea)}
-                            >
-                              <Edit3 className="h-4 w-4" aria-hidden />
-                            </button>
-                            <button
-                              type="button"
-                              className={`rounded-lg p-2 text-slate-500 hover:bg-rose-50 hover:text-rose-700 ${FOCUS_RING}`}
-                              aria-label={`Eliminar ${tarea.titulo}`}
-                              onClick={() => void eliminar(tarea)}
-                            >
-                              <Trash2 className="h-4 w-4" aria-hidden />
-                            </button>
+                            {puedeEditar ? (
+                              <>
+                                <button
+                                  type="button"
+                                  className={`rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 ${FOCUS_RING}`}
+                                  aria-label={`Editar ${tarea.titulo}`}
+                                  onClick={() => abrirEdicion(tarea)}
+                                >
+                                  <Edit3 className="h-4 w-4" aria-hidden />
+                                </button>
+                                <button
+                                  type="button"
+                                  className={`rounded-lg p-2 text-slate-500 hover:bg-rose-50 hover:text-rose-700 ${FOCUS_RING}`}
+                                  aria-label={`Eliminar ${tarea.titulo}`}
+                                  onClick={() => void eliminar(tarea)}
+                                >
+                                  <Trash2 className="h-4 w-4" aria-hidden />
+                                </button>
+                              </>
+                            ) : null}
                           </div>
                         </div>
                       </li>
@@ -535,6 +587,12 @@ export function RoadmapTimeline() {
                 </select>
               </label>
             </div>
+            {borrador.id ? null : (
+              <p className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm text-slate-700">
+                Se guardará como añadida por{' '}
+                <strong>{rolActual ?? 'tu rol'}</strong>.
+              </p>
+            )}
             {errorForm ? (
               <p className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1.5 text-sm text-rose-800">
                 {errorForm}

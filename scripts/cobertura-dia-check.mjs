@@ -55,9 +55,15 @@ const resumen = resumenDiaServicio({
   fecha: '2026-09-01',
   dia: 1,
 })
-if (resumen.trabajando !== 4) fallos.push(`trabajando ${resumen.trabajando}`)
-if (resumen.minimo !== 2) fallos.push(`minimo ${resumen.minimo}`)
-if (resumen.nivel !== 'verde') fallos.push(`nivel ${resumen.nivel}`)
+if (resumen.turnos.M.trabajando !== 3 || resumen.turnos.M.nivel !== 'ambar') {
+  fallos.push(`M ${JSON.stringify(resumen.turnos.M)}`)
+}
+if (resumen.turnos.T.trabajando !== 1 || resumen.turnos.T.nivel !== 'ambar') {
+  fallos.push(`T ${JSON.stringify(resumen.turnos.T)}`)
+}
+if (resumen.turnos.N.trabajando !== 0 || resumen.turnos.N.nivel !== 'rojo') {
+  fallos.push(`N ${JSON.stringify(resumen.turnos.N)}`)
+}
 const control = resumen.lineas.find((l) => l.puesto === 'Centro de Control' && l.turno === 'M')
 if (!control || control.personas.length !== 2) fallos.push('control')
 if (resumen.sinPuesto.length !== 2) fallos.push(`sin puesto ${resumen.sinPuesto.length}`)
@@ -67,4 +73,4 @@ if (fallos.length) {
   console.error(fallos.join('\n'))
   process.exit(1)
 }
-console.log('OK', resumen.nivel, resumen.sobrante)
+console.log('OK', resumen.turnos.M.nivel, resumen.turnos.T.nivel, resumen.turnos.N.nivel)

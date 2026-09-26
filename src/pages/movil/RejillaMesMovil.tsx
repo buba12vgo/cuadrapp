@@ -20,6 +20,7 @@ export function RejillaMesMovil({
     aviso?: boolean
     texto?: string
     punto?: 'verde' | 'ambar' | 'rojo'
+    puntos?: Array<'verde' | 'ambar' | 'rojo'>
   }
 }) {
   const celdas = useMemo(() => celdasMesCalendario(anio, mes), [anio, mes])
@@ -72,21 +73,38 @@ export function RejillaMesMovil({
                   {extra.texto}
                 </span>
               ) : null}
-              <span
-                className={`h-1.5 w-1.5 rounded-full ${
-                  extra?.punto === 'verde'
-                    ? 'bg-emerald-500'
-                    : extra?.punto === 'ambar'
-                      ? 'bg-amber-400'
-                      : extra?.punto === 'rojo'
-                        ? 'bg-rose-500'
-                        : extra?.aviso
-                          ? seleccionado
-                            ? 'bg-amber-300'
-                            : 'bg-amber-500'
-                          : 'bg-transparent'
-                }`}
-              />
+              {extra?.puntos ? (
+                <span className="flex gap-0.5">
+                  {extra.puntos.map((punto, indicePunto) => (
+                    <span
+                      key={indicePunto}
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        punto === 'verde'
+                          ? 'bg-emerald-500'
+                          : punto === 'ambar'
+                            ? 'bg-amber-400'
+                            : 'bg-rose-500'
+                      }`}
+                    />
+                  ))}
+                </span>
+              ) : (
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${
+                    extra?.punto === 'verde'
+                      ? 'bg-emerald-500'
+                      : extra?.punto === 'ambar'
+                        ? 'bg-amber-400'
+                        : extra?.punto === 'rojo'
+                          ? 'bg-rose-500'
+                          : extra?.aviso
+                            ? seleccionado
+                              ? 'bg-amber-300'
+                              : 'bg-amber-500'
+                            : 'bg-transparent'
+                  }`}
+                />
+              )}
             </button>
           )
         })}

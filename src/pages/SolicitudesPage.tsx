@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { CalendarioSolicitudPermiso } from '@/components/CalendarioSolicitudPermiso'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { useAppDialog } from '@/components/ui/ConfirmDialog'
 import { useAcceso } from '@/contexts/AccesoContext'
@@ -501,31 +502,13 @@ export function SolicitudesPage() {
               </button>
             ))}
           </div>
-          <div className="grid gap-2 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2">
-            {tipo === 'CAMBIO_MES' ? (
-              <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600">
-                Mes actual
-                <input
-                  className={CAMPO_FECHA}
-                  type="month"
-                  required
-                  value={fecha.slice(0, 7)}
-                  onChange={(event) => setFecha(event.target.value)}
-                />
-              </label>
-            ) : (
-              <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600">
-                {tipo === 'PERMISO' ? 'Día' : tipo === 'VACACIONES' ? 'Desde' : 'Día a cambiar'}
-                <input
-                  className={CAMPO_FECHA}
-                  type="date"
-                  required
-                  value={fecha}
-                  onChange={(event) => setFecha(event.target.value)}
-                />
-              </label>
-            )}
-            {tipo === 'PERMISO' ? (
+          {tipo === 'PERMISO' ? (
+            <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3">
+              <CalendarioSolicitudPermiso
+                agente={agente}
+                fecha={fecha}
+                onElegir={setFecha}
+              />
               <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600">
                 Concepto
                 <select
@@ -543,7 +526,40 @@ export function SolicitudesPage() {
                   ))}
                 </select>
               </label>
-            ) : null}
+              <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600">
+                Nota
+                <input
+                  className={CAMPO_FECHA}
+                  value={detalle}
+                  onChange={(event) => setDetalle(event.target.value)}
+                />
+              </label>
+            </div>
+          ) : (
+          <div className="grid gap-2 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2">
+            {tipo === 'CAMBIO_MES' ? (
+              <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600">
+                Mes actual
+                <input
+                  className={CAMPO_FECHA}
+                  type="month"
+                  required
+                  value={fecha.slice(0, 7)}
+                  onChange={(event) => setFecha(event.target.value)}
+                />
+              </label>
+            ) : (
+              <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600">
+                {tipo === 'VACACIONES' ? 'Desde' : 'Día a cambiar'}
+                <input
+                  className={CAMPO_FECHA}
+                  type="date"
+                  required
+                  value={fecha}
+                  onChange={(event) => setFecha(event.target.value)}
+                />
+              </label>
+            )}
             {tipo === 'CAMBIO_DIA' || tipo === 'VACACIONES' ? (
               <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600">
                 {tipo === 'VACACIONES' ? 'Hasta' : 'Día propuesto'}
@@ -577,6 +593,7 @@ export function SolicitudesPage() {
               />
             </label>
           </div>
+          )}
           <div>
             <button type="submit" className={BTN_PRIMARY} disabled={enviando}>
               {enviando ? 'Enviando…' : 'Enviar solicitud'}

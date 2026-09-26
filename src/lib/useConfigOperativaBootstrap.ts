@@ -26,8 +26,8 @@ import { vePermisosDeTodos } from '@/lib/acceso'
 type EstadoCarga = 'idle' | 'loading' | 'ready' | 'error'
 
 /**
- * Carga plantilla, puestos, mínimos y eventos.
- * El plan anual solo lo leen superadmin y admin: consulta no tiene esa regla.
+ * Carga plantilla, puestos, mínimos, eventos y el plan anual.
+ * La consulta también lee el plan: lo necesita para pedir un cambio de mes.
  */
 function mensajeDeCarga(err: unknown, fallback: string) {
   const raw = err instanceof Error ? err.message : ''
@@ -90,22 +90,18 @@ export function useConfigOperativaBootstrap() {
         hydrateAgentes(agentes)
         hydrateTiposPermiso(config.tiposPermiso)
 
-        if (puedePlan) {
-          try {
-            const planes = await getPlanesAnuales(agentes)
-            if (cancelado) return
-            hydratePlanesAnuales(planes.planes, planes.objetivos)
-          } catch (err) {
-            if (cancelado) return
-            const mensaje = mensajeDeCarga(
-              err,
-              'No se pudo cargar el plan anual desde Firestore',
-            )
-            marcarErrorCargaPlan(mensaje)
-            console.error('[bootstrap] No se pudo cargar el plan anual', err)
-          }
-        } else {
-          hydratePlanesAnuales({}, {})
+        try {
+          const planes = await getPlanesAnuales(agentes)
+          if (cancelado) return
+          hydratePlanesAnuales(planes.planes, planes.objetivos)
+        } catch (err) {
+          if (cancelado) return
+          const mensaje = mensajeDeCarga(
+            err,
+            'No se pudo cargar el plan anual desde Firestore',
+          )
+          marcarErrorCargaPlan(mensaje)
+          console.error('[bootstrap] No se pudo cargar el plan anual', err)
         }
 
         setEstado('ready')

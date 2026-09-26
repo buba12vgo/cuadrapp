@@ -130,6 +130,9 @@ service cloud.firestore {
         && request.resource.data.tipo in ['PERMISO', 'CAMBIO_DIA', 'CAMBIO_MES', 'VACACIONES']
         && (
           request.resource.data.tipo == 'PERMISO'
+          || (request.resource.data.tipo == 'VACACIONES'
+            && request.resource.data.fecha is string
+            && !(request.resource.data.fecha[5:7] in ['06', '07', '08', '09']))
           || request.resource.data.validacionCompanero == 'PENDIENTE'
         );
       allow update: if esSuperAdmin()

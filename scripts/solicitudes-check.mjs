@@ -19,6 +19,8 @@ const {
   companerosVacacionesMes,
   aplicarIntercambioMes,
   esperaValidacionCompanero,
+  mesVacacionesConCompanero,
+  turnoMayoritarioMes,
 } = mod
 const { permisoRequiereSaldo, PERMISOS_INICIALES } = permisos
 
@@ -195,8 +197,24 @@ igual(
   cambioValidado({ tipo: 'CAMBIO_DIA', validacionCompanero: 'VALIDADA' }),
   true,
 )
-igual('el mes espera al compañero', esperaValidacionCompanero({ tipo: 'CAMBIO_MES' }), true)
-igual('las vacaciones esperan al compañero', esperaValidacionCompanero({ tipo: 'VACACIONES' }), true)
+igual('el mes espera al compañero', esperaValidacionCompanero({ tipo: 'CAMBIO_MES', fecha: '2026-03-01' }), true)
+igual(
+  'vacaciones de julio esperan al compañero',
+  esperaValidacionCompanero({ tipo: 'VACACIONES', fecha: '2026-07-01' }),
+  true,
+)
+igual(
+  'vacaciones de marzo no esperan al compañero',
+  esperaValidacionCompanero({ tipo: 'VACACIONES', fecha: '2026-03-01' }),
+  false,
+)
+igual('marzo no es periodo de vacaciones', mesVacacionesConCompanero('2026-03-01'), false)
+igual('septiembre es periodo de vacaciones', mesVacacionesConCompanero('2026-09-01'), true)
+igual(
+  'turno del cuadrante',
+  turnoMayoritarioMes(['D', 'T', 'T', 'D', 'T', 'N']),
+  'T',
+)
 igual(
   'mes sin validar',
   etiquetaEstadoSolicitud({

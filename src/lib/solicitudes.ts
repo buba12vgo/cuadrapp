@@ -69,7 +69,7 @@ export const TIPOS_SOLICITUD: Array<{
   {
     tipo: 'VACACIONES',
     label: 'Cambio de vacaciones',
-    hint: 'El mes y un compañero que está de vacaciones',
+    hint: 'De junio a septiembre, con un compañero. El resto del año, sin compañero',
   },
 ]
 
@@ -86,13 +86,23 @@ export const ETIQUETA_ESTADO: Record<EstadoSolicitud, string> = {
   RECHAZADA: 'Rechazada',
 }
 
-const TIPOS_CON_COMPANERO = new Set<TipoSolicitud>(['CAMBIO_DIA', 'CAMBIO_MES', 'VACACIONES'])
-
-export function esperaValidacionCompanero(solicitud: Pick<Solicitud, 'tipo'>) {
-  return TIPOS_CON_COMPANERO.has(solicitud.tipo)
+/** Junio, julio, agosto y septiembre: el cambio de vacaciones pide un compañero. */
+export function mesVacacionesConCompanero(fecha: string) {
+  const mes = Number(fecha.slice(5, 7))
+  return mes >= 6 && mes <= 9
 }
 
-export function cambioValidado(solicitud: Pick<Solicitud, 'tipo' | 'validacionCompanero'>) {
+export function esperaValidacionCompanero(
+  solicitud: Pick<Solicitud, 'tipo' | 'fecha'>,
+) {
+  if (solicitud.tipo === 'CAMBIO_DIA' || solicitud.tipo === 'CAMBIO_MES') return true
+  if (solicitud.tipo === 'VACACIONES') return mesVacacionesConCompanero(solicitud.fecha)
+  return false
+}
+
+export function cambioValidado(
+  solicitud: Pick<Solicitud, 'tipo' | 'fecha' | 'validacionCompanero'>,
+) {
   return !esperaValidacionCompanero(solicitud) || solicitud.validacionCompanero === 'VALIDADA'
 }
 
@@ -389,6 +399,25 @@ export function turnoPlanMes(plan: PlanAnual, agenteId: string, mesIndice: numbe
   return esTurnoAnual(celda) ? celda : null
 }
 
+/** Turno del mes en el cuadrante: el que más días ocupa, si el plan no tiene celda. */
+export function turnoMayoritarioMes(fila: readonly (string | null | undefined)[] | undefined) {
+  if (!fila) return null
+  const conteo = new Map<TurnoAnual, number>()
+  for (const celda of fila) {
+    if (!esTurnoAnual(celda)) continue
+    conteo.set(celda, (conteo.get(celda) ?? 0) + 1)
+  }
+  let mejor: TurnoAnual | null = null
+  let max = 0
+  for (const [turno, cantidad] of conteo) {
+    if (cantidad > max) {
+      mejor = turno
+      max = cantidad
+    }
+  }
+  return mejor
+}
+
 function mismoCuadrante(a: FichaPolicia, b: FichaPolicia) {
   return esRolCuadranteJefes(a.rolBase) === esRolCuadranteJefes(b.rolBase)
 }
@@ -448,6 +477,32 @@ export function companerosVacacionesMes(opts: {
   return lista
 }
 
+/** Compañeros según el turno mayoritario del cuadrante de ese mes. */
+export function companerosPorTurnoCuadrante(opts: {
+  cuadrante: Record<string, readonly (string | null | undefined)[] | undefined>
+  agentes: FichaPolicia[]
+  agenteId: string
+  turno: TurnoAnual
+}) {
+  const solicitante = opts.agentes.find((item) => item.id === opts.agenteId)
+  if (!solicitante) return []
+  const propio = turnoMayoritarioMes(opts.cuadrante[opts.agenteId])
+  if (opts.turno === 'V') {
+    if (propio == null || propio === 'V') return []
+  } else if (propio == null || propio === 'V' || propio === opts.turno) {
+    return []
+  }
+  const lista: CompaneroPlan[] = []
+  for (const agente of opts.agentes) {
+    if (agente.id === opts.agenteId || !mismoCuadrante(solicitante, agente)) continue
+    const turno = turnoMayoritarioMes(opts.cuadrante[agente.id])
+    if (turno !== opts.turno) continue
+    lista.push(fichaPlan(agente, turno))
+  }
+  lista.sort((a, b) => a.placa.localeCompare(b.placa, 'es', { numeric: true }))
+  return lista
+}
+
 /** Intercambia la celda del plan anual de ese mes entre los dos agentes. */
 export function aplicarIntercambioMes(opts: {
   plan: PlanAnual
@@ -459,6 +514,7 @@ export function aplicarIntercambioMes(opts: {
 }): PlanAnual {
   const actualA = turnoPlanMes(opts.plan, opts.agenteId, opts.mesIndice)
   const actualB = turnoPlanMes(opts.plan, opts.companeroId, opts.mesIndice)
+  if (actualA == null && actualB == null) return opts.plan
   if (actualA !== opts.turnoSolicitante || actualB !== opts.turnoCompanero) {
     throw new Error('El plan de ese mes ya no coincide con la solicitud.')
   }

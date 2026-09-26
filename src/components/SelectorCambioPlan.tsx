@@ -1,14 +1,20 @@
 import { useMemo } from 'react'
 import type { PlanAnual, TurnoAnual } from '@/lib/generarPlanAnual'
 import { planParaAnio, usePlanAnual } from '@/lib/planAnualStore'
+import { esRolCuadranteJefes } from '@/lib/rolesCuadrante'
 import {
   companerosCambioMes,
+  companerosPorTurnoCuadrante,
   companerosVacacionesMes,
   ETIQUETA_TURNO_ANUAL,
+  mesVacacionesConCompanero,
   NOMBRES_MES,
+  turnoMayoritarioMes,
   turnoPlanMes,
   type CompaneroPlan,
 } from '@/lib/solicitudes'
+import { useCuadranteJefesMes } from '@/lib/useCuadranteJefesMes'
+import { useCuadranteOperativoMes } from '@/lib/useCuadranteOperativoMes'
 import { FOCUS_RING } from '@/lib/uiStyles'
 import type { FichaPolicia } from '@/types'
 
@@ -42,11 +48,18 @@ export function SelectorCambioPlan({
 }) {
   const { cargado, plan: planActivo } = usePlanAnual()
   const { anio, mes: numeroMes } = partirMes(mes)
+  const jefatura = esRolCuadranteJefes(agente.rolBase)
+  const operativo = useCuadranteOperativoMes(anio, numeroMes)
+  const jefes = useCuadranteJefesMes(anio, numeroMes)
+  const cuadrante = (jefatura ? jefes : operativo).cuadrante
+  const cargandoCuadrante = (jefatura ? jefes : operativo).loading
   const plan = useMemo(
     () => planParaAnio(anio),
     [anio, cargado, planActivo],
   )
-  const turnoActual = turnoPlanMes(plan, agente.id, numeroMes - 1)
+  const turnoDelPlan = turnoPlanMes(plan, agente.id, numeroMes - 1)
+  const turnoActual = turnoDelPlan ?? turnoMayoritarioMes(cuadrante[agente.id])
+  const usarCuadrante = turnoDelPlan == null
   const anios = [anio, new Date().getFullYear(), new Date().getFullYear() + 1]
   const aniosUnicos = [...new Set(anios)].sort((a, b) => a - b)
 
@@ -87,9 +100,13 @@ export function SelectorCambioPlan({
       <Cuerpo
         modo={modo}
         plan={plan}
+        cuadrante={cuadrante}
+        usarCuadrante={usarCuadrante}
+        cargando={!cargado || cargandoCuadrante}
         agente={agente}
         agentes={agentes}
-        mesIndice={numeroMes - 1}
+        anio={anio}
+        mesNumero={numeroMes}
         turnoActual={turnoActual}
         turnoDestino={turnoDestino}
         companeroId={companeroId}
@@ -103,9 +120,13 @@ export function SelectorCambioPlan({
 function Cuerpo({
   modo,
   plan,
+  cuadrante,
+  usarCuadrante,
+  cargando,
   agente,
   agentes,
-  mesIndice,
+  anio,
+  mesNumero,
   turnoActual,
   turnoDestino,
   companeroId,
@@ -114,18 +135,37 @@ function Cuerpo({
 }: {
   modo: 'MES' | 'VACACIONES'
   plan: PlanAnual
+  cuadrante: Record<string, readonly (string | null | undefined)[] | undefined>
+  usarCuadrante: boolean
+  cargando: boolean
   agente: FichaPolicia
   agentes: FichaPolicia[]
-  mesIndice: number
+  anio: number
+  mesNumero: number
   turnoActual: TurnoAnual | null
   turnoDestino: string
   companeroId: string
   onTurno: (turno: TurnoAnual) => void
   onCompanero: (companero: CompaneroPlan, turnoActual: TurnoAnual) => void
 }) {
+  const mesIndice = mesNumero - 1
+  const conCompanero = mesVacacionesConCompanero(
+    `${anio}-${String(mesNumero).padStart(2, '0')}-01`,
+  )
+  if (modo === 'VACACIONES' && !conCompanero) {
+    return (
+      <p className="text-sm text-slate-600">
+        Fuera de junio, julio, agosto y septiembre no hace falta compañero. Envía la solicitud y
+        la resuelve el superadmin.
+      </p>
+    )
+  }
+  if (cargando) {
+    return <p className="text-sm text-slate-500">Buscando el turno de ese mes…</p>
+  }
   if (!turnoActual) {
     return (
-      <p className="text-sm text-slate-600">No hay turno asignado en el plan de ese mes.</p>
+      <p className="text-sm text-slate-600">No hay turno asignado en ese mes.</p>
     )
   }
   if (modo === 'MES' && turnoActual === 'V') {
@@ -140,12 +180,19 @@ function Cuerpo({
   }
 
   if (modo === 'VACACIONES') {
-    const personas = companerosVacacionesMes({
-      plan,
-      agentes,
-      agenteId: agente.id,
-      mesIndice,
-    })
+    const personas = usarCuadrante
+      ? companerosPorTurnoCuadrante({
+          cuadrante,
+          agentes,
+          agenteId: agente.id,
+          turno: 'V',
+        })
+      : companerosVacacionesMes({
+          plan,
+          agentes,
+          agenteId: agente.id,
+          mesIndice,
+        })
     return (
       <div className="flex flex-col gap-2">
         <p className="text-xs font-semibold text-slate-600">
@@ -165,15 +212,22 @@ function Cuerpo({
   const destino = turnoDestino === 'M' || turnoDestino === 'T' || turnoDestino === 'N'
     ? turnoDestino
     : null
-  const personas = destino
-    ? companerosCambioMes({
-        plan,
-        agentes,
-        agenteId: agente.id,
-        mesIndice,
-        turnoDestino: destino,
-      })
-    : []
+  const personas = !destino
+    ? []
+    : usarCuadrante
+      ? companerosPorTurnoCuadrante({
+          cuadrante,
+          agentes,
+          agenteId: agente.id,
+          turno: destino,
+        })
+      : companerosCambioMes({
+          plan,
+          agentes,
+          agenteId: agente.id,
+          mesIndice,
+          turnoDestino: destino,
+        })
 
   return (
     <div className="flex flex-col gap-2">

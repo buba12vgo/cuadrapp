@@ -42,6 +42,7 @@ import {
   etiquetaMesIso,
   etiquetaTurnoServicio,
   esperaValidacionCompanero,
+  mesVacacionesConCompanero,
   ordenarSolicitudes,
   TIPOS_SOLICITUD,
   type CompaneroCobertura,
@@ -313,7 +314,9 @@ export function SolicitudesPage() {
       setError('Elige el mes, el turno que necesitas y el compañero.')
       return
     }
-    if (tipo === 'VACACIONES' && !companeroId) {
+    const vacacionesConCompanero =
+      tipo === 'VACACIONES' && mesVacacionesConCompanero(`${mesPlan}-01`)
+    if (vacacionesConCompanero && !companeroId) {
       setError('Elige el mes y el compañero que está de vacaciones.')
       return
     }
@@ -338,6 +341,8 @@ export function SolicitudesPage() {
     }
     const fechaSolicitud =
       tipo === 'CAMBIO_MES' || tipo === 'VACACIONES' ? `${mesPlan}-01` : fecha
+    const pideCompanero =
+      tipo === 'CAMBIO_DIA' || tipo === 'CAMBIO_MES' || vacacionesConCompanero
     const solicitud: Solicitud = {
       id: `sol-${crypto.randomUUID()}`,
       tipo,
@@ -351,11 +356,11 @@ export function SolicitudesPage() {
       permisoCodigo: tipo === 'PERMISO' ? concepto?.codigo : undefined,
       permisoNombre: tipo === 'PERMISO' ? concepto?.nombre : undefined,
       fechaFin: tipo === 'CAMBIO_DIA' ? fechaFin || undefined : undefined,
-      companeroId: tipo === 'PERMISO' ? undefined : companeroId || undefined,
-      companeroNombre: tipo === 'PERMISO' ? undefined : companeroNombre || undefined,
-      turno: tipo === 'PERMISO' ? undefined : turnoCambio || undefined,
-      turnoDestino: tipo === 'CAMBIO_MES' ? turnoDestino : tipo === 'VACACIONES' ? 'V' : undefined,
-      validacionCompanero: tipo === 'PERMISO' ? undefined : 'PENDIENTE',
+      companeroId: pideCompanero ? companeroId || undefined : undefined,
+      companeroNombre: pideCompanero ? companeroNombre || undefined : undefined,
+      turno: pideCompanero ? turnoCambio || undefined : undefined,
+      turnoDestino: tipo === 'CAMBIO_MES' ? turnoDestino : vacacionesConCompanero ? 'V' : undefined,
+      validacionCompanero: pideCompanero ? 'PENDIENTE' : undefined,
     }
     setEnviando(true)
     setError(null)
@@ -369,9 +374,9 @@ export function SolicitudesPage() {
       setTurnoCambio('')
       setTurnoDestino('')
       await alert(
-        tipo === 'PERMISO'
-          ? 'La solicitud queda pendiente de que el superadmin la resuelva.'
-          : 'La solicitud queda pendiente de que el compañero la valide.',
+        pideCompanero
+          ? 'La solicitud queda pendiente de que el compañero la valide.'
+          : 'La solicitud queda pendiente de que el superadmin la resuelva.',
         'Enviada',
       )
     } catch (err) {
@@ -801,7 +806,7 @@ export function SolicitudesPage() {
               <p className="text-xs font-semibold text-slate-600">
                 {tipo === 'CAMBIO_MES'
                   ? 'Elige el mes que quieres cambiar. El compañero valida y después lo resuelve el superadmin.'
-                  : 'Elige el mes que quieres de vacaciones. Esa persona valida y después lo resuelve el superadmin.'}
+                  : 'De junio a septiembre eliges un compañero de vacaciones. El resto del año la resuelve el superadmin.'}
               </p>
               <SelectorCambioPlan
                 modo={tipo === 'CAMBIO_MES' ? 'MES' : 'VACACIONES'}

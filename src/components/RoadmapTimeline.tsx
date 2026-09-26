@@ -14,6 +14,7 @@ import { useAppDialog } from '@/components/ui/ConfirmDialog'
 import { BTN_GHOST, BTN_PRIMARY, CAMPO, FOCUS_RING } from '@/lib/uiStyles'
 
 const CLAVE = 'cuadrapp.roadmap'
+const OTRA_FASE = '__otra__'
 
 export const ESTADOS = ['Pendiente', 'En Progreso', 'Completado'] as const
 export const PRIORIDADES = ['Alta', 'Media', 'Baja'] as const
@@ -430,21 +431,42 @@ export function RoadmapTimeline() {
           >
             <label className="flex flex-col gap-1 text-sm font-semibold text-slate-600">
               Fase
-              <input
+              <select
                 className={CAMPO}
-                list="roadmap-fases"
-                value={borrador.fase}
-                onChange={(event) =>
-                  setBorrador((actual) =>
-                    actual ? { ...actual, fase: event.target.value } : actual,
-                  )
+                aria-label="Fase"
+                value={
+                  fasesConocidas.includes(borrador.fase) ? borrador.fase : OTRA_FASE
                 }
-              />
-              <datalist id="roadmap-fases">
+                onChange={(event) => {
+                  const valor = event.target.value
+                  setBorrador((actual) =>
+                    actual
+                      ? { ...actual, fase: valor === OTRA_FASE ? '' : valor }
+                      : actual,
+                  )
+                }}
+              >
                 {fasesConocidas.map((fase) => (
-                  <option key={fase} value={fase} />
+                  <option key={fase} value={fase}>
+                    {fase}
+                  </option>
                 ))}
-              </datalist>
+                <option value={OTRA_FASE}>Nueva fase…</option>
+              </select>
+              {fasesConocidas.includes(borrador.fase) ? null : (
+                <input
+                  className={CAMPO}
+                  aria-label="Nombre de la fase"
+                  placeholder="Nombre de la fase"
+                  value={borrador.fase}
+                  autoFocus
+                  onChange={(event) =>
+                    setBorrador((actual) =>
+                      actual ? { ...actual, fase: event.target.value } : actual,
+                    )
+                  }
+                />
+              )}
             </label>
             <label className="flex flex-col gap-1 text-sm font-semibold text-slate-600">
               Título

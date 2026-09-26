@@ -916,6 +916,7 @@ function solicitudDesdeFirestore(
   const companeroId = texto(data.companeroId)
   const companeroNombre = texto(data.companeroNombre)
   const turno = texto(data.turno)
+  const validacion = texto(data.validacionCompanero)
   if (fechaFin) solicitud.fechaFin = fechaFin
   if (mesDestino) solicitud.mesDestino = mesDestino
   if (detalle) solicitud.detalle = detalle
@@ -927,22 +928,36 @@ function solicitudDesdeFirestore(
   if (companeroId) solicitud.companeroId = companeroId
   if (companeroNombre) solicitud.companeroNombre = companeroNombre
   if (turno) solicitud.turno = turno
+  if (validacion === 'PENDIENTE' || validacion === 'VALIDADA' || validacion === 'RECHAZADA') {
+    solicitud.validacionCompanero = validacion
+  }
   return solicitud
 }
 
-export async function listarSolicitudes(agenteId?: string): Promise<Solicitud[]> {
-  const firestore = await requireDb()
-  const base = collection(firestore, COLECCION_SOLICITUDES)
-  const consulta = agenteId
-    ? query(base, where('agenteId', '==', agenteId))
-    : base
-  const snapshot = await getDocs(consulta)
+function solicitudesDe(snapshot: { docs: Array<{ id: string; data: () => Record<string, unknown> }> }) {
   const lista: Solicitud[] = []
   for (const documento of snapshot.docs) {
     const solicitud = solicitudDesdeFirestore(documento.id, documento.data())
     if (solicitud) lista.push(solicitud)
   }
-  return ordenarSolicitudes(lista)
+  return lista
+}
+
+export async function listarSolicitudes(agenteId?: string): Promise<Solicitud[]> {
+  const firestore = await requireDb()
+  const base = collection(firestore, COLECCION_SOLICITUDES)
+  if (!agenteId) {
+    return ordenarSolicitudes(solicitudesDe(await getDocs(base)))
+  }
+  const [propias, comoCompanero] = await Promise.all([
+    getDocs(query(base, where('agenteId', '==', agenteId))),
+    getDocs(query(base, where('companeroId', '==', agenteId))),
+  ])
+  const porId = new Map<string, Solicitud>()
+  for (const solicitud of [...solicitudesDe(propias), ...solicitudesDe(comoCompanero)]) {
+    porId.set(solicitud.id, solicitud)
+  }
+  return ordenarSolicitudes([...porId.values()])
 }
 
 export async function guardarSolicitud(solicitud: Solicitud): Promise<Solicitud> {

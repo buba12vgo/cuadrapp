@@ -13,6 +13,8 @@ const {
   ordenarSolicitudes,
   opcionesCambioDia,
   aplicarCambioDiaEnCuadrante,
+  cambioDiaValidado,
+  etiquetaEstadoSolicitud,
 } = mod
 const { permisoRequiereSaldo, PERMISOS_INICIALES } = permisos
 
@@ -139,6 +141,56 @@ igual('ana compensa el 2', trasCambio.cuadrante.a[1], 'M')
 igual('bea libra el 2', trasCambio.cuadrante.b[1], 'D')
 igual('puesto del 1 pasa a bea', trasCambio.asignaciones['2026-09-01'].M.b, 'Centro de Control')
 igual('puesto del 2 pasa a ana', trasCambio.asignaciones['2026-09-02'].M.a, 'Berbés')
+
+const base = {
+  id: 's',
+  agenteId: 'a',
+  placa: '1',
+  nombreAgente: 'Ana',
+  fecha: '2026-09-01',
+  creadaEn: '2026-09-01T10:00:00.000Z',
+}
+igual(
+  'cambio sin validar',
+  etiquetaEstadoSolicitud({
+    ...base,
+    tipo: 'CAMBIO_DIA',
+    estado: 'PENDIENTE',
+    validacionCompanero: 'PENDIENTE',
+  }),
+  'Pendiente de validación',
+)
+igual(
+  'cambio validado sigue pendiente',
+  etiquetaEstadoSolicitud({
+    ...base,
+    tipo: 'CAMBIO_DIA',
+    estado: 'PENDIENTE',
+    validacionCompanero: 'VALIDADA',
+  }),
+  'Pendiente',
+)
+igual(
+  'rechazo del compañero',
+  etiquetaEstadoSolicitud({
+    ...base,
+    tipo: 'CAMBIO_DIA',
+    estado: 'RECHAZADA',
+    validacionCompanero: 'RECHAZADA',
+  }),
+  'Rechazada por el compañero',
+)
+igual('permiso no espera validación', cambioDiaValidado({ tipo: 'PERMISO' }), true)
+igual(
+  'cambio sin validar no lo resuelve el superadmin',
+  cambioDiaValidado({ tipo: 'CAMBIO_DIA', validacionCompanero: 'PENDIENTE' }),
+  false,
+)
+igual(
+  'cambio validado lo resuelve el superadmin',
+  cambioDiaValidado({ tipo: 'CAMBIO_DIA', validacionCompanero: 'VALIDADA' }),
+  true,
+)
 
 await server.close()
 if (fallos.length) {

@@ -5,6 +5,7 @@ import type { Turno } from '@/types'
 
 export type TipoSolicitud = 'PERMISO' | 'CAMBIO_DIA' | 'CAMBIO_MES' | 'VACACIONES'
 export type EstadoSolicitud = 'PENDIENTE' | 'ACEPTADA' | 'RECHAZADA'
+export type ValidacionCompanero = 'PENDIENTE' | 'VALIDADA' | 'RECHAZADA'
 
 export type Solicitud = {
   id: string
@@ -19,6 +20,8 @@ export type Solicitud = {
   /** Compañero del cambio de día. */
   companeroId?: string
   companeroNombre?: string
+  /** El compañero tiene que validar el cambio antes del superadmin. */
+  validacionCompanero?: ValidacionCompanero
   /** Turno del cambio: M, T, N o MT. */
   turno?: string
   /** Mes destino YYYY-MM, en cambios de mes. */
@@ -71,6 +74,28 @@ export const ETIQUETA_ESTADO: Record<EstadoSolicitud, string> = {
   PENDIENTE: 'Pendiente',
   ACEPTADA: 'Aceptada',
   RECHAZADA: 'Rechazada',
+}
+
+export function cambioDiaValidado(solicitud: Pick<Solicitud, 'tipo' | 'validacionCompanero'>) {
+  return solicitud.tipo !== 'CAMBIO_DIA' || solicitud.validacionCompanero === 'VALIDADA'
+}
+
+export function etiquetaEstadoSolicitud(solicitud: Solicitud) {
+  if (
+    solicitud.tipo === 'CAMBIO_DIA' &&
+    solicitud.estado === 'PENDIENTE' &&
+    solicitud.validacionCompanero !== 'VALIDADA'
+  ) {
+    return 'Pendiente de validación'
+  }
+  if (
+    solicitud.tipo === 'CAMBIO_DIA' &&
+    solicitud.estado === 'RECHAZADA' &&
+    solicitud.validacionCompanero === 'RECHAZADA'
+  ) {
+    return 'Rechazada por el compañero'
+  }
+  return ETIQUETA_ESTADO[solicitud.estado]
 }
 
 const TURNOS_SERVICIO = new Set<Turno>(['M', 'T', 'N', 'MT'])

@@ -28,9 +28,10 @@ import { esRolCuadranteJefes } from '@/lib/rolesCuadrante'
 import {
   aplicarCambioDiaEnCuadrante,
   aplicarPermisoEnCuadrante,
+  cambioDiaValidado,
   contextoCobertura,
-  ETIQUETA_ESTADO,
   ETIQUETA_TIPO,
+  etiquetaEstadoSolicitud,
   etiquetaTurnoServicio,
   ordenarSolicitudes,
   TIPOS_SOLICITUD,
@@ -66,6 +67,9 @@ function mesDe(iso: string) {
 }
 
 function semillaPreview(): Solicitud[] {
+  const hoy = hoyIso()
+  const [anio, mes] = hoy.split('-')
+  const compensa = `${anio}-${mes}-02`
   return [
     {
       id: 'sol-preview-permiso',
@@ -74,12 +78,39 @@ function semillaPreview(): Solicitud[] {
       agenteId: 'ag-003',
       placa: '1108',
       nombreAgente: '1108 Xoán Pérez Otero',
-      fecha: hoyIso(),
+      fecha: hoy,
       permisoCodigo: 'ASUNTOS_PROPIOS',
       permisoNombre: 'Asuntos propios',
       creadaEn: new Date().toISOString(),
     },
+    {
+      id: 'sol-preview-cambio',
+      tipo: 'CAMBIO_DIA',
+      estado: 'PENDIENTE',
+      validacionCompanero: 'PENDIENTE',
+      agenteId: 'ag-003',
+      placa: '1108',
+      nombreAgente: '1108 Xoán Pérez Otero',
+      fecha: hoy,
+      fechaFin: compensa === hoy ? `${anio}-${mes}-03` : compensa,
+      companeroId: 'ag-001',
+      companeroNombre: '1001 Elena Vázquez Souto',
+      turno: 'M',
+      creadaEn: new Date().toISOString(),
+    },
   ]
+}
+
+function delAgente(item: Solicitud, agenteId: string | undefined) {
+  return item.agenteId === agenteId || item.companeroId === agenteId
+}
+
+function pendienteDeCompanero(solicitud: Solicitud) {
+  return (
+    solicitud.tipo === 'CAMBIO_DIA' &&
+    solicitud.estado === 'PENDIENTE' &&
+    solicitud.validacionCompanero === 'PENDIENTE'
+  )
 }
 
 let memoriaPreview: Solicitud[] | null = null
@@ -191,7 +222,7 @@ export function SolicitudesPage() {
           : ordenarSolicitudes(
               veBandeja
                 ? leerMemoria()
-                : leerMemoria().filter((item) => item.agenteId === agente?.id),
+                : leerMemoria().filter((item) => delAgente(item, agente?.id)),
             )
         if (!cancelado) setSolicitudes(lista)
       } catch (err) {
@@ -230,7 +261,7 @@ export function SolicitudesPage() {
     setSolicitudes(
       veBandeja
         ? memoriaPreview
-        : memoriaPreview.filter((item) => item.agenteId === agente?.id),
+        : memoriaPreview.filter((item) => delAgente(item, agente?.id)),
     )
     return siguiente
   }
@@ -294,6 +325,7 @@ export function SolicitudesPage() {
       companeroId: tipo === 'CAMBIO_DIA' ? companeroId : undefined,
       companeroNombre: tipo === 'CAMBIO_DIA' ? companeroNombre : undefined,
       turno: tipo === 'CAMBIO_DIA' ? turnoCambio : undefined,
+      validacionCompanero: tipo === 'CAMBIO_DIA' ? 'PENDIENTE' : undefined,
     }
     setEnviando(true)
     setError(null)
@@ -305,7 +337,12 @@ export function SolicitudesPage() {
       setCompaneroId('')
       setCompaneroNombre('')
       setTurnoCambio('')
-      await alert('La solicitud queda pendiente de que el superadmin la resuelva.', 'Enviada')
+      await alert(
+        tipo === 'CAMBIO_DIA'
+          ? 'La solicitud queda pendiente de que el compañero la valide.'
+          : 'La solicitud queda pendiente de que el superadmin la resuelva.',
+        'Enviada',
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo enviar la solicitud')
     } finally {
@@ -383,6 +420,10 @@ export function SolicitudesPage() {
 
   async function confirmarAceptar(solicitud: Solicitud) {
     if (!esSuperadmin) return
+    if (!cambioDiaValidado(solicitud)) {
+      setError('El compañero todavía no ha validado el cambio.')
+      return
+    }
     setEnviando(true)
     setError(null)
     try {
@@ -497,7 +538,48 @@ export function SolicitudesPage() {
     }
   }
 
+  async function validarCompanero(solicitud: Solicitud) {
+    if (agente?.id !== solicitud.companeroId || !pendienteDeCompanero(solicitud)) return
+    setEnviando(true)
+    setError(null)
+    try {
+      await recordar({
+        ...solicitud,
+        validacionCompanero: 'VALIDADA',
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo validar el cambio')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  async function rechazarCompanero(solicitud: Solicitud) {
+    if (agente?.id !== solicitud.companeroId || !pendienteDeCompanero(solicitud)) return
+    const ok = await confirm(
+      `¿Rechazar el cambio que te pide ${solicitud.nombreAgente}?`,
+      'Rechazar cambio',
+      true,
+    )
+    if (!ok) return
+    setEnviando(true)
+    setError(null)
+    try {
+      await recordar({
+        ...solicitud,
+        validacionCompanero: 'RECHAZADA',
+        estado: 'RECHAZADA',
+        resueltaEn: new Date().toISOString(),
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo rechazar el cambio')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
   async function rechazar(solicitud: Solicitud) {
+    if (!esSuperadmin || !cambioDiaValidado(solicitud)) return
     const ok = await confirm(
       `¿Rechazar la solicitud de ${solicitud.nombreAgente}?`,
       'Rechazar solicitud',
@@ -520,7 +602,13 @@ export function SolicitudesPage() {
     }
   }
 
-  const lista = veBandeja ? solicitudes : propias
+  const lista = useMemo(() => {
+    if (veBandeja) return solicitudes
+    if (!agente) return []
+    return solicitudes.filter((item) => delAgente(item, agente.id))
+  }, [agente, solicitudes, veBandeja])
+  const muestraAcciones =
+    esSuperadmin || lista.some((item) => agente?.id === item.companeroId && pendienteDeCompanero(item))
 
   return (
     <section className={PAGE_SECTION}>
@@ -598,7 +686,7 @@ export function SolicitudesPage() {
           ) : tipo === 'CAMBIO_DIA' ? (
             <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3">
               <p className="text-xs font-semibold text-slate-600">
-                Día que quieres librar
+                Día que quieres librar. El compañero valida el cambio y después lo resuelve el superadmin.
               </p>
               <CalendarioSolicitudPermiso
                 agente={agente}
@@ -715,7 +803,7 @@ export function SolicitudesPage() {
                 <th className={TH}>Pedido</th>
                 <th className={TH}>Solicitada</th>
                 <th className={TH}>Estado</th>
-                {esSuperadmin ? <th className={`${TH} text-right`}>Acciones</th> : null}
+                {muestraAcciones ? <th className={`${TH} text-right`}>Acciones</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -740,10 +828,31 @@ export function SolicitudesPage() {
                   <td className={`${TD} whitespace-nowrap text-xs text-slate-500`}>
                     {solicitud.creadaEn.slice(0, 16).replace('T', ' ')}
                   </td>
-                  <td className={TD}>{ETIQUETA_ESTADO[solicitud.estado]}</td>
-                  {esSuperadmin ? (
+                  <td className={TD}>{etiquetaEstadoSolicitud(solicitud)}</td>
+                  {muestraAcciones ? (
                     <td className={`${TD} text-right`}>
-                      {solicitud.estado === 'PENDIENTE' ? (
+                      {agente?.id === solicitud.companeroId && pendienteDeCompanero(solicitud) ? (
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            className={BTN_PRIMARY}
+                            disabled={enviando}
+                            onClick={() => void validarCompanero(solicitud)}
+                          >
+                            Validar
+                          </button>
+                          <button
+                            type="button"
+                            className={BTN_GHOST}
+                            disabled={enviando}
+                            onClick={() => void rechazarCompanero(solicitud)}
+                          >
+                            Rechazar
+                          </button>
+                        </div>
+                      ) : esSuperadmin &&
+                        solicitud.estado === 'PENDIENTE' &&
+                        cambioDiaValidado(solicitud) ? (
                         <div className="flex flex-col items-end gap-2">
                           <div className="flex justify-end gap-2">
                             <button

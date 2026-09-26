@@ -274,7 +274,7 @@ export function ListaDiarioAgentes({ anio, mes }: { anio: number; mes: number })
                 />
               </button>
               {abierto ? (
-                <div className="flex flex-col gap-3 border-t border-slate-100 px-3 py-3">
+                <div className="grid grid-cols-1 gap-3 border-t border-slate-100 p-2 lg:grid-cols-3">
                   {TURNOS_COBERTURA.map((turno) => (
                     <TurnoDia
                       key={turno}
@@ -321,14 +321,14 @@ function TurnoDia({
   const cobertura = resumen.turnos[turno]
 
   return (
-    <section>
-      <h3 className="mb-1 text-xs font-bold uppercase tracking-wide text-slate-500">
+    <section className="min-w-0 rounded-lg border border-slate-200 bg-slate-50/70">
+      <h3 className="flex items-baseline justify-between gap-2 border-b border-slate-200 px-2 py-1.5 text-xs font-bold uppercase tracking-wide text-slate-600">
         {TURNO_LABEL[turno]}
-        <span className="ml-2 font-semibold normal-case tracking-normal text-slate-400">
-          {cobertura.trabajando} trabajando · mínimo {cobertura.minimo}
+        <span className="font-semibold normal-case tracking-normal text-slate-400">
+          {cobertura.trabajando}/{cobertura.minimo}
         </span>
       </h3>
-      <ul className="flex flex-col gap-2">
+      <ul className="divide-y divide-slate-200">
         {lineas.map((linea) => (
           <LineaPuesto
             key={linea.puesto}
@@ -342,32 +342,36 @@ function TurnoDia({
           />
         ))}
       </ul>
-      {disponibles.map((persona) => (
-        <PersonaSuelta
-          key={`jd-${persona.id}`}
-          persona={persona}
-          fecha={fecha}
-          turno={turno}
-          puestos={puestos}
-          agentesPorId={agentesPorId}
-          valor={NOMBRE_JORNADA_DISPONIBLE}
-          puedeEditar={puedeEditar}
-          onCambiar={onCambiar}
-        />
-      ))}
-      {sueltos.map((persona) => (
-        <PersonaSuelta
-          key={`sin-${persona.id}`}
-          persona={persona}
-          fecha={fecha}
-          turno={turno}
-          puestos={puestos}
-          agentesPorId={agentesPorId}
-          valor=""
-          puedeEditar={puedeEditar}
-          onCambiar={onCambiar}
-        />
-      ))}
+      {disponibles.length > 0 || sueltos.length > 0 ? (
+        <div className="flex flex-col gap-1 border-t border-slate-200 px-2 py-1.5">
+          {disponibles.map((persona) => (
+            <PersonaSuelta
+              key={`jd-${persona.id}`}
+              persona={persona}
+              fecha={fecha}
+              turno={turno}
+              puestos={puestos}
+              agentesPorId={agentesPorId}
+              valor={NOMBRE_JORNADA_DISPONIBLE}
+              puedeEditar={puedeEditar}
+              onCambiar={onCambiar}
+            />
+          ))}
+          {sueltos.map((persona) => (
+            <PersonaSuelta
+              key={`sin-${persona.id}`}
+              persona={persona}
+              fecha={fecha}
+              turno={turno}
+              puestos={puestos}
+              agentesPorId={agentesPorId}
+              valor=""
+              puedeEditar={puedeEditar}
+              onCambiar={onCambiar}
+            />
+          ))}
+        </div>
+      ) : null}
     </section>
   )
 }
@@ -391,25 +395,24 @@ function LineaPuesto({
 }) {
   const corto = linea.minimo > 0 && linea.personas.length < linea.minimo
   return (
-    <li
-      className={`rounded-lg border px-2 py-1.5 ${
-        corto ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-slate-50'
-      }`}
-    >
-      <p className="flex items-baseline justify-between gap-2 text-sm">
-        <span className={`font-semibold ${corto ? 'text-rose-900' : 'text-slate-800'}`}>
-          <span className="font-mono text-xs">{linea.abreviatura}</span> {linea.puesto}
+    <li className={`px-2 py-1 ${corto ? 'bg-rose-50' : 'bg-white'}`}>
+      <p className="flex items-baseline gap-1.5 text-xs">
+        <span className={`font-mono font-bold ${corto ? 'text-rose-800' : 'text-slate-500'}`}>
+          {linea.abreviatura}
         </span>
-        <span className={`text-xs font-bold tabular-nums ${corto ? 'text-rose-700' : 'text-emerald-700'}`}>
+        <span className={`min-w-0 flex-1 truncate font-semibold ${corto ? 'text-rose-950' : 'text-slate-800'}`}>
+          {linea.puesto}
+        </span>
+        <span className={`shrink-0 font-bold tabular-nums ${corto ? 'text-rose-700' : 'text-emerald-700'}`}>
           {linea.personas.length}/{linea.minimo}
         </span>
       </p>
       {linea.personas.length === 0 ? (
-        <p className={`mt-1 text-xs ${corto ? 'font-semibold text-rose-700' : 'text-slate-500'}`}>
+        <p className={`text-[11px] ${corto ? 'font-semibold text-rose-700' : 'text-slate-400'}`}>
           Nadie asignado
         </p>
       ) : (
-        <ul className="mt-1 flex flex-col gap-1">
+        <ul>
           {linea.personas.map((persona) => {
             const agente = agentesPorId.get(persona.id)
             if (!agente) return null
@@ -421,6 +424,7 @@ function LineaPuesto({
                   valor={linea.puesto}
                   puestos={puestos}
                   puedeEditar={puedeEditar}
+                  ocultarPuesto
                   onCambiar={(puesto) => onCambiar(agente, fecha, turno, puesto)}
                 />
               </li>
@@ -454,7 +458,7 @@ function PersonaSuelta({
   const agente = agentesPorId.get(persona.id)
   if (!agente) return null
   return (
-    <div className="mt-2">
+    <div>
       <SelectorPuesto
         agente={agente}
         nombre={`${persona.placa} ${persona.nombre}`}
@@ -473,6 +477,7 @@ function SelectorPuesto({
   valor,
   puestos,
   puedeEditar,
+  ocultarPuesto = false,
   onCambiar,
 }: {
   agente: FichaPolicia
@@ -480,6 +485,7 @@ function SelectorPuesto({
   valor: string
   puestos: PuestoConfig[]
   puedeEditar: boolean
+  ocultarPuesto?: boolean
   onCambiar: (puesto: string) => void
 }) {
   const etiqueta =
@@ -488,21 +494,22 @@ function SelectorPuesto({
       : valor || 'Sin puesto'
   if (!puedeEditar) {
     return (
-      <p className="flex flex-col gap-0.5 text-xs text-slate-700 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
-        <span className="font-semibold">{nombre}</span>
-        <span className="font-medium text-slate-800">{etiqueta}</span>
+      <p className="flex items-baseline justify-between gap-2 text-[11px] leading-5 text-slate-700">
+        <span className="min-w-0 truncate font-semibold">{nombre}</span>
+        {ocultarPuesto ? null : (
+          <span className="shrink-0 font-medium text-slate-500">{etiqueta}</span>
+        )}
       </p>
     )
   }
   const opciones = opcionesPuesto(agente, puestos, valor)
   return (
-    <label className="flex flex-col gap-0.5 text-xs text-slate-700 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
-      <span className="font-semibold">{nombre}</span>
+    <label className="grid grid-cols-[minmax(0,1fr)_9.5rem] items-center gap-1.5 text-[11px] leading-5 text-slate-700">
+      <span className="min-w-0 truncate font-semibold">{nombre}</span>
       <select
-        className={`h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs ${FOCUS_RING}`}
+        className={`h-6 w-full rounded border border-slate-200 bg-white px-1 text-[11px] ${FOCUS_RING}`}
         aria-label={`Puesto de ${nombre}`}
         value={valor}
-        disabled={!puedeEditar}
         onChange={(event) => onCambiar(event.target.value)}
       >
         <option value="">Sin puesto</option>

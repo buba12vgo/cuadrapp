@@ -7,7 +7,13 @@ const server = await createServer({
 })
 const mod = await server.ssrLoadModule('/src/lib/solicitudes.ts')
 const permisos = await server.ssrLoadModule('/src/lib/permisos.ts')
-const { contextoCobertura, aplicarPermisoEnCuadrante, ordenarSolicitudes } = mod
+const {
+  contextoCobertura,
+  aplicarPermisoEnCuadrante,
+  ordenarSolicitudes,
+  opcionesCambioDia,
+  aplicarCambioDiaEnCuadrante,
+} = mod
 const { permisoRequiereSaldo, PERMISOS_INICIALES } = permisos
 
 const fallos = []
@@ -87,6 +93,52 @@ igual(
   orden.map((item) => item.id),
   ['dia1-pronto', 'dia1-tarde', 'tarde'],
 )
+
+const cambio = {
+  a: ['M', 'D', 'T'],
+  b: ['D', 'M', 'D'],
+  c: ['D', 'T', 'D'],
+  d: ['M', 'M', 'D'],
+}
+const asignacionCambio = {
+  '2026-09-01': { M: { a: 'Centro de Control', d: 'Lonjas' } },
+  '2026-09-02': { M: { b: 'Berbés', d: 'Retén' }, T: { c: 'Lonjas' } },
+}
+const nombresCambio = new Map([
+  ['a', { placa: '1', nombre: 'Ana' }],
+  ['b', { placa: '2', nombre: 'Bea' }],
+  ['c', { placa: '3', nombre: 'Cid' }],
+  ['d', { placa: '4', nombre: 'Dio' }],
+])
+const opciones = opcionesCambioDia({
+  cuadrante: cambio,
+  asignaciones: asignacionCambio,
+  anio: 2026,
+  mes: 9,
+  diaLibre: 1,
+  agenteId: 'a',
+  nombres: nombresCambio,
+})
+igual(
+  'solo mismo turno y descanso',
+  opciones.map((item) => `${item.dia}:${item.agenteId}`),
+  ['2:b'],
+)
+
+const trasCambio = aplicarCambioDiaEnCuadrante({
+  cuadrante: cambio,
+  asignaciones: asignacionCambio,
+  agenteId: 'a',
+  companeroId: 'b',
+  fechaLibre: '2026-09-01',
+  fechaCompensa: '2026-09-02',
+})
+igual('ana libra el 1', trasCambio.cuadrante.a[0], 'D')
+igual('bea cubre el 1', trasCambio.cuadrante.b[0], 'M')
+igual('ana compensa el 2', trasCambio.cuadrante.a[1], 'M')
+igual('bea libra el 2', trasCambio.cuadrante.b[1], 'D')
+igual('puesto del 1 pasa a bea', trasCambio.asignaciones['2026-09-01'].M.b, 'Centro de Control')
+igual('puesto del 2 pasa a ana', trasCambio.asignaciones['2026-09-02'].M.a, 'Berbés')
 
 await server.close()
 if (fallos.length) {

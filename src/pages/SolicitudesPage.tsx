@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { CalendarioSolicitudPermiso } from '@/components/CalendarioSolicitudPermiso'
+import { ListaCambiosDia } from '@/components/ListaCambiosDia'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { useAppDialog } from '@/components/ui/ConfirmDialog'
 import { useAcceso } from '@/contexts/AccesoContext'
@@ -25,6 +26,7 @@ import { permisoEsVisible, permisoRequiereSaldo } from '@/lib/permisos'
 import { useTiposPermiso } from '@/lib/permisosStore'
 import { esRolCuadranteJefes } from '@/lib/rolesCuadrante'
 import {
+  aplicarCambioDiaEnCuadrante,
   aplicarPermisoEnCuadrante,
   contextoCobertura,
   ETIQUETA_ESTADO,
@@ -92,9 +94,8 @@ function leerMemoria() {
 function resumenPedido(solicitud: Solicitud) {
   if (solicitud.tipo === 'PERMISO') return solicitud.permisoNombre ?? 'Permiso'
   if (solicitud.tipo === 'CAMBIO_DIA') {
-    return solicitud.fechaFin
-      ? `${solicitud.fecha} → ${solicitud.fechaFin}`
-      : solicitud.fecha
+    const cambio = solicitud.fechaFin ? `${solicitud.fecha} → ${solicitud.fechaFin}` : solicitud.fecha
+    return solicitud.companeroNombre ? `${cambio} · ${solicitud.companeroNombre}` : cambio
   }
   if (solicitud.tipo === 'CAMBIO_MES') {
     return solicitud.mesDestino
@@ -116,6 +117,9 @@ export function SolicitudesPage() {
   const [tipo, setTipo] = useState<TipoSolicitud>('PERMISO')
   const [fecha, setFecha] = useState(hoyIso)
   const [fechaFin, setFechaFin] = useState('')
+  const [companeroId, setCompaneroId] = useState('')
+  const [companeroNombre, setCompaneroNombre] = useState('')
+  const [turnoCambio, setTurnoCambio] = useState('')
   const [mesDestino, setMesDestino] = useState('')
   const [detalle, setDetalle] = useState('')
   const [permisoCodigo, setPermisoCodigo] = useState('')
@@ -242,8 +246,8 @@ export function SolicitudesPage() {
       setError('Elige el concepto del permiso.')
       return
     }
-    if (tipo === 'CAMBIO_DIA' && !fechaFin) {
-      setError('Elige el día que propones.')
+    if (tipo === 'CAMBIO_DIA' && (!fechaFin || !companeroId)) {
+      setError('Elige el día que compensas y el compañero.')
       return
     }
     if (tipo === 'CAMBIO_MES' && !mesDestino) {
@@ -265,7 +269,8 @@ export function SolicitudesPage() {
         item.agenteId === agente.id &&
         item.tipo === tipo &&
         item.fecha === (tipo === 'CAMBIO_MES' ? `${fecha}-01` : fecha) &&
-        (tipo !== 'PERMISO' || item.permisoCodigo === permisoCodigo),
+        (tipo !== 'PERMISO' || item.permisoCodigo === permisoCodigo) &&
+        (tipo !== 'CAMBIO_DIA' || item.companeroId === companeroId),
     )
     if (repetida) {
       setError('Ya tienes una solicitud pendiente igual.')
@@ -286,6 +291,9 @@ export function SolicitudesPage() {
       permisoNombre: tipo === 'PERMISO' ? concepto?.nombre : undefined,
       fechaFin: tipo === 'CAMBIO_MES' ? undefined : fechaFin || undefined,
       mesDestino: tipo === 'CAMBIO_MES' ? mesDestino : undefined,
+      companeroId: tipo === 'CAMBIO_DIA' ? companeroId : undefined,
+      companeroNombre: tipo === 'CAMBIO_DIA' ? companeroNombre : undefined,
+      turno: tipo === 'CAMBIO_DIA' ? turnoCambio : undefined,
     }
     setEnviando(true)
     setError(null)
@@ -293,6 +301,10 @@ export function SolicitudesPage() {
       await recordar(solicitud)
       setDetalle('')
       setPermisoCodigo('')
+      setFechaFin('')
+      setCompaneroId('')
+      setCompaneroNombre('')
+      setTurnoCambio('')
       await alert('La solicitud queda pendiente de que el superadmin la resuelva.', 'Enviada')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo enviar la solicitud')
@@ -416,18 +428,66 @@ export function SolicitudesPage() {
         if (jefes) await saveCuadranteJefes(mesDia!, anioDia!, payload)
         else await saveCuadrante(mesDia!, anioDia!, payload)
       }
+      if (
+        solicitud.tipo === 'CAMBIO_DIA' &&
+        firebaseOk &&
+        solicitud.fechaFin &&
+        solicitud.companeroId
+      ) {
+        const [anioDia, mesDia] = solicitud.fecha.split('-').map(Number)
+        const ficha = agentes.find((item) => item.id === solicitud.agenteId)
+        const jefes = ficha ? esRolCuadranteJefes(ficha.rolBase) : false
+        const grupo = agentes.filter((item) =>
+          jefes ? esRolCuadranteJefes(item.rolBase) : !esRolCuadranteJefes(item.rolBase),
+        )
+        const datos = jefes
+          ? await getCuadranteJefes(mesDia!, anioDia!)
+          : await getCuadrante(mesDia!, anioDia!)
+        if (!datos) {
+          throw new Error('No hay cuadrante de ese mes para aplicar el cambio.')
+        }
+        const leido = cuadranteDesdeFirestore(
+          datos,
+          grupo,
+          anioDia!,
+          mesDia!,
+          diasDelMes(anioDia!, mesDia!),
+          jefes ? { migrarLibranzaAPermiso: true } : {},
+        )
+        const aplicado = aplicarCambioDiaEnCuadrante({
+          cuadrante: leido.cuadrante,
+          asignaciones: leido.asignaciones,
+          agenteId: solicitud.agenteId,
+          companeroId: solicitud.companeroId,
+          fechaLibre: solicitud.fecha,
+          fechaCompensa: solicitud.fechaFin,
+        })
+        const payload = cuadranteParaFirestore(
+          aplicado.cuadrante,
+          aplicado.asignaciones,
+          grupo,
+          anioDia!,
+          mesDia!,
+          diasDelMes(anioDia!, mesDia!),
+          jefes ? { migrarLibranzaAPermiso: true } : {},
+        )
+        if (jefes) await saveCuadranteJefes(mesDia!, anioDia!, payload)
+        else await saveCuadrante(mesDia!, anioDia!, payload)
+      }
       const elegido = candidatos.find((item) => item.id === cobertura)
       await recordar({
         ...solicitud,
         estado: 'ACEPTADA',
         resueltaEn: new Date().toISOString(),
-        cobertura: solicitud.tipo === 'PERMISO' ? cobertura : undefined,
+        cobertura: solicitud.tipo === 'PERMISO' ? cobertura : solicitud.cobertura,
         coberturaNombre:
-          cobertura === 'NO_CUBRIR'
-            ? 'No cubrir'
-            : elegido
-              ? `${elegido.placa} ${elegido.nombre}`
-              : undefined,
+          solicitud.tipo === 'PERMISO'
+            ? cobertura === 'NO_CUBRIR'
+              ? 'No cubrir'
+              : elegido
+                ? `${elegido.placa} ${elegido.nombre}`
+                : undefined
+            : solicitud.coberturaNombre,
       })
       setAceptando(null)
     } catch (err) {
@@ -535,6 +595,44 @@ export function SolicitudesPage() {
                 />
               </label>
             </div>
+          ) : tipo === 'CAMBIO_DIA' ? (
+            <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3">
+              <p className="text-xs font-semibold text-slate-600">
+                Día que quieres librar
+              </p>
+              <CalendarioSolicitudPermiso
+                agente={agente}
+                fecha={fecha}
+                soloDiasTrabajados
+                onElegir={(iso) => {
+                  setFecha(iso)
+                  setFechaFin('')
+                  setCompaneroId('')
+                  setCompaneroNombre('')
+                  setTurnoCambio('')
+                }}
+              />
+              <ListaCambiosDia
+                agente={agente}
+                fecha={fecha}
+                fechaFin={fechaFin}
+                companeroId={companeroId}
+                onElegir={(opcion) => {
+                  setFechaFin(opcion.fecha)
+                  setCompaneroId(opcion.agenteId)
+                  setCompaneroNombre(`${opcion.placa} ${opcion.nombre}`.trim())
+                  setTurnoCambio(opcion.turno)
+                }}
+              />
+              <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600">
+                Nota
+                <input
+                  className={CAMPO_FECHA}
+                  value={detalle}
+                  onChange={(event) => setDetalle(event.target.value)}
+                />
+              </label>
+            </div>
           ) : (
           <div className="grid gap-2 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2">
             {tipo === 'CAMBIO_MES' ? (
@@ -560,7 +658,7 @@ export function SolicitudesPage() {
                 />
               </label>
             )}
-            {tipo === 'CAMBIO_DIA' || tipo === 'VACACIONES' ? (
+            {tipo === 'VACACIONES' ? (
               <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600">
                 {tipo === 'VACACIONES' ? 'Hasta' : 'Día propuesto'}
                 <input

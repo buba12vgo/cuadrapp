@@ -913,6 +913,9 @@ function solicitudDesdeFirestore(
   const resueltaEn = texto(data.resueltaEn)
   const cobertura = texto(data.cobertura)
   const coberturaNombre = texto(data.coberturaNombre)
+  const companeroId = texto(data.companeroId)
+  const companeroNombre = texto(data.companeroNombre)
+  const turno = texto(data.turno)
   if (fechaFin) solicitud.fechaFin = fechaFin
   if (mesDestino) solicitud.mesDestino = mesDestino
   if (detalle) solicitud.detalle = detalle
@@ -921,6 +924,9 @@ function solicitudDesdeFirestore(
   if (resueltaEn) solicitud.resueltaEn = resueltaEn
   if (cobertura) solicitud.cobertura = cobertura
   if (coberturaNombre) solicitud.coberturaNombre = coberturaNombre
+  if (companeroId) solicitud.companeroId = companeroId
+  if (companeroNombre) solicitud.companeroNombre = companeroNombre
+  if (turno) solicitud.turno = turno
   return solicitud
 }
 

@@ -16,6 +16,11 @@ export type Solicitud = {
   /** Día principal (YYYY-MM-DD). En un cambio de mes, el día 1 de ese mes. */
   fecha: string
   fechaFin?: string
+  /** Compañero del cambio de día. */
+  companeroId?: string
+  companeroNombre?: string
+  /** Turno del cambio: M, T, N o MT. */
+  turno?: string
   /** Mes destino YYYY-MM, en cambios de mes. */
   mesDestino?: string
   detalle?: string
@@ -41,7 +46,7 @@ export const TIPOS_SOLICITUD: Array<{
   {
     tipo: 'CAMBIO_DIA',
     label: 'Cambios de días',
-    hint: 'El día que quieres cambiar y el día propuesto',
+    hint: 'Un día libre a cambio del de un compañero, mismo mes y turno',
   },
   {
     tipo: 'CAMBIO_MES',
@@ -195,5 +200,106 @@ export function aplicarPermisoEnCuadrante(opts: {
     if (!asignaciones[opts.fecha]![turno]) asignaciones[opts.fecha]![turno] = {}
     asignaciones[opts.fecha]![turno]![opts.coberturaId] = puesto
   }
+  return { cuadrante, asignaciones }
+}
+
+export type OpcionCambioDia = {
+  fecha: string
+  dia: number
+  turno: 'M' | 'T' | 'N' | 'MT'
+  agenteId: string
+  placa: string
+  nombre: string
+  puesto: string | null
+}
+
+function isoDia(anio: number, mes: number, dia: number) {
+  return `${anio}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`
+}
+
+function descanso(fila: Turno[] | undefined, dia: number) {
+  const turno = fila?.[dia - 1]
+  return turno == null || turno === 'D'
+}
+
+/**
+ * Días del mismo mes y turno que el agente puede trabajar a cambio del día
+ * que quiere librar, y el compañero que se lo cambia.
+ */
+export function opcionesCambioDia(opts: {
+  cuadrante: CuadranteMensual
+  asignaciones: AsignacionesDiarias
+  anio: number
+  mes: number
+  diaLibre: number
+  agenteId: string
+  nombres: ReadonlyMap<string, { placa: string; nombre: string }>
+}): OpcionCambioDia[] {
+  const filaPropia = opts.cuadrante[opts.agenteId]
+  const turno = filaPropia?.[opts.diaLibre - 1]
+  if (!esTurnoServicio(turno)) return []
+  const nDias = filaPropia?.length ?? 0
+  const opciones: OpcionCambioDia[] = []
+  for (let dia = 1; dia <= nDias; dia += 1) {
+    if (dia === opts.diaLibre) continue
+    if (!descanso(filaPropia, dia)) continue
+    const fecha = isoDia(opts.anio, opts.mes, dia)
+    for (const [id, fila] of Object.entries(opts.cuadrante)) {
+      if (id === opts.agenteId) continue
+      if (fila[dia - 1] !== turno) continue
+      if (!descanso(fila, opts.diaLibre)) continue
+      const ficha = opts.nombres.get(id)
+      if (!ficha) continue
+      opciones.push({
+        fecha,
+        dia,
+        turno,
+        agenteId: id,
+        placa: ficha.placa,
+        nombre: ficha.nombre,
+        puesto: opts.asignaciones[fecha]?.[turno]?.[id] ?? null,
+      })
+    }
+  }
+  opciones.sort((a, b) => a.dia - b.dia || a.placa.localeCompare(b.placa, 'es', { numeric: true }))
+  return opciones
+}
+
+/** Intercambia el día de servicio: mismo turno, el puesto se queda en el día. */
+export function aplicarCambioDiaEnCuadrante(opts: {
+  cuadrante: CuadranteMensual
+  asignaciones: AsignacionesDiarias
+  agenteId: string
+  companeroId: string
+  fechaLibre: string
+  fechaCompensa: string
+}): { cuadrante: CuadranteMensual; asignaciones: AsignacionesDiarias } {
+  const cuadrante = clonarCuadrante(opts.cuadrante)
+  const asignaciones = clonarAsignaciones(opts.asignaciones)
+  const diaLibre = Number(opts.fechaLibre.slice(8, 10))
+  const diaCompensa = Number(opts.fechaCompensa.slice(8, 10))
+  const filaA = cuadrante[opts.agenteId]
+  const filaB = cuadrante[opts.companeroId]
+  if (!filaA || !filaB) return { cuadrante, asignaciones }
+  const turno = filaA[diaLibre - 1]
+  if (!esTurnoServicio(turno)) return { cuadrante, asignaciones }
+  if (filaB[diaCompensa - 1] !== turno) return { cuadrante, asignaciones }
+  if (!descanso(filaA, diaCompensa) || !descanso(filaB, diaLibre)) {
+    return { cuadrante, asignaciones }
+  }
+  filaA[diaLibre - 1] = 'D'
+  filaB[diaLibre - 1] = turno
+  filaB[diaCompensa - 1] = 'D'
+  filaA[diaCompensa - 1] = turno
+  const puestoA = asignaciones[opts.fechaLibre]?.[turno]?.[opts.agenteId]
+  const puestoB = asignaciones[opts.fechaCompensa]?.[turno]?.[opts.companeroId]
+  if (!asignaciones[opts.fechaLibre]) asignaciones[opts.fechaLibre] = {}
+  if (!asignaciones[opts.fechaLibre]![turno]) asignaciones[opts.fechaLibre]![turno] = {}
+  if (!asignaciones[opts.fechaCompensa]) asignaciones[opts.fechaCompensa] = {}
+  if (!asignaciones[opts.fechaCompensa]![turno]) asignaciones[opts.fechaCompensa]![turno] = {}
+  delete asignaciones[opts.fechaLibre]![turno]![opts.agenteId]
+  delete asignaciones[opts.fechaCompensa]![turno]![opts.companeroId]
+  if (puestoA) asignaciones[opts.fechaLibre]![turno]![opts.companeroId] = puestoA
+  if (puestoB) asignaciones[opts.fechaCompensa]![turno]![opts.agenteId] = puestoB
   return { cuadrante, asignaciones }
 }

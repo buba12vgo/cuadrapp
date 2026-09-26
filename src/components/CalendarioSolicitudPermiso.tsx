@@ -91,10 +91,13 @@ export function CalendarioSolicitudPermiso({
   agente,
   fecha,
   onElegir,
+  soloDiasTrabajados = false,
 }: {
   agente: FichaPolicia
   fecha: string
   onElegir: (iso: string) => void
+  /** En un cambio de día solo se puede librar un día de servicio. */
+  soloDiasTrabajados?: boolean
 }) {
   const elegida = partir(fecha)
   const [vista, setVista] = useState({ anio: elegida.anio, mes: elegida.mes })
@@ -184,7 +187,8 @@ export function CalendarioSolicitudPermiso({
               T: semaforos.T.nivel,
               N: semaforos.N.nivel,
             })
-            const seleccionado = mismoMes && elegida.dia === dia
+            const seleccionado =
+              mismoMes && elegida.dia === dia && (!soloDiasTrabajados || trabaja)
             const textoPuesto = puesto
               ? `${puesto.abreviatura} ${puesto.nombre}`
               : trabaja
@@ -198,10 +202,16 @@ export function CalendarioSolicitudPermiso({
                 aria-label={`${dia} ${MESES[vista.mes - 1]}, ${etiquetaCorta(turno)}${
                   textoPuesto ? `, ${textoPuesto}` : ''
                 }${puntos.map((punto) => `, ${punto.codigo} ${ETIQUETA_SEMAFORO[punto.nivel]}`).join('')}`}
+                disabled={soloDiasTrabajados && !trabaja}
                 className={`flex min-h-16 flex-col gap-0.5 p-1 text-left ${FOCUS_RING} ${
                   trabaja ? 'bg-white' : 'bg-slate-50'
-                } ${seleccionado ? 'ring-2 ring-inset ring-brand-600' : ''}`}
-                onClick={() => onElegir(fechaDia)}
+                } ${seleccionado ? 'ring-2 ring-inset ring-brand-600' : ''} ${
+                  soloDiasTrabajados && !trabaja ? 'cursor-default' : ''
+                }`}
+                onClick={() => {
+                  if (soloDiasTrabajados && !trabaja) return
+                  onElegir(fechaDia)
+                }}
               >
                 <span className="flex items-center justify-between gap-1">
                   <span

@@ -13,8 +13,12 @@ const {
   ordenarSolicitudes,
   opcionesCambioDia,
   aplicarCambioDiaEnCuadrante,
-  cambioDiaValidado,
+  cambioValidado,
   etiquetaEstadoSolicitud,
+  companerosCambioMes,
+  companerosVacacionesMes,
+  aplicarIntercambioMes,
+  esperaValidacionCompanero,
 } = mod
 const { permisoRequiereSaldo, PERMISOS_INICIALES } = permisos
 
@@ -180,17 +184,106 @@ igual(
   }),
   'Rechazada por el compañero',
 )
-igual('permiso no espera validación', cambioDiaValidado({ tipo: 'PERMISO' }), true)
+igual('permiso no espera validación', cambioValidado({ tipo: 'PERMISO' }), true)
 igual(
   'cambio sin validar no lo resuelve el superadmin',
-  cambioDiaValidado({ tipo: 'CAMBIO_DIA', validacionCompanero: 'PENDIENTE' }),
+  cambioValidado({ tipo: 'CAMBIO_DIA', validacionCompanero: 'PENDIENTE' }),
   false,
 )
 igual(
   'cambio validado lo resuelve el superadmin',
-  cambioDiaValidado({ tipo: 'CAMBIO_DIA', validacionCompanero: 'VALIDADA' }),
+  cambioValidado({ tipo: 'CAMBIO_DIA', validacionCompanero: 'VALIDADA' }),
   true,
 )
+igual('el mes espera al compañero', esperaValidacionCompanero({ tipo: 'CAMBIO_MES' }), true)
+igual('las vacaciones esperan al compañero', esperaValidacionCompanero({ tipo: 'VACACIONES' }), true)
+igual(
+  'mes sin validar',
+  etiquetaEstadoSolicitud({
+    ...base,
+    tipo: 'CAMBIO_MES',
+    estado: 'PENDIENTE',
+    validacionCompanero: 'PENDIENTE',
+  }),
+  'Pendiente de validación',
+)
+
+const plan = {
+  a: ['M', 'T', 'N', 'V', 'M', 'T', 'N', 'V', 'M', 'T', 'N', 'V'],
+  b: ['T', 'M', 'V', 'N', 'T', 'M', 'V', 'N', 'T', 'M', 'V', 'N'],
+  c: ['N', 'V', 'M', 'T', 'N', 'V', 'M', 'T', 'N', 'V', 'M', 'T'],
+}
+const agentesPlan = [
+  { id: 'a', numeroPlaca: '1', nombre: 'Ana', apellidos: 'A', rolBase: 'POLICIA' },
+  { id: 'b', numeroPlaca: '2', nombre: 'Bea', apellidos: 'B', rolBase: 'POLICIA' },
+  { id: 'c', numeroPlaca: '3', nombre: 'Cid', apellidos: 'C', rolBase: 'JEFE_SERVICIO' },
+]
+igual(
+  'compañeros de tarde en enero',
+  companerosCambioMes({
+    plan,
+    agentes: agentesPlan,
+    agenteId: 'a',
+    mesIndice: 0,
+    turnoDestino: 'T',
+  }).map((item) => item.id),
+  ['b'],
+)
+igual(
+  'no lista jefes en el cambio operativo',
+  companerosCambioMes({
+    plan,
+    agentes: agentesPlan,
+    agenteId: 'a',
+    mesIndice: 2,
+    turnoDestino: 'M',
+  }).map((item) => item.id),
+  [],
+)
+igual(
+  'vacaciones de abril para ana',
+  companerosVacacionesMes({
+    plan,
+    agentes: agentesPlan,
+    agenteId: 'a',
+    mesIndice: 3,
+  }).map((item) => item.id),
+  [],
+)
+igual(
+  'vacaciones de marzo para ana',
+  companerosVacacionesMes({
+    plan,
+    agentes: agentesPlan,
+    agenteId: 'a',
+    mesIndice: 2,
+  }).map((item) => item.id),
+  ['b'],
+)
+const trasMes = aplicarIntercambioMes({
+  plan,
+  agenteId: 'a',
+  companeroId: 'b',
+  mesIndice: 0,
+  turnoSolicitante: 'M',
+  turnoCompanero: 'T',
+})
+igual('ana pasa a tarde', trasMes.a[0], 'T')
+igual('bea pasa a mañana', trasMes.b[0], 'M')
+let intercambioRoto = false
+try {
+  aplicarIntercambioMes({
+    plan,
+    agenteId: 'a',
+    companeroId: 'b',
+    mesIndice: 0,
+    turnoSolicitante: 'N',
+    turnoCompanero: 'T',
+  })
+} catch {
+  intercambioRoto = true
+}
+igual('no intercambia si el plan ya cambió', intercambioRoto, true)
 
 await server.close()
 if (fallos.length) {

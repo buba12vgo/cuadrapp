@@ -70,6 +70,15 @@ export function planParaAnio(anio: number) {
   return plan ? clonarPlan(plan) : PLAN_VACIO
 }
 
+export function objetivosParaAnio(anio: number) {
+  return clonarObjetivos(objetivosPorAnio[anio] ?? OBJETIVOS_PLAN_DEFECTO)
+}
+
+export function escribirPlanAnio(anio: number, plan: PlanAnual) {
+  planesPorAnio[anio] = clonarPlan(plan)
+  emit()
+}
+
 export function tienePlanParaAnio(anio: number) {
   return Object.keys(planesPorAnio[anio] ?? {}).length > 0
 }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { CalendarioSolicitudPermiso } from '@/components/CalendarioSolicitudPermiso'
 import { ListaCambiosDia } from '@/components/ListaCambiosDia'
+import { SelectorCambioPlan } from '@/components/SelectorCambioPlan'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { useAppDialog } from '@/components/ui/ConfirmDialog'
 import { useAcceso } from '@/contexts/AccesoContext'
@@ -11,10 +12,12 @@ import { saldosPermisoAgente } from '@/lib/cuposPermiso'
 import {
   getCuadrante,
   getCuadranteJefes,
+  getPlanesAnuales,
   guardarSolicitud,
   listarSolicitudes,
   saveCuadrante,
   saveCuadranteJefes,
+  savePlanAnual,
 } from '@/lib/db'
 import { isDesignPreview } from '@/lib/designPreview'
 import { isFirebaseReady } from '@/lib/firebase'
@@ -24,15 +27,21 @@ import {
 } from '@/lib/cuadranteFirestore'
 import { permisoEsVisible, permisoRequiereSaldo } from '@/lib/permisos'
 import { useTiposPermiso } from '@/lib/permisosStore'
+import type { TurnoAnual } from '@/lib/generarPlanAnual'
+import { escribirPlanAnio, objetivosParaAnio } from '@/lib/planAnualStore'
 import { esRolCuadranteJefes } from '@/lib/rolesCuadrante'
 import {
   aplicarCambioDiaEnCuadrante,
+  aplicarIntercambioMes,
   aplicarPermisoEnCuadrante,
-  cambioDiaValidado,
+  cambioValidado,
   contextoCobertura,
   ETIQUETA_TIPO,
+  ETIQUETA_TURNO_ANUAL,
   etiquetaEstadoSolicitud,
+  etiquetaMesIso,
   etiquetaTurnoServicio,
+  esperaValidacionCompanero,
   ordenarSolicitudes,
   TIPOS_SOLICITUD,
   type CompaneroCobertura,
@@ -107,10 +116,15 @@ function delAgente(item: Solicitud, agenteId: string | undefined) {
 
 function pendienteDeCompanero(solicitud: Solicitud) {
   return (
-    solicitud.tipo === 'CAMBIO_DIA' &&
+    esperaValidacionCompanero(solicitud) &&
     solicitud.estado === 'PENDIENTE' &&
     solicitud.validacionCompanero === 'PENDIENTE'
   )
+}
+
+function turnoAnualDe(valor: string | undefined): TurnoAnual | null {
+  if (valor === 'M' || valor === 'T' || valor === 'N' || valor === 'V') return valor
+  return null
 }
 
 let memoriaPreview: Solicitud[] | null = null
@@ -129,16 +143,27 @@ function resumenPedido(solicitud: Solicitud) {
     return solicitud.companeroNombre ? `${cambio} · ${solicitud.companeroNombre}` : cambio
   }
   if (solicitud.tipo === 'CAMBIO_MES') {
-    return solicitud.mesDestino
-      ? `${mesDe(solicitud.fecha)} → ${solicitud.mesDestino}`
-      : mesDe(solicitud.fecha)
+    const mes = etiquetaMesIso(solicitud.fecha)
+    const origen = turnoAnualDe(solicitud.turno)
+    const destino = turnoAnualDe(solicitud.turnoDestino)
+    const cambio =
+      origen && destino
+        ? `${mes} · ${ETIQUETA_TURNO_ANUAL[origen]} → ${ETIQUETA_TURNO_ANUAL[destino]}`
+        : solicitud.mesDestino
+          ? `${mesDe(solicitud.fecha)} → ${solicitud.mesDestino}`
+          : mes
+    return solicitud.companeroNombre ? `${cambio} · ${solicitud.companeroNombre}` : cambio
+  }
+  if (solicitud.tipo === 'VACACIONES') {
+    const mes = etiquetaMesIso(solicitud.fecha)
+    return solicitud.companeroNombre ? `${mes} · ${solicitud.companeroNombre}` : mes
   }
   if (solicitud.fechaFin) return `${solicitud.fecha} → ${solicitud.fechaFin}`
   return solicitud.fecha
 }
 
 export function SolicitudesPage() {
-  const { alert, confirm } = useAppDialog()
+  const { alert } = useAppDialog()
   const { perfil } = useAcceso()
   const [agentes] = useAgentesData()
   const [permisos] = useTiposPermiso()
@@ -151,7 +176,10 @@ export function SolicitudesPage() {
   const [companeroId, setCompaneroId] = useState('')
   const [companeroNombre, setCompaneroNombre] = useState('')
   const [turnoCambio, setTurnoCambio] = useState('')
-  const [mesDestino, setMesDestino] = useState('')
+  const [mesPlan, setMesPlan] = useState(() => hoyIso().slice(0, 7))
+  const [turnoDestino, setTurnoDestino] = useState('')
+  const [rechazando, setRechazando] = useState<string | null>(null)
+  const [motivo, setMotivo] = useState('')
   const [detalle, setDetalle] = useState('')
   const [permisoCodigo, setPermisoCodigo] = useState('')
   const [enviando, setEnviando] = useState(false)
@@ -281,12 +309,12 @@ export function SolicitudesPage() {
       setError('Elige el día que compensas y el compañero.')
       return
     }
-    if (tipo === 'CAMBIO_MES' && !mesDestino) {
-      setError('Elige el mes que propones.')
+    if (tipo === 'CAMBIO_MES' && (!turnoCambio || !turnoDestino || !companeroId)) {
+      setError('Elige el mes, el turno que necesitas y el compañero.')
       return
     }
-    if (tipo === 'VACACIONES' && !fechaFin) {
-      setError('Elige el fin del periodo.')
+    if (tipo === 'VACACIONES' && !companeroId) {
+      setError('Elige el mes y el compañero que está de vacaciones.')
       return
     }
     const concepto = conceptos.find((item) => item.codigo === permisoCodigo)
@@ -299,15 +327,17 @@ export function SolicitudesPage() {
         item.estado === 'PENDIENTE' &&
         item.agenteId === agente.id &&
         item.tipo === tipo &&
-        item.fecha === (tipo === 'CAMBIO_MES' ? `${fecha}-01` : fecha) &&
+        item.fecha ===
+          (tipo === 'CAMBIO_MES' || tipo === 'VACACIONES' ? `${mesPlan}-01` : fecha) &&
         (tipo !== 'PERMISO' || item.permisoCodigo === permisoCodigo) &&
-        (tipo !== 'CAMBIO_DIA' || item.companeroId === companeroId),
+        (tipo === 'PERMISO' || item.companeroId === companeroId),
     )
     if (repetida) {
       setError('Ya tienes una solicitud pendiente igual.')
       return
     }
-    const fechaSolicitud = tipo === 'CAMBIO_MES' ? `${fecha}-01` : fecha
+    const fechaSolicitud =
+      tipo === 'CAMBIO_MES' || tipo === 'VACACIONES' ? `${mesPlan}-01` : fecha
     const solicitud: Solicitud = {
       id: `sol-${crypto.randomUUID()}`,
       tipo,
@@ -320,12 +350,12 @@ export function SolicitudesPage() {
       detalle: detalle.trim() || undefined,
       permisoCodigo: tipo === 'PERMISO' ? concepto?.codigo : undefined,
       permisoNombre: tipo === 'PERMISO' ? concepto?.nombre : undefined,
-      fechaFin: tipo === 'CAMBIO_MES' ? undefined : fechaFin || undefined,
-      mesDestino: tipo === 'CAMBIO_MES' ? mesDestino : undefined,
-      companeroId: tipo === 'CAMBIO_DIA' ? companeroId : undefined,
-      companeroNombre: tipo === 'CAMBIO_DIA' ? companeroNombre : undefined,
-      turno: tipo === 'CAMBIO_DIA' ? turnoCambio : undefined,
-      validacionCompanero: tipo === 'CAMBIO_DIA' ? 'PENDIENTE' : undefined,
+      fechaFin: tipo === 'CAMBIO_DIA' ? fechaFin || undefined : undefined,
+      companeroId: tipo === 'PERMISO' ? undefined : companeroId || undefined,
+      companeroNombre: tipo === 'PERMISO' ? undefined : companeroNombre || undefined,
+      turno: tipo === 'PERMISO' ? undefined : turnoCambio || undefined,
+      turnoDestino: tipo === 'CAMBIO_MES' ? turnoDestino : tipo === 'VACACIONES' ? 'V' : undefined,
+      validacionCompanero: tipo === 'PERMISO' ? undefined : 'PENDIENTE',
     }
     setEnviando(true)
     setError(null)
@@ -337,10 +367,11 @@ export function SolicitudesPage() {
       setCompaneroId('')
       setCompaneroNombre('')
       setTurnoCambio('')
+      setTurnoDestino('')
       await alert(
-        tipo === 'CAMBIO_DIA'
-          ? 'La solicitud queda pendiente de que el compañero la valide.'
-          : 'La solicitud queda pendiente de que el superadmin la resuelva.',
+        tipo === 'PERMISO'
+          ? 'La solicitud queda pendiente de que el superadmin la resuelva.'
+          : 'La solicitud queda pendiente de que el compañero la valide.',
         'Enviada',
       )
     } catch (err) {
@@ -420,7 +451,7 @@ export function SolicitudesPage() {
 
   async function confirmarAceptar(solicitud: Solicitud) {
     if (!esSuperadmin) return
-    if (!cambioDiaValidado(solicitud)) {
+    if (!cambioValidado(solicitud)) {
       setError('El compañero todavía no ha validado el cambio.')
       return
     }
@@ -515,6 +546,39 @@ export function SolicitudesPage() {
         if (jefes) await saveCuadranteJefes(mesDia!, anioDia!, payload)
         else await saveCuadrante(mesDia!, anioDia!, payload)
       }
+      if (
+        (solicitud.tipo === 'CAMBIO_MES' || solicitud.tipo === 'VACACIONES') &&
+        firebaseOk &&
+        solicitud.companeroId
+      ) {
+        const turnoSolicitante = turnoAnualDe(solicitud.turno)
+        const turnoCompanero = turnoAnualDe(
+          solicitud.tipo === 'VACACIONES' ? 'V' : solicitud.turnoDestino,
+        )
+        const mesIndice = Number(solicitud.fecha.slice(5, 7)) - 1
+        const anioPlan = Number(solicitud.fecha.slice(0, 4))
+        if (!turnoSolicitante || !turnoCompanero || mesIndice < 0 || !anioPlan) {
+          throw new Error('La solicitud de cambio no tiene el mes o el turno.')
+        }
+        const leido = await getPlanesAnuales(agentes)
+        const plan = leido.planes[anioPlan]
+        if (!plan) throw new Error('No hay plan anual de ese año para aplicar el cambio.')
+        const aplicado = aplicarIntercambioMes({
+          plan,
+          agenteId: solicitud.agenteId,
+          companeroId: solicitud.companeroId,
+          mesIndice,
+          turnoSolicitante,
+          turnoCompanero,
+        })
+        await savePlanAnual(
+          anioPlan,
+          aplicado,
+          leido.objetivos[anioPlan] ?? objetivosParaAnio(anioPlan),
+          agentes,
+        )
+        escribirPlanAnio(anioPlan, aplicado)
+      }
       const elegido = candidatos.find((item) => item.id === cobertura)
       await recordar({
         ...solicitud,
@@ -554,14 +618,19 @@ export function SolicitudesPage() {
     }
   }
 
+  function abrirRechazar(solicitudId: string) {
+    setRechazando(solicitudId)
+    setMotivo('')
+    setAceptando(null)
+  }
+
   async function rechazarCompanero(solicitud: Solicitud) {
+    const texto = motivo.trim()
     if (agente?.id !== solicitud.companeroId || !pendienteDeCompanero(solicitud)) return
-    const ok = await confirm(
-      `¿Rechazar el cambio que te pide ${solicitud.nombreAgente}?`,
-      'Rechazar cambio',
-      true,
-    )
-    if (!ok) return
+    if (!texto) {
+      setError('Escribe el motivo del rechazo.')
+      return
+    }
     setEnviando(true)
     setError(null)
     try {
@@ -570,7 +639,10 @@ export function SolicitudesPage() {
         validacionCompanero: 'RECHAZADA',
         estado: 'RECHAZADA',
         resueltaEn: new Date().toISOString(),
+        motivoRechazo: texto,
       })
+      setRechazando(null)
+      setMotivo('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo rechazar el cambio')
     } finally {
@@ -579,13 +651,12 @@ export function SolicitudesPage() {
   }
 
   async function rechazar(solicitud: Solicitud) {
-    if (!esSuperadmin || !cambioDiaValidado(solicitud)) return
-    const ok = await confirm(
-      `¿Rechazar la solicitud de ${solicitud.nombreAgente}?`,
-      'Rechazar solicitud',
-      true,
-    )
-    if (!ok) return
+    const texto = motivo.trim()
+    if (!esSuperadmin || !cambioValidado(solicitud)) return
+    if (!texto) {
+      setError('Escribe el motivo del rechazo.')
+      return
+    }
     setEnviando(true)
     setError(null)
     try {
@@ -593,7 +664,10 @@ export function SolicitudesPage() {
         ...solicitud,
         estado: 'RECHAZADA',
         resueltaEn: new Date().toISOString(),
+        motivoRechazo: texto,
       })
+      setRechazando(null)
+      setMotivo('')
       if (aceptando === solicitud.id) setAceptando(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo rechazar la solicitud')
@@ -722,63 +796,47 @@ export function SolicitudesPage() {
               </label>
             </div>
           ) : (
-          <div className="grid gap-2 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2">
-            {tipo === 'CAMBIO_MES' ? (
-              <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600">
-                Mes actual
-                <input
-                  className={CAMPO_FECHA}
-                  type="month"
-                  required
-                  value={fecha.slice(0, 7)}
-                  onChange={(event) => setFecha(event.target.value)}
-                />
-              </label>
-            ) : (
-              <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600">
-                {tipo === 'VACACIONES' ? 'Desde' : 'Día a cambiar'}
-                <input
-                  className={CAMPO_FECHA}
-                  type="date"
-                  required
-                  value={fecha}
-                  onChange={(event) => setFecha(event.target.value)}
-                />
-              </label>
-            )}
-            {tipo === 'VACACIONES' ? (
-              <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600">
-                {tipo === 'VACACIONES' ? 'Hasta' : 'Día propuesto'}
-                <input
-                  className={CAMPO_FECHA}
-                  type="date"
-                  required
-                  value={fechaFin}
-                  onChange={(event) => setFechaFin(event.target.value)}
-                />
-              </label>
-            ) : null}
-            {tipo === 'CAMBIO_MES' ? (
-              <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600">
-                Mes propuesto
-                <input
-                  className={CAMPO_FECHA}
-                  type="month"
-                  required
-                  value={mesDestino}
-                  onChange={(event) => setMesDestino(event.target.value)}
-                />
-              </label>
-            ) : null}
-            <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600 sm:col-span-2">
-              Nota
-              <input
-                className={CAMPO_FECHA}
-                value={detalle}
-                onChange={(event) => setDetalle(event.target.value)}
+            <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3">
+              <p className="text-xs font-semibold text-slate-600">
+                {tipo === 'CAMBIO_MES'
+                  ? 'Elige el mes que quieres cambiar. El compañero valida y después lo resuelve el superadmin.'
+                  : 'Elige el mes que quieres de vacaciones. Esa persona valida y después lo resuelve el superadmin.'}
+              </p>
+              <SelectorCambioPlan
+                modo={tipo === 'CAMBIO_MES' ? 'MES' : 'VACACIONES'}
+                agente={agente}
+                agentes={agentes}
+                mes={mesPlan}
+                turnoDestino={turnoDestino}
+                companeroId={companeroId}
+                onMes={(siguiente) => {
+                  setMesPlan(siguiente)
+                  setTurnoCambio('')
+                  setTurnoDestino('')
+                  setCompaneroId('')
+                  setCompaneroNombre('')
+                }}
+                onTurno={(turno) => {
+                  setTurnoDestino(turno)
+                  setCompaneroId('')
+                  setCompaneroNombre('')
+                }}
+                onCompanero={(persona, turnoActual) => {
+                  setTurnoCambio(turnoActual)
+                  setCompaneroId(persona.id)
+                  setCompaneroNombre(`${persona.placa} ${persona.nombre}`.trim())
+                  if (tipo === 'VACACIONES') setTurnoDestino('V')
+                }}
               />
-            </label>
-          </div>
+              <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600">
+                Nota
+                <input
+                  className={CAMPO_FECHA}
+                  value={detalle}
+                  onChange={(event) => setDetalle(event.target.value)}
+                />
+              </label>
+            </div>
           )}
           <div>
             <button type="submit" className={BTN_PRIMARY} disabled={enviando}>
@@ -819,6 +877,11 @@ export function SolicitudesPage() {
                     {solicitud.detalle ? (
                       <span className="block text-xs text-slate-500">{solicitud.detalle}</span>
                     ) : null}
+                    {solicitud.motivoRechazo ? (
+                      <span className="block text-xs text-slate-500">
+                        Motivo: {solicitud.motivoRechazo}
+                      </span>
+                    ) : null}
                     {solicitud.estado === 'ACEPTADA' && solicitud.coberturaNombre ? (
                       <span className="block text-xs text-slate-500">
                         Cobertura: {solicitud.coberturaNombre}
@@ -832,27 +895,37 @@ export function SolicitudesPage() {
                   {muestraAcciones ? (
                     <td className={`${TD} text-right`}>
                       {agente?.id === solicitud.companeroId && pendienteDeCompanero(solicitud) ? (
-                        <div className="flex justify-end gap-2">
-                          <button
-                            type="button"
-                            className={BTN_PRIMARY}
-                            disabled={enviando}
-                            onClick={() => void validarCompanero(solicitud)}
-                          >
-                            Validar
-                          </button>
-                          <button
-                            type="button"
-                            className={BTN_GHOST}
-                            disabled={enviando}
-                            onClick={() => void rechazarCompanero(solicitud)}
-                          >
-                            Rechazar
-                          </button>
+                        <div className="flex flex-col items-end gap-2">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              className={BTN_PRIMARY}
+                              disabled={enviando}
+                              onClick={() => void validarCompanero(solicitud)}
+                            >
+                              Validar
+                            </button>
+                            <button
+                              type="button"
+                              className={BTN_GHOST}
+                              disabled={enviando}
+                              onClick={() => abrirRechazar(solicitud.id)}
+                            >
+                              Rechazar
+                            </button>
+                          </div>
+                          {rechazando === solicitud.id ? (
+                            <MotivoRechazo
+                              motivo={motivo}
+                              enviando={enviando}
+                              onMotivo={setMotivo}
+                              onConfirmar={() => void rechazarCompanero(solicitud)}
+                            />
+                          ) : null}
                         </div>
                       ) : esSuperadmin &&
                         solicitud.estado === 'PENDIENTE' &&
-                        cambioDiaValidado(solicitud) ? (
+                        cambioValidado(solicitud) ? (
                         <div className="flex flex-col items-end gap-2">
                           <div className="flex justify-end gap-2">
                             <button
@@ -867,11 +940,19 @@ export function SolicitudesPage() {
                               type="button"
                               className={BTN_GHOST}
                               disabled={enviando}
-                              onClick={() => void rechazar(solicitud)}
+                              onClick={() => abrirRechazar(solicitud.id)}
                             >
                               Rechazar
                             </button>
                           </div>
+                          {rechazando === solicitud.id ? (
+                            <MotivoRechazo
+                              motivo={motivo}
+                              enviando={enviando}
+                              onMotivo={setMotivo}
+                              onConfirmar={() => void rechazar(solicitud)}
+                            />
+                          ) : null}
                           {aceptando === solicitud.id && solicitud.tipo === 'PERMISO' ? (
                             <div className="w-full max-w-xs rounded-lg border border-slate-200 bg-slate-50 p-2 text-left">
                               <p className="text-xs text-slate-600">
@@ -930,5 +1011,39 @@ export function SolicitudesPage() {
         ) : null}
       </div>
     </section>
+  )
+}
+
+function MotivoRechazo({
+  motivo,
+  enviando,
+  onMotivo,
+  onConfirmar,
+}: {
+  motivo: string
+  enviando: boolean
+  onMotivo: (valor: string) => void
+  onConfirmar: () => void
+}) {
+  return (
+    <div className="w-full max-w-xs rounded-lg border border-slate-200 bg-slate-50 p-2 text-left">
+      <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600">
+        Motivo
+        <textarea
+          className="min-h-16 rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm"
+          value={motivo}
+          maxLength={400}
+          onChange={(event) => onMotivo(event.target.value)}
+        />
+      </label>
+      <button
+        type="button"
+        className={`${BTN_PRIMARY} mt-2`}
+        disabled={enviando || motivo.trim().length === 0}
+        onClick={onConfirmar}
+      >
+        Confirmar rechazo
+      </button>
+    </div>
   )
 }

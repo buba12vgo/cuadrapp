@@ -111,7 +111,7 @@ service cloud.firestore {
 
     function esCompaneroPendiente() {
       return esConsulta()
-        && resource.data.tipo == 'CAMBIO_DIA'
+        && resource.data.tipo in ['CAMBIO_DIA', 'CAMBIO_MES', 'VACACIONES']
         && resource.data.estado == 'PENDIENTE'
         && resource.data.validacionCompanero == 'PENDIENTE'
         && resource.data.companeroId == perfilConsulta().agenteId;
@@ -129,7 +129,7 @@ service cloud.firestore {
         && request.resource.data.estado == 'PENDIENTE'
         && request.resource.data.tipo in ['PERMISO', 'CAMBIO_DIA', 'CAMBIO_MES', 'VACACIONES']
         && (
-          request.resource.data.tipo != 'CAMBIO_DIA'
+          request.resource.data.tipo == 'PERMISO'
           || request.resource.data.validacionCompanero == 'PENDIENTE'
         );
       allow update: if esSuperAdmin()
@@ -137,9 +137,12 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['validacionCompanero'])
           && request.resource.data.validacionCompanero == 'VALIDADA')
         || (esCompaneroPendiente()
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['validacionCompanero', 'estado', 'resueltaEn'])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['validacionCompanero', 'estado', 'resueltaEn', 'motivoRechazo'])
           && request.resource.data.validacionCompanero == 'RECHAZADA'
-          && request.resource.data.estado == 'RECHAZADA');
+          && request.resource.data.estado == 'RECHAZADA'
+          && request.resource.data.motivoRechazo is string
+          && request.resource.data.motivoRechazo.size() > 0
+          && request.resource.data.motivoRechazo.size() <= 400);
       allow delete: if false;
     }
   }

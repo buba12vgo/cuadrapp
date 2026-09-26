@@ -916,6 +916,8 @@ function solicitudDesdeFirestore(
   const companeroId = texto(data.companeroId)
   const companeroNombre = texto(data.companeroNombre)
   const turno = texto(data.turno)
+  const turnoDestino = texto(data.turnoDestino)
+  const motivoRechazo = texto(data.motivoRechazo)
   const validacion = texto(data.validacionCompanero)
   if (fechaFin) solicitud.fechaFin = fechaFin
   if (mesDestino) solicitud.mesDestino = mesDestino
@@ -928,6 +930,8 @@ function solicitudDesdeFirestore(
   if (companeroId) solicitud.companeroId = companeroId
   if (companeroNombre) solicitud.companeroNombre = companeroNombre
   if (turno) solicitud.turno = turno
+  if (turnoDestino) solicitud.turnoDestino = turnoDestino
+  if (motivoRechazo) solicitud.motivoRechazo = motivoRechazo
   if (validacion === 'PENDIENTE' || validacion === 'VALIDADA' || validacion === 'RECHAZADA') {
     solicitud.validacionCompanero = validacion
   }

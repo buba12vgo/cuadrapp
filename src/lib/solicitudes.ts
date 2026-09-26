@@ -1,7 +1,13 @@
 import type { AsignacionesDiarias, TurnoAsignable } from '@/lib/calendarioPuestos'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
+import {
+  filaVaciaPlanAnual,
+  type PlanAnual,
+  type TurnoAnual,
+} from '@/lib/generarPlanAnual'
 import { esJornadaDisponible } from '@/lib/jornadaDisponible'
-import type { Turno } from '@/types'
+import { esRolCuadranteJefes } from '@/lib/rolesCuadrante'
+import type { FichaPolicia, Turno } from '@/types'
 
 export type TipoSolicitud = 'PERMISO' | 'CAMBIO_DIA' | 'CAMBIO_MES' | 'VACACIONES'
 export type EstadoSolicitud = 'PENDIENTE' | 'ACEPTADA' | 'RECHAZADA'
@@ -17,16 +23,20 @@ export type Solicitud = {
   /** Día principal (YYYY-MM-DD). En un cambio de mes, el día 1 de ese mes. */
   fecha: string
   fechaFin?: string
-  /** Compañero del cambio de día. */
+  /** Compañero del cambio. */
   companeroId?: string
   companeroNombre?: string
   /** El compañero tiene que validar el cambio antes del superadmin. */
   validacionCompanero?: ValidacionCompanero
-  /** Turno del cambio: M, T, N o MT. */
+  /** Turno actual: M, T, N, MT o V. */
   turno?: string
-  /** Mes destino YYYY-MM, en cambios de mes. */
+  /** Turno que se pide en un cambio de mes. */
+  turnoDestino?: string
+  /** Mes destino YYYY-MM, en cambios de mes antiguos. */
   mesDestino?: string
   detalle?: string
+  /** Motivo al rechazar la solicitud. */
+  motivoRechazo?: string
   permisoCodigo?: string
   permisoNombre?: string
   creadaEn: string
@@ -54,12 +64,12 @@ export const TIPOS_SOLICITUD: Array<{
   {
     tipo: 'CAMBIO_MES',
     label: 'Cambios de mes',
-    hint: 'El mes que tienes y el mes que propones',
+    hint: 'El mes, el turno que necesitas y un compañero de ese turno',
   },
   {
     tipo: 'VACACIONES',
     label: 'Cambio de vacaciones',
-    hint: 'El periodo de vacaciones que quieres mover',
+    hint: 'El mes y un compañero que está de vacaciones',
   },
 ]
 
@@ -76,26 +86,60 @@ export const ETIQUETA_ESTADO: Record<EstadoSolicitud, string> = {
   RECHAZADA: 'Rechazada',
 }
 
-export function cambioDiaValidado(solicitud: Pick<Solicitud, 'tipo' | 'validacionCompanero'>) {
-  return solicitud.tipo !== 'CAMBIO_DIA' || solicitud.validacionCompanero === 'VALIDADA'
+const TIPOS_CON_COMPANERO = new Set<TipoSolicitud>(['CAMBIO_DIA', 'CAMBIO_MES', 'VACACIONES'])
+
+export function esperaValidacionCompanero(solicitud: Pick<Solicitud, 'tipo'>) {
+  return TIPOS_CON_COMPANERO.has(solicitud.tipo)
+}
+
+export function cambioValidado(solicitud: Pick<Solicitud, 'tipo' | 'validacionCompanero'>) {
+  return !esperaValidacionCompanero(solicitud) || solicitud.validacionCompanero === 'VALIDADA'
 }
 
 export function etiquetaEstadoSolicitud(solicitud: Solicitud) {
   if (
-    solicitud.tipo === 'CAMBIO_DIA' &&
+    esperaValidacionCompanero(solicitud) &&
     solicitud.estado === 'PENDIENTE' &&
     solicitud.validacionCompanero !== 'VALIDADA'
   ) {
     return 'Pendiente de validación'
   }
   if (
-    solicitud.tipo === 'CAMBIO_DIA' &&
+    esperaValidacionCompanero(solicitud) &&
     solicitud.estado === 'RECHAZADA' &&
     solicitud.validacionCompanero === 'RECHAZADA'
   ) {
     return 'Rechazada por el compañero'
   }
   return ETIQUETA_ESTADO[solicitud.estado]
+}
+
+export const ETIQUETA_TURNO_ANUAL: Record<TurnoAnual, string> = {
+  M: 'Mañana',
+  T: 'Tarde',
+  N: 'Noche',
+  V: 'Vacaciones',
+}
+
+export const NOMBRES_MES = [
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
+]
+
+export function etiquetaMesIso(iso: string) {
+  const [anio, mes] = iso.split('-')
+  const nombre = NOMBRES_MES[(Number(mes) || 1) - 1] ?? iso
+  return `${nombre} ${anio}`
 }
 
 const TURNOS_SERVICIO = new Set<Turno>(['M', 'T', 'N', 'MT'])
@@ -327,4 +371,106 @@ export function aplicarCambioDiaEnCuadrante(opts: {
   if (puestoA) asignaciones[opts.fechaLibre]![turno]![opts.companeroId] = puestoA
   if (puestoB) asignaciones[opts.fechaCompensa]![turno]![opts.agenteId] = puestoB
   return { cuadrante, asignaciones }
+}
+
+export type CompaneroPlan = {
+  id: string
+  placa: string
+  nombre: string
+  turno: TurnoAnual
+}
+
+function esTurnoAnual(valor: string | null | undefined): valor is TurnoAnual {
+  return valor === 'M' || valor === 'T' || valor === 'N' || valor === 'V'
+}
+
+export function turnoPlanMes(plan: PlanAnual, agenteId: string, mesIndice: number) {
+  const celda = plan[agenteId]?.[mesIndice]
+  return esTurnoAnual(celda) ? celda : null
+}
+
+function mismoCuadrante(a: FichaPolicia, b: FichaPolicia) {
+  return esRolCuadranteJefes(a.rolBase) === esRolCuadranteJefes(b.rolBase)
+}
+
+function fichaPlan(agente: FichaPolicia, turno: TurnoAnual): CompaneroPlan {
+  return {
+    id: agente.id,
+    placa: agente.numeroPlaca,
+    nombre: `${agente.nombre} ${agente.apellidos}`.trim(),
+    turno,
+  }
+}
+
+/** Compañeros del mismo cuadrante que, ese mes, están en el turno pedido. */
+export function companerosCambioMes(opts: {
+  plan: PlanAnual
+  agentes: FichaPolicia[]
+  agenteId: string
+  mesIndice: number
+  turnoDestino: TurnoAnual
+}) {
+  if (opts.turnoDestino === 'V') return []
+  const solicitante = opts.agentes.find((item) => item.id === opts.agenteId)
+  if (!solicitante) return []
+  const propio = turnoPlanMes(opts.plan, opts.agenteId, opts.mesIndice)
+  if (propio == null || propio === 'V' || propio === opts.turnoDestino) return []
+  const lista: CompaneroPlan[] = []
+  for (const agente of opts.agentes) {
+    if (agente.id === opts.agenteId || !mismoCuadrante(solicitante, agente)) continue
+    const turno = turnoPlanMes(opts.plan, agente.id, opts.mesIndice)
+    if (turno !== opts.turnoDestino) continue
+    lista.push(fichaPlan(agente, turno))
+  }
+  lista.sort((a, b) => a.placa.localeCompare(b.placa, 'es', { numeric: true }))
+  return lista
+}
+
+/** Compañeros del mismo cuadrante que están de vacaciones ese mes. */
+export function companerosVacacionesMes(opts: {
+  plan: PlanAnual
+  agentes: FichaPolicia[]
+  agenteId: string
+  mesIndice: number
+}) {
+  const solicitante = opts.agentes.find((item) => item.id === opts.agenteId)
+  if (!solicitante) return []
+  const propio = turnoPlanMes(opts.plan, opts.agenteId, opts.mesIndice)
+  if (propio == null || propio === 'V') return []
+  const lista: CompaneroPlan[] = []
+  for (const agente of opts.agentes) {
+    if (agente.id === opts.agenteId || !mismoCuadrante(solicitante, agente)) continue
+    const turno = turnoPlanMes(opts.plan, agente.id, opts.mesIndice)
+    if (turno !== 'V') continue
+    lista.push(fichaPlan(agente, turno))
+  }
+  lista.sort((a, b) => a.placa.localeCompare(b.placa, 'es', { numeric: true }))
+  return lista
+}
+
+/** Intercambia la celda del plan anual de ese mes entre los dos agentes. */
+export function aplicarIntercambioMes(opts: {
+  plan: PlanAnual
+  agenteId: string
+  companeroId: string
+  mesIndice: number
+  turnoSolicitante: TurnoAnual
+  turnoCompanero: TurnoAnual
+}): PlanAnual {
+  const actualA = turnoPlanMes(opts.plan, opts.agenteId, opts.mesIndice)
+  const actualB = turnoPlanMes(opts.plan, opts.companeroId, opts.mesIndice)
+  if (actualA !== opts.turnoSolicitante || actualB !== opts.turnoCompanero) {
+    throw new Error('El plan de ese mes ya no coincide con la solicitud.')
+  }
+  const filaA = filaVaciaPlanAnual()
+  const filaB = filaVaciaPlanAnual()
+  const origenA = opts.plan[opts.agenteId] ?? []
+  const origenB = opts.plan[opts.companeroId] ?? []
+  for (let i = 0; i < 12; i++) {
+    filaA[i] = esTurnoAnual(origenA[i]) ? origenA[i]! : null
+    filaB[i] = esTurnoAnual(origenB[i]) ? origenB[i]! : null
+  }
+  filaA[opts.mesIndice] = opts.turnoCompanero
+  filaB[opts.mesIndice] = opts.turnoSolicitante
+  return { ...opts.plan, [opts.agenteId]: filaA, [opts.companeroId]: filaB }
 }

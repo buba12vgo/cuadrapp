@@ -21,7 +21,6 @@ import {
   type PersonaTurno,
   type ResumenDiaServicio,
 } from '@/lib/coberturaDia'
-import { useEsMovil } from '@/lib/dispositivoMovil'
 import { diasDelMes, esFinDeSemana } from '@/lib/convenio'
 import { cuadranteParaFirestore } from '@/lib/cuadranteFirestore'
 import { saveCuadrante } from '@/lib/db'
@@ -88,10 +87,18 @@ function opcionesPuesto(agente: FichaPolicia, puestos: PuestoConfig[], actual: s
   return nombres
 }
 
-export function ListaDiarioAgentes({ anio, mes }: { anio: number; mes: number }) {
+export function ListaDiarioAgentes({
+  anio,
+  mes,
+  acordeonTurnos = false,
+}: {
+  anio: number
+  mes: number
+  /** En la consulta móvil: Mañana, Tarde y Noche se abren y se cierran. */
+  acordeonTurnos?: boolean
+}) {
   const { alert } = useAppDialog()
   const { puedeEscribir } = useAcceso()
-  const movil = useEsMovil()
   const puedeEditar = puedeEscribir('diario-agentes')
   const datos = useCuadranteOperativoMes(anio, mes)
   const [minimosSemana] = useMinimosSemanaData()
@@ -237,7 +244,7 @@ export function ListaDiarioAgentes({ anio, mes }: { anio: number; mes: number })
   return (
     <div
       className={
-        movil
+        acordeonTurnos
           ? 'flex flex-col gap-2'
           : 'flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto'
       }
@@ -301,7 +308,7 @@ export function ListaDiarioAgentes({ anio, mes }: { anio: number; mes: number })
               {abierto ? (
                 <div
                   className={
-                    movil
+                    acordeonTurnos
                       ? 'flex flex-col gap-2 border-t border-slate-100 p-2'
                       : 'grid grid-cols-1 gap-3 border-t border-slate-100 p-2 lg:grid-cols-3'
                   }
@@ -316,7 +323,7 @@ export function ListaDiarioAgentes({ anio, mes }: { anio: number; mes: number })
                       agentesPorId={agentesPorId}
                       puedeEditar={puedeEditar}
                       onCambiar={cambiarPuesto}
-                      desplegable={movil}
+                      desplegable={acordeonTurnos}
                       abierto={turnosAbiertos.has(turno)}
                       onToggle={() => alternarTurno(turno)}
                     />

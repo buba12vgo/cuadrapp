@@ -3,5 +3,5 @@ import { useMovilMes } from '@/pages/movil/movilMes'
 
 export function MovilDiarioPage() {
   const { anio, mes } = useMovilMes()
-  return <ListaDiarioAgentes anio={anio} mes={mes} />
+  return <ListaDiarioAgentes anio={anio} mes={mes} acordeonTurnos />
 }

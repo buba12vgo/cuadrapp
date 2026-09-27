@@ -11,7 +11,7 @@ function CabeceraMes() {
   const { user, signOut } = useAuth()
   const { nombreMes, anio, cambiarMes } = useMovilMes()
   return (
-    <header className="sticky top-0 z-20 border-b border-slate-200 bg-slate-950 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white">
+    <header className="shrink-0 border-b border-slate-200 bg-slate-950 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
@@ -66,9 +66,9 @@ export function MovilLayout() {
   return (
     <AppDialogProvider>
       <MovilMesProvider>
-        <div className="flex min-h-svh flex-col bg-slate-100 text-slate-900">
+        <div className="movil-shell flex h-dvh max-h-dvh flex-col overflow-hidden bg-slate-100 text-slate-900">
           <CabeceraMes />
-          <main className="min-h-0 flex-1 overflow-y-auto px-3 py-3 pb-24">
+          <main className="movil-scroll min-h-0 flex-1 overflow-y-scroll px-3 py-3 pb-[max(6rem,calc(5.5rem+env(safe-area-inset-bottom,0px)))]">
             {estado === 'loading' ? (
               <p className="px-1 py-6 text-sm text-slate-500">Cargando plantilla…</p>
             ) : null}

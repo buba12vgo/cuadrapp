@@ -35,13 +35,14 @@ const PESTANA: Record<
 
 function CabeceraMes() {
   const { user, signOut } = useAuth()
+  const { etiquetaRol } = useAcceso()
   const { nombreMes, anio, cambiarMes } = useMovilMes()
   return (
     <header className="shrink-0 border-b border-slate-200 bg-slate-950 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-            Cuadrapp · consulta
+            Cuadrapp · {etiquetaRol || 'consulta'}
           </p>
           <p className="text-sm text-slate-300">
             {user?.email ? user.email : 'Jefes y responsables'}
@@ -83,12 +84,15 @@ function CabeceraMes() {
 export function MovilLayout() {
   const { estado, error } = useConfigOperativaBootstrap()
   const { perfil, esJefatura } = useAcceso()
-  const pestanas = perfil
-    ? pestanasMovil(perfil.rol, {
-        esJefatura,
-        puedeEditarEventos: perfil.puedeEditarEventos,
-      })
-    : []
+  const plantillaLista = estado !== 'loading'
+  const pestanas =
+    !perfil || (perfil.rol === 'CONSULTA_JEFES' && !plantillaLista)
+      ? []
+      : pestanasMovil(perfil.rol, {
+          esJefatura,
+          puedeEditarEventos: perfil.puedeEditarEventos,
+        })
+  const claveNav = `${perfil?.rol ?? 'sin'}-${esJefatura ? 'jefatura' : 'consulta'}-${pestanas.join('.')}`
   return (
     <AppDialogProvider>
       <MovilMesProvider>
@@ -106,6 +110,8 @@ export function MovilLayout() {
             <Outlet />
           </main>
           <nav
+            key={claveNav}
+            data-nav={claveNav}
             className="fixed inset-x-0 bottom-0 z-20 grid gap-1 border-t border-slate-200 bg-white px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
             style={{ gridTemplateColumns: `repeat(${Math.max(pestanas.length, 1)}, minmax(0, 1fr))` }}
             aria-label="Consulta móvil"

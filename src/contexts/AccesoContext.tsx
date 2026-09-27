@@ -139,7 +139,7 @@ export function AccesoProvider({ children }: { children: ReactNode }) {
 
       const email = user.email?.trim().toLowerCase() ?? ''
       const fijo = perfilFijo(email)
-      if (fijo && user.emailVerified) {
+      if (fijo) {
         if (!cancelado) {
           setPerfil({ ...fijo, uid: user.uid })
           setLoading(false)

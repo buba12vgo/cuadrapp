@@ -20,6 +20,7 @@ import {
   savePlanAnual,
 } from '@/lib/db'
 import { isDesignPreview } from '@/lib/designPreview'
+import { useEsMovil } from '@/lib/dispositivoMovil'
 import { isFirebaseReady } from '@/lib/firebase'
 import {
   cuadranteDesdeFirestore,
@@ -166,6 +167,7 @@ function resumenPedido(solicitud: Solicitud) {
 export function SolicitudesPage() {
   const { alert } = useAppDialog()
   const { perfil } = useAcceso()
+  const movil = useEsMovil()
   const [agentes] = useAgentesData()
   const [permisos] = useTiposPermiso()
   const [solicitudes, setSolicitudes] = useState<Solicitud[]>([])
@@ -690,7 +692,7 @@ export function SolicitudesPage() {
     esSuperadmin || lista.some((item) => agente?.id === item.companeroId && pendienteDeCompanero(item))
 
   return (
-    <section className={PAGE_SECTION}>
+    <section className={movil ? 'flex flex-col gap-3' : PAGE_SECTION}>
       <PageHeader
         title="Solicitudes"
         subtitle={
@@ -699,7 +701,13 @@ export function SolicitudesPage() {
             : 'Peticiones de permiso, cambios de días, de mes y de vacaciones'
         }
       />
-      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain">
+      <div
+        className={
+          movil
+            ? 'flex flex-col gap-3'
+            : 'flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain'
+        }
+      >
       {error ? <p className={`${ALERT_ERROR} shrink-0`}>{error}</p> : null}
       {!firebaseOk ? (
         <p className={`${ALERT_INFO} shrink-0`}>

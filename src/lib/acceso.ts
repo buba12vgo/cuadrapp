@@ -215,15 +215,10 @@ export function pestanasMovil(
   if (rol === 'SUPERADMIN' || rol === 'ADMIN') {
     return ['solicitudes', 'cuadrante', 'calendario', 'diario']
   }
-  if (puedeVer(rol, 'cuadrante-jefes', opciones)) {
+  if (rol === 'CONSULTA_JEFES' && opciones?.esJefatura === true) {
     return ['cuadrante', 'calendario', 'diario']
   }
-  const pestanas: PestanaMovil[] = []
-  if (puedeVer(rol, 'calendario', opciones)) pestanas.push('eventos')
-  pestanas.push('servicio')
-  if (puedeVer(rol, 'diario-agentes', opciones)) pestanas.push('diario')
-  pestanas.push('solicitudes', 'permisos')
-  return pestanas
+  return ['eventos', 'servicio', 'diario', 'solicitudes', 'permisos']
 }
 
 export function rutaDePestanaMovil(pestana: PestanaMovil) {

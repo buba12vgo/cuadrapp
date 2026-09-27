@@ -77,7 +77,7 @@ export function MovilCalendarioPage() {
   return (
     <div className="flex flex-col gap-3">
       <p className="px-1 text-sm text-slate-500">
-        Calendario Eventos. Pulsa un día para ver los eventos.
+        Calendario de jefes. Pulsa un día para ver el turno y los eventos.
       </p>
       <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1">
         {datos.jefes.map((item) => {

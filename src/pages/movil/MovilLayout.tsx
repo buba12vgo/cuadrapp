@@ -1,11 +1,37 @@
-import { CalendarCheck, CalendarRange, ClipboardList, Inbox, LayoutList, ListChecks } from 'lucide-react'
+import {
+  CalendarCheck,
+  CalendarRange,
+  ClipboardList,
+  Inbox,
+  LayoutList,
+  ListChecks,
+  type LucideIcon,
+} from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { AppDialogProvider } from '@/components/ui/ConfirmDialog'
 import { useAcceso } from '@/contexts/AccesoContext'
 import { useAuth } from '@/contexts/AuthContext'
+import {
+  pestanasMovil,
+  rutaDePestanaMovil,
+  type PestanaMovil,
+} from '@/lib/acceso'
 import { useConfigOperativaBootstrap } from '@/lib/useConfigOperativaBootstrap'
 import { FOCUS_RING } from '@/lib/uiStyles'
 import { MovilMesProvider, useMovilMes } from '@/pages/movil/movilMes'
+
+const PESTANA: Record<
+  PestanaMovil,
+  { label: string; icon: LucideIcon; dosLineas?: boolean }
+> = {
+  cuadrante: { label: 'Cuadrante', icon: LayoutList },
+  calendario: { label: 'Calendario', icon: CalendarRange },
+  eventos: { label: 'Calendario Eventos', icon: CalendarRange, dosLineas: true },
+  servicio: { label: 'Agente', icon: CalendarCheck },
+  diario: { label: 'Diario', icon: ListChecks },
+  solicitudes: { label: 'Solicitudes', icon: Inbox },
+  permisos: { label: 'Permisos', icon: ClipboardList },
+}
 
 function CabeceraMes() {
   const { user, signOut } = useAuth()
@@ -56,13 +82,13 @@ function CabeceraMes() {
 
 export function MovilLayout() {
   const { estado, error } = useConfigOperativaBootstrap()
-  const { puedeVer } = useAcceso()
-  const veCuadrante = puedeVer('cuadrante-jefes')
-  const veCalendario = puedeVer('calendario-jefes')
-  const veEventos = puedeVer('calendario') && !veCalendario
-  const veDiario = puedeVer('diario-agentes')
-  const columnas =
-    3 + Number(veCuadrante) + Number(veCalendario) + Number(veEventos) + Number(veDiario)
+  const { perfil, esJefatura } = useAcceso()
+  const pestanas = perfil
+    ? pestanasMovil(perfil.rol, {
+        esJefatura,
+        puedeEditarEventos: perfil.puedeEditarEventos,
+      })
+    : []
   return (
     <AppDialogProvider>
       <MovilMesProvider>
@@ -81,102 +107,38 @@ export function MovilLayout() {
           </main>
           <nav
             className="fixed inset-x-0 bottom-0 z-20 grid gap-1 border-t border-slate-200 bg-white px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
-            style={{ gridTemplateColumns: `repeat(${columnas}, minmax(0, 1fr))` }}
+            style={{ gridTemplateColumns: `repeat(${Math.max(pestanas.length, 1)}, minmax(0, 1fr))` }}
             aria-label="Consulta móvil"
           >
-            {veCuadrante ? (
-            <NavLink
-              to="/m/cuadrante"
-              className={({ isActive }) =>
-                `flex flex-col items-center gap-0.5 rounded-2xl py-2 text-xs font-bold ${FOCUS_RING} ${
-                  isActive ? 'bg-slate-950 text-white' : 'text-slate-500'
-                }`
-              }
-            >
-              <LayoutList className="h-4 w-4" aria-hidden />
-              Cuadrante
-            </NavLink>
-            ) : null}
-            {veCalendario ? (
-            <NavLink
-              to="/m/calendario"
-              className={({ isActive }) =>
-                `flex flex-col items-center gap-0.5 rounded-2xl py-2 text-xs font-bold ${FOCUS_RING} ${
-                  isActive ? 'bg-slate-950 text-white' : 'text-slate-500'
-                }`
-              }
-            >
-              <CalendarRange className="h-4 w-4" aria-hidden />
-              <span className="text-center leading-tight">
-                Calendario
-                <br />
-                Eventos
-              </span>
-            </NavLink>
-            ) : null}
-            {veEventos ? (
-              <NavLink
-                to="/m/eventos"
-                className={({ isActive }) =>
-                  `flex flex-col items-center gap-0.5 rounded-2xl py-2 text-xs font-bold ${FOCUS_RING} ${
-                    isActive ? 'bg-slate-950 text-white' : 'text-slate-500'
-                  }`
-                }
-              >
-                <CalendarRange className="h-4 w-4" aria-hidden />
-                <span className="text-center leading-tight">
-                  Calendario
-                  <br />
-                  Eventos
-                </span>
-              </NavLink>
-            ) : null}
-            <NavLink
-              to="/m/servicio"
-              className={({ isActive }) =>
-                `flex flex-col items-center gap-0.5 rounded-2xl py-2 text-xs font-bold ${FOCUS_RING} ${
-                  isActive ? 'bg-slate-950 text-white' : 'text-slate-500'
-                }`
-              }
-            >
-              <CalendarCheck className="h-4 w-4" aria-hidden />
-              Agente
-            </NavLink>
-            {veDiario ? (
-              <NavLink
-                to="/m/diario"
-                className={({ isActive }) =>
-                  `flex flex-col items-center gap-0.5 rounded-2xl py-2 text-xs font-bold ${FOCUS_RING} ${
-                    isActive ? 'bg-slate-950 text-white' : 'text-slate-500'
-                  }`
-                }
-              >
-                <ListChecks className="h-4 w-4" aria-hidden />
-                Diario
-              </NavLink>
-            ) : null}
-            <NavLink
-              to="/m/solicitudes"
-              className={({ isActive }) =>
-                `flex flex-col items-center gap-0.5 rounded-2xl py-2 text-xs font-bold ${FOCUS_RING} ${
-                  isActive ? 'bg-slate-950 text-white' : 'text-slate-500'
-                }`
-              }
-            >
-              <Inbox className="h-4 w-4" aria-hidden />
-              Solicitudes
-            </NavLink>
-            <NavLink
-              to="/m/permisos"
-              className={({ isActive }) =>
-                `flex flex-col items-center gap-0.5 rounded-2xl py-2 text-xs font-bold ${FOCUS_RING} ${
-                  isActive ? 'bg-slate-950 text-white' : 'text-slate-500'
-                }`
-              }
-            >
-              <ClipboardList className="h-4 w-4" aria-hidden />
-              Permisos
-            </NavLink>
+            {pestanas.map((clave) => {
+              const item = PESTANA[clave]
+              const Icono = item.icon
+              const [linea1, linea2] = item.dosLineas
+                ? item.label.split(' ')
+                : [item.label, null]
+              return (
+                <NavLink
+                  key={clave}
+                  to={rutaDePestanaMovil(clave)}
+                  className={({ isActive }) =>
+                    `flex flex-col items-center gap-0.5 rounded-2xl py-2 text-xs font-bold ${FOCUS_RING} ${
+                      isActive ? 'bg-slate-950 text-white' : 'text-slate-500'
+                    }`
+                  }
+                >
+                  <Icono className="h-4 w-4" aria-hidden />
+                  {linea2 ? (
+                    <span className="text-center leading-tight">
+                      {linea1}
+                      <br />
+                      {linea2}
+                    </span>
+                  ) : (
+                    item.label
+                  )}
+                </NavLink>
+              )
+            })}
           </nav>
         </div>
       </MovilMesProvider>

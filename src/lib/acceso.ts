@@ -189,18 +189,64 @@ export function puedeEscribir(
   return false
 }
 
+export type PestanaMovil =
+  | 'cuadrante'
+  | 'calendario'
+  | 'eventos'
+  | 'servicio'
+  | 'diario'
+  | 'solicitudes'
+  | 'permisos'
+
+const RUTA_PESTANA_MOVIL: Record<PestanaMovil, string> = {
+  cuadrante: '/m/cuadrante',
+  calendario: '/m/calendario',
+  eventos: '/m/eventos',
+  servicio: '/m/servicio',
+  diario: '/m/diario',
+  solicitudes: '/m/solicitudes',
+  permisos: '/m/permisos',
+}
+
+export function pestanasMovil(
+  rol: RolAcceso,
+  opciones?: OpcionesAcceso,
+): PestanaMovil[] {
+  if (rol === 'SUPERADMIN' || rol === 'ADMIN') {
+    return ['solicitudes', 'cuadrante', 'calendario', 'diario']
+  }
+  if (puedeVer(rol, 'cuadrante-jefes', opciones)) {
+    return ['cuadrante', 'calendario', 'diario']
+  }
+  const pestanas: PestanaMovil[] = []
+  if (puedeVer(rol, 'calendario', opciones)) pestanas.push('eventos')
+  pestanas.push('servicio')
+  if (puedeVer(rol, 'diario-agentes', opciones)) pestanas.push('diario')
+  pestanas.push('solicitudes', 'permisos')
+  return pestanas
+}
+
+export function rutaDePestanaMovil(pestana: PestanaMovil) {
+  return RUTA_PESTANA_MOVIL[pestana]
+}
+
+function pestanaDeRutaMovil(path: string): PestanaMovil | null {
+  const exacta = (Object.entries(RUTA_PESTANA_MOVIL) as Array<[PestanaMovil, string]>).find(
+    ([, ruta]) => path === ruta || path.startsWith(`${ruta}/`),
+  )
+  return exacta?.[0] ?? null
+}
+
 export function puedeVerRuta(
   rol: RolAcceso,
   path: string,
   opciones?: OpcionesAcceso,
 ) {
-  if (path === '/m/cuadrante' || path.startsWith('/m/cuadrante/')) {
-    return puedeVer(rol, 'cuadrante-jefes', opciones)
+  if (path === '/m' || path === '/m/') return true
+  if (path.startsWith('/m/')) {
+    const pestana = pestanaDeRutaMovil(path)
+    return pestana != null && pestanasMovil(rol, opciones).includes(pestana)
   }
-  if (path === '/m/calendario' || path.startsWith('/m/calendario/')) {
-    return puedeVer(rol, 'calendario-jefes', opciones)
-  }
-  if (path === '/m' || path.startsWith('/m/')) return true
   const ambito = ambitoDeRuta(path)
   if (!ambito) return rol !== 'CONSULTA_JEFES'
   return puedeVer(rol, ambito, opciones)
@@ -214,6 +260,7 @@ export function rutaInicio(rol: RolAcceso, opciones?: OpcionesAcceso) {
 }
 
 export function inicioMovil(rol: RolAcceso, opciones?: OpcionesAcceso) {
+  if (rol === 'SUPERADMIN' || rol === 'ADMIN') return '/m/solicitudes'
   if (puedeVer(rol, 'cuadrante-jefes', opciones)) return '/m/cuadrante'
   return '/m/servicio'
 }

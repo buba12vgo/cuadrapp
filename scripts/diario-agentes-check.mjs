@@ -10,7 +10,7 @@ const coberturaMod = await server.ssrLoadModule('/src/lib/coberturaDia.ts')
 const accesoMod = await server.ssrLoadModule('/src/lib/acceso.ts')
 const { asignarPuestoEnCelda, puestoEnCelda, puestosPermitidosParaAgente } = puestosMod
 const { resumenDiaServicio } = coberturaMod
-const { puedeVer, puedeEscribir } = accesoMod
+const { puedeVer, puedeEscribir, pestanasMovil, inicioMovil, puedeVerRuta } = accesoMod
 
 const fallos = []
 const puestos = [
@@ -112,6 +112,30 @@ if (puedeEscribir('CONSULTA_JEFES', 'calendario')) fallos.push('agente edita eve
 if (!puedeEscribir('CONSULTA_JEFES', 'calendario', { puedeEditarEventos: true })) {
   fallos.push('jefe con permiso edita eventos')
 }
+
+function mismas(a, b) {
+  return a.length === b.length && a.every((item, i) => item === b[i])
+}
+if (!mismas(pestanasMovil('SUPERADMIN'), ['solicitudes', 'cuadrante', 'calendario', 'diario'])) {
+  fallos.push('nav superadmin')
+}
+if (!mismas(pestanasMovil('ADMIN'), ['solicitudes', 'cuadrante', 'calendario', 'diario'])) {
+  fallos.push('nav admin')
+}
+if (!mismas(pestanasMovil('CONSULTA_JEFES', jefatura), ['cuadrante', 'calendario', 'diario'])) {
+  fallos.push('nav jefe')
+}
+if (!mismas(pestanasMovil('CONSULTA_JEFES'), ['eventos', 'servicio', 'diario', 'solicitudes', 'permisos'])) {
+  fallos.push('nav agente')
+}
+if (inicioMovil('SUPERADMIN') !== '/m/solicitudes') fallos.push('inicio superadmin')
+if (inicioMovil('CONSULTA_JEFES', jefatura) !== '/m/cuadrante') fallos.push('inicio jefe')
+if (inicioMovil('CONSULTA_JEFES') !== '/m/servicio') fallos.push('inicio agente')
+if (puedeVerRuta('CONSULTA_JEFES', '/m/cuadrante')) fallos.push('agente entra en cuadrante')
+if (puedeVerRuta('CONSULTA_JEFES', '/m/solicitudes', jefatura)) fallos.push('jefe entra en solicitudes')
+if (!puedeVerRuta('ADMIN', '/m/solicitudes')) fallos.push('admin entra en solicitudes')
+if (puedeVerRuta('ADMIN', '/m/servicio')) fallos.push('admin entra en agente')
+if (!puedeVerRuta('CONSULTA_JEFES', '/m/servicio')) fallos.push('agente entra en servicio')
 
 await server.close()
 if (fallos.length) {

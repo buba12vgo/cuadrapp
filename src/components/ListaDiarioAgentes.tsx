@@ -14,6 +14,7 @@ import {
   type TurnoOperativo,
 } from '@/lib/calendarioPuestos'
 import {
+  CLASE_SEMAFORO,
   resumenDiaServicio,
   TURNOS_COBERTURA,
   type LineaPuestoDia,
@@ -86,7 +87,16 @@ function opcionesPuesto(agente: FichaPolicia, puestos: PuestoConfig[], actual: s
   return nombres
 }
 
-export function ListaDiarioAgentes({ anio, mes }: { anio: number; mes: number }) {
+export function ListaDiarioAgentes({
+  anio,
+  mes,
+  acordeonTurnos = false,
+}: {
+  anio: number
+  mes: number
+  /** En la consulta móvil: Mañana, Tarde y Noche se abren y se cierran. */
+  acordeonTurnos?: boolean
+}) {
   const { alert } = useAppDialog()
   const { puedeEscribir } = useAcceso()
   const puedeEditar = puedeEscribir('diario-agentes')
@@ -104,9 +114,16 @@ export function ListaDiarioAgentes({ anio, mes }: { anio: number; mes: number })
     clave: `${hoy.getFullYear()}-${hoy.getMonth() + 1}`,
     dia: hoy.getDate(),
   }))
+  const [turnosAbiertos, setTurnosAbiertos] = useState<Set<TurnoOperativo>>(
+    () => new Set(),
+  )
   const diaPorDefecto =
     hoy.getFullYear() === anio && hoy.getMonth() + 1 === mes ? hoy.getDate() : 1
   const diaAbierto = seleccion.clave === claveMes ? seleccion.dia : diaPorDefecto
+
+  useEffect(() => {
+    setTurnosAbiertos(new Set())
+  }, [diaAbierto, claveMes])
   const nDias = diasDelMes(anio, mes)
 
   useEffect(() => {
@@ -215,8 +232,23 @@ export function ListaDiarioAgentes({ anio, mes }: { anio: number; mes: number })
     void persistir(resultado.asignaciones)
   }
 
+  function alternarTurno(turno: TurnoOperativo) {
+    setTurnosAbiertos((actual) => {
+      const siguiente = new Set(actual)
+      if (siguiente.has(turno)) siguiente.delete(turno)
+      else siguiente.add(turno)
+      return siguiente
+    })
+  }
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
+    <div
+      className={
+        acordeonTurnos
+          ? 'flex flex-col gap-2'
+          : 'flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto'
+      }
+    >
       {datos.loading ? <p className="text-sm text-slate-500">Cargando el mes…</p> : null}
       {datos.error ? <p className={ALERT_ERROR}>{datos.error}</p> : null}
       {errorGuardado ? <p className={ALERT_ERROR}>{errorGuardado}</p> : null}
@@ -274,7 +306,13 @@ export function ListaDiarioAgentes({ anio, mes }: { anio: number; mes: number })
                 />
               </button>
               {abierto ? (
-                <div className="grid grid-cols-1 gap-3 border-t border-slate-100 p-2 lg:grid-cols-3">
+                <div
+                  className={
+                    acordeonTurnos
+                      ? 'flex flex-col gap-2 border-t border-slate-100 p-2'
+                      : 'grid grid-cols-1 gap-3 border-t border-slate-100 p-2 lg:grid-cols-3'
+                  }
+                >
                   {TURNOS_COBERTURA.map((turno) => (
                     <TurnoDia
                       key={turno}
@@ -285,6 +323,9 @@ export function ListaDiarioAgentes({ anio, mes }: { anio: number; mes: number })
                       agentesPorId={agentesPorId}
                       puedeEditar={puedeEditar}
                       onCambiar={cambiarPuesto}
+                      desplegable={acordeonTurnos}
+                      abierto={turnosAbiertos.has(turno)}
+                      onToggle={() => alternarTurno(turno)}
                     />
                   ))}
                 </div>
@@ -305,6 +346,9 @@ function TurnoDia({
   agentesPorId,
   puedeEditar,
   onCambiar,
+  desplegable = false,
+  abierto = true,
+  onToggle,
 }: {
   turno: TurnoOperativo
   resumen: ResumenDiaServicio
@@ -313,21 +357,61 @@ function TurnoDia({
   agentesPorId: Map<string, FichaPolicia>
   puedeEditar: boolean
   onCambiar: (agente: FichaPolicia, fecha: string, turno: TurnoOperativo, puesto: string) => void
+  desplegable?: boolean
+  abierto?: boolean
+  onToggle?: () => void
 }) {
   const lineas = resumen.lineas.filter((linea) => linea.turno === turno)
   const sueltos = resumen.sinPuesto.filter((persona) => persona.turno === turno)
   const disponibles = resumen.jornadaDisponible.filter((persona) => persona.turno === turno)
   if (lineas.length === 0 && sueltos.length === 0 && disponibles.length === 0) return null
   const cobertura = resumen.turnos[turno]
+  const panelId = `diario-${fecha}-${turno}`
+  const muestraCuerpo = !desplegable || abierto
+
+  const titulo = (
+    <>
+      <span className="flex min-w-0 items-center gap-2">
+        <span className="w-4 font-extrabold normal-case tracking-normal text-slate-800">
+          {turno}
+        </span>
+        <span
+          className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${CLASE_SEMAFORO[cobertura.nivel]}`}
+          title={`${TURNO_LABEL[turno]} ${cobertura.trabajando}/${cobertura.minimo}`}
+        />
+        <span>{TURNO_LABEL[turno]}</span>
+      </span>
+      <span className="flex items-center gap-1 font-semibold normal-case tracking-normal text-slate-400">
+        {cobertura.trabajando}/{cobertura.minimo}
+        {desplegable ? (
+          <ChevronDown
+            className={`h-4 w-4 text-slate-400 transition-transform ${abierto ? 'rotate-180' : ''}`}
+            aria-hidden
+          />
+        ) : null}
+      </span>
+    </>
+  )
 
   return (
-    <section className="min-w-0 rounded-lg border border-slate-200 bg-slate-50/70">
-      <h3 className="flex items-baseline justify-between gap-2 border-b border-slate-200 px-2 py-1.5 text-xs font-bold uppercase tracking-wide text-slate-600">
-        {TURNO_LABEL[turno]}
-        <span className="font-semibold normal-case tracking-normal text-slate-400">
-          {cobertura.trabajando}/{cobertura.minimo}
-        </span>
-      </h3>
+    <section className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-50/70">
+      {desplegable ? (
+        <button
+          type="button"
+          aria-expanded={abierto}
+          aria-controls={panelId}
+          className={`flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left text-xs font-bold uppercase tracking-wide text-slate-600 ${FOCUS_RING}`}
+          onClick={onToggle}
+        >
+          {titulo}
+        </button>
+      ) : (
+        <h3 className="flex items-center justify-between gap-2 border-b border-slate-200 px-2 py-1.5 text-xs font-bold uppercase tracking-wide text-slate-600">
+          {titulo}
+        </h3>
+      )}
+      {muestraCuerpo ? (
+      <div id={desplegable ? panelId : undefined} className={desplegable ? 'border-t border-slate-200' : undefined}>
       <ul className="divide-y divide-slate-200">
         {lineas.map((linea) => (
           <LineaPuesto
@@ -371,6 +455,8 @@ function TurnoDia({
             />
           ))}
         </div>
+      ) : null}
+      </div>
       ) : null}
     </section>
   )

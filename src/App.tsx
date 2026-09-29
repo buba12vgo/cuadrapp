@@ -1,6 +1,7 @@
 import { lazy, type ComponentType } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAcceso } from '@/contexts/AccesoContext'
+import { importarModulo } from '@/lib/cargaDiferida'
 import { AccesoShell } from '@/components/AccesoShell'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { LoginPage } from '@/pages/LoginPage'
@@ -10,7 +11,9 @@ function pagina<K extends string>(
   cargar: () => Promise<Record<K, ComponentType>>,
   nombre: K,
 ) {
-  return lazy(() => cargar().then((mod) => ({ default: mod[nombre] })))
+  return lazy(() =>
+    importarModulo(cargar).then((mod) => ({ default: mod[nombre] })),
+  )
 }
 
 const MovilCalendarioPage = pagina(() => import('@/pages/movil/MovilCalendarioPage'), 'MovilCalendarioPage')

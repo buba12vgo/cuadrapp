@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { esErrorCargaModulo } from '@/lib/cargaDiferida'
 
 type Props = { children: ReactNode }
 type State = { error: Error | null }
@@ -16,14 +17,19 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.error) {
+      const versionVieja = esErrorCargaModulo(this.state.error)
       return (
         <div className="flex min-h-svh flex-col items-center justify-center bg-canvas px-4">
           <div className="w-full max-w-md rounded-xl border border-red-200 bg-surface p-6 shadow-card">
             <h1 className="font-display text-lg font-bold text-ink">
-              Error al cargar la aplicación
+              {versionVieja
+                ? 'No se pudo cargar esta pantalla'
+                : 'Error al cargar la aplicación'}
             </h1>
             <p className="mt-2 text-sm text-muted">
-              {this.state.error.message || 'Ha ocurrido un error inesperado.'}
+              {versionVieja
+                ? 'Hay una versión nueva de Cuadrapp o se ha perdido la conexión. Recarga para continuar.'
+                : this.state.error.message || 'Ha ocurrido un error inesperado.'}
             </p>
             <button
               type="button"

@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { celdasMesCalendario } from '@/lib/exportarCalendarioJefesPdf'
+import { celdasMesCalendario } from '@/lib/calendarioMes'
 import { esFinDeSemana } from '@/lib/convenio'
 import { esFestivo } from '@/lib/festivos'
 

@@ -1,5 +1,5 @@
 import { ChipEventoCalendario } from '@/components/ChipEventoCalendario'
-import { detalleDiaCalendarioJefe } from '@/lib/exportarCalendarioJefesPdf'
+import { detalleDiaCalendarioJefe } from '@/lib/calendarioMes'
 import { esFinDeSemana } from '@/lib/convenio'
 import { esFestivo } from '@/lib/festivos'
 import { eventosEnFecha } from '@/lib/eventosStore'

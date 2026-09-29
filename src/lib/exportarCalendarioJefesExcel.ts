@@ -11,7 +11,7 @@ import type { EventoOperativo, FichaPolicia, Turno } from '@/types'
 import {
   celdasMesCalendario,
   detalleDiaCalendarioJefe,
-} from '@/lib/exportarCalendarioJefesPdf'
+} from '@/lib/calendarioMes'
 import { DIAS_SEMANA, MESES, isoFecha, pad2 } from '@/lib/fechas'
 
 export type ExportarCalendarioJefesExcelOpciones = {

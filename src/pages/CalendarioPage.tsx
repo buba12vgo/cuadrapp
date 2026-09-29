@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChipEventoCalendario, ETIQUETA_EVENTO } from '@/components/ChipEventoCalendario'
+import { ChipEventoCalendario } from '@/components/ChipEventoCalendario'
+import { ETIQUETA_EVENTO } from '@/lib/etiquetasEvento'
 import { CalendarioResumenPanel } from '@/components/dashboard/CalendarioResumenPanel'
 import {
   DashboardBody,

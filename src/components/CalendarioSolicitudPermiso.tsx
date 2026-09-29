@@ -9,7 +9,7 @@ import {
   type NivelSemaforo,
 } from '@/lib/coberturaDia'
 import { esDiaTrabajado, esFinDeSemana } from '@/lib/convenio'
-import { celdasMesCalendario } from '@/lib/exportarCalendarioJefesPdf'
+import { celdasMesCalendario } from '@/lib/calendarioMes'
 import { esFestivo } from '@/lib/festivos'
 import { useMinimosSemanaData } from '@/lib/puestosStore'
 import { esRolCuadranteJefes } from '@/lib/rolesCuadrante'

@@ -27,7 +27,7 @@ import {
   resumenDiaServicio,
 } from '@/lib/coberturaDia'
 import { esDiaTrabajado, esFinDeSemana, totalTrabajados } from '@/lib/convenio'
-import { celdasMesCalendario } from '@/lib/exportarCalendarioJefesPdf'
+import { celdasMesCalendario } from '@/lib/calendarioMes'
 import { eventosEnFecha } from '@/lib/eventosStore'
 import { esFestivo } from '@/lib/festivos'
 import { useMinimosSemanaData } from '@/lib/puestosStore'

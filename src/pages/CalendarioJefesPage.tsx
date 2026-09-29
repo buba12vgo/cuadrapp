@@ -52,8 +52,8 @@ import { exportarCalendarioJefesExcel } from '@/lib/exportarCalendarioJefesExcel
 import {
   celdasMesCalendario,
   detalleDiaCalendarioJefe,
-  exportarCalendarioJefesPdf,
-} from '@/lib/exportarCalendarioJefesPdf'
+} from '@/lib/calendarioMes'
+import { exportarCalendarioJefesPdf } from '@/lib/exportarCalendarioJefesPdf'
 import { esFestivo } from '@/lib/festivos'
 import { ensureFirebase, isFirebaseReady } from '@/lib/firebase'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'

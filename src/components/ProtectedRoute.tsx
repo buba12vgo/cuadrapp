@@ -1,7 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAcceso } from '@/contexts/AccesoContext'
 import { useAuth } from '@/contexts/AuthContext'
-import { inicioMovil, puedeVerRuta } from '@/lib/acceso'
+import { puedeVerRuta } from '@/lib/acceso'
 
 export function ProtectedRoute() {
   const { user, loading } = useAuth()
@@ -30,10 +30,7 @@ export function ProtectedRoute() {
     })
   ) {
     const destino = location.pathname.startsWith('/m')
-      ? inicioMovil(acceso.perfil.rol, {
-          esJefatura: acceso.esJefatura,
-          puedeEditarEventos: acceso.perfil.puedeEditarEventos,
-        })
+      ? acceso.inicioMovil
       : acceso.inicio
     return <Navigate to={destino} replace />
   }

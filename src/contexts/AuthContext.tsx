@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
   type ReactNode,
 } from 'react'
@@ -187,23 +188,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(mensaje)
   }, [])
 
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        loading,
-        firebaseReady,
-        signInWithGoogle,
-        signInWithEmail,
-        restablecerContrasena,
-        signOut,
-        notificar,
-        error,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      user,
+      loading,
+      firebaseReady,
+      signInWithGoogle,
+      signInWithEmail,
+      restablecerContrasena,
+      signOut,
+      notificar,
+      error,
+    }),
+    [
+      user,
+      loading,
+      firebaseReady,
+      signInWithGoogle,
+      signInWithEmail,
+      restablecerContrasena,
+      signOut,
+      notificar,
+      error,
+    ],
   )
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {

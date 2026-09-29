@@ -9,6 +9,7 @@ import {
 import {
   ETIQUETA_ROL_ACCESO,
   fijarRolAccesoActivo,
+  inicioMovil,
   perfilFijo,
   puedeEscribir,
   puedeVer,
@@ -34,6 +35,8 @@ type AccesoContextValue = {
   puedeVer: (ambito: Ambito) => boolean
   puedeEscribir: (ambito: Ambito) => boolean
   inicio: string
+  /** Pantalla de entrada de la consulta móvil para este perfil. */
+  inicioMovil: string
   etiquetaRol: string
   rolPreview: RolPreview
   setRolPreview: (rol: RolPreview) => void
@@ -225,6 +228,12 @@ export function AccesoProvider({ children }: { children: ReactNode }) {
             })
           : false,
       inicio: rol ? rutaInicio(rol, { esJefatura }) : '/login',
+      inicioMovil: rol
+        ? inicioMovil(rol, {
+            esJefatura,
+            puedeEditarEventos: perfil?.puedeEditarEventos,
+          })
+        : '/m/servicio',
       etiquetaRol: rol ? ETIQUETA_ROL_ACCESO[rol] : '',
       rolPreview,
       setRolPreview,

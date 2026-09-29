@@ -1,7 +1,6 @@
 import { lazy, type ComponentType } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAcceso } from '@/contexts/AccesoContext'
-import { inicioMovil } from '@/lib/acceso'
 import { AccesoShell } from '@/components/AccesoShell'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { LoginPage } from '@/pages/LoginPage'
@@ -40,14 +39,7 @@ const RoadmapTimeline = pagina(() => import('@/components/RoadmapTimeline'), 'Ro
 const UsuariosPage = pagina(() => import('@/pages/UsuariosPage'), 'UsuariosPage')
 
 function InicioMovil() {
-  const acceso = useAcceso()
-  const destino = acceso.perfil
-    ? inicioMovil(acceso.perfil.rol, {
-        esJefatura: acceso.esJefatura,
-        puedeEditarEventos: acceso.perfil.puedeEditarEventos,
-      })
-    : '/m/servicio'
-  return <Navigate to={destino} replace />
+  return <Navigate to={useAcceso().inicioMovil} replace />
 }
 
 export default function App() {

@@ -1,4 +1,5 @@
 import { useCallback, useSyncExternalStore } from 'react'
+import { crearCanalStore } from '@/lib/storeExterno'
 import type { EventoOperativo } from '@/types'
 
 function clonarEvento(evento: EventoOperativo): EventoOperativo {
@@ -15,16 +16,7 @@ function clonarEventos(eventos: EventoOperativo[]) {
 
 let eventosData: EventoOperativo[] = []
 let eventosCargados = false
-const listeners = new Set<() => void>()
-
-function emit() {
-  for (const listener of listeners) listener()
-}
-
-function subscribe(listener: () => void) {
-  listeners.add(listener)
-  return () => listeners.delete(listener)
-}
+const { emit, subscribe } = crearCanalStore()
 
 function getSnapshot() {
   return eventosData

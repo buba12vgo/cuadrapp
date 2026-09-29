@@ -1,4 +1,5 @@
 import { useCallback, useSyncExternalStore } from 'react'
+import { crearCanalStore } from '@/lib/storeExterno'
 import { mockAgentes } from '@/lib/mockData'
 import type { FichaPolicia } from '@/types'
 
@@ -26,16 +27,7 @@ function clonarAgentes(agentes: FichaPolicia[]) {
 
 let agentesData = clonarAgentes(mockAgentes)
 let agentesCargados = false
-const listeners = new Set<() => void>()
-
-function emit() {
-  for (const listener of listeners) listener()
-}
-
-function subscribe(listener: () => void) {
-  listeners.add(listener)
-  return () => listeners.delete(listener)
-}
+const { emit, subscribe } = crearCanalStore()
 
 function getSnapshot() {
   return agentesData

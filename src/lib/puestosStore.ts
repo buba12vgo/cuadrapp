@@ -1,14 +1,15 @@
 import { useCallback, useSyncExternalStore } from 'react'
+import { crearCanalStore } from '@/lib/storeExterno'
 import {
   PUESTOS_INICIALES,
   clonarMinimos,
+  clonarMinimosPuesto,
   clonarMinimosSemana,
   crearMinimosSemana,
   nombresPuestos,
   normalizarOrdenPuesto,
   ordenarPuestos,
   type MinimosDia,
-  type MinimosPuesto,
   type MinimosSemana,
   type PuestoConfig,
   type TurnoOperativo,
@@ -24,10 +25,6 @@ function clonarPuesto(puesto: PuestoConfig): PuestoConfig {
 
 function clonarPuestos(puestos: PuestoConfig[]) {
   return ordenarPuestos(puestos.map(clonarPuesto))
-}
-
-function clonarMinimosPuesto(minimos: MinimosPuesto): MinimosPuesto {
-  return { M: minimos.M, T: minimos.T, N: minimos.N }
 }
 
 function alinearMinimosDia(
@@ -65,16 +62,7 @@ let puestosData = clonarPuestos(PUESTOS_INICIALES)
 let minimosSemanaData = crearMinimosSemana(puestosData)
 let configCargada = false
 
-const listeners = new Set<() => void>()
-
-function emit() {
-  for (const listener of listeners) listener()
-}
-
-function subscribe(listener: () => void) {
-  listeners.add(listener)
-  return () => listeners.delete(listener)
-}
+const { emit, subscribe } = crearCanalStore()
 
 function getPuestosSnapshot() {
   return puestosData

@@ -1,4 +1,5 @@
 import { useCallback, useSyncExternalStore } from 'react'
+import { crearCanalStore } from '@/lib/storeExterno'
 import {
   generarPlanAnual,
   OBJETIVOS_PLAN_DEFECTO,
@@ -30,16 +31,7 @@ let marcasPorAnio: Record<number, MarcasPlanAnual | null> = {}
 let objetivosPorAnio: Record<number, ObjetivosGlobales> = {}
 let planCargado = false
 let errorCargaPlan: string | null = null
-const listeners = new Set<() => void>()
-
-function emit() {
-  for (const listener of listeners) listener()
-}
-
-function subscribe(listener: () => void) {
-  listeners.add(listener)
-  return () => listeners.delete(listener)
-}
+const { emit, subscribe } = crearCanalStore()
 
 function getSnapshot() {
   return anioActivo

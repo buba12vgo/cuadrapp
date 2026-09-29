@@ -1,4 +1,5 @@
 import { useCallback, useSyncExternalStore } from 'react'
+import { crearCanalStore } from '@/lib/storeExterno'
 import {
   PERMISOS_INICIALES,
   clonarPermiso,
@@ -12,16 +13,7 @@ function clonarPermisos(permisos: PermisoConfig[]) {
 let permisosData = clonarPermisos(PERMISOS_INICIALES)
 let permisosCargados = false
 
-const listeners = new Set<() => void>()
-
-function emit() {
-  for (const listener of listeners) listener()
-}
-
-function subscribe(listener: () => void) {
-  listeners.add(listener)
-  return () => listeners.delete(listener)
-}
+const { emit, subscribe } = crearCanalStore()
 
 function getSnapshot() {
   return permisosData

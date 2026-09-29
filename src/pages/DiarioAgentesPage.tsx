@@ -3,21 +3,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { ListaDiarioAgentes } from '@/components/ListaDiarioAgentes'
 import { PageHeader, ToolbarSection } from '@/components/ui/PageHeader'
 import { BTN_GHOST, FOCUS_RING, PAGE_SECTION } from '@/lib/uiStyles'
-
-const MESES = [
-  'Enero',
-  'Febrero',
-  'Marzo',
-  'Abril',
-  'Mayo',
-  'Junio',
-  'Julio',
-  'Agosto',
-  'Septiembre',
-  'Octubre',
-  'Noviembre',
-  'Diciembre',
-] as const
+import { MESES } from '@/lib/fechas'
 
 const SELECT_TOOLBAR =
   `h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-ink ${FOCUS_RING} focus:border-brand-400`

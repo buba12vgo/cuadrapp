@@ -33,6 +33,7 @@ import { useMinimosSemanaData } from '@/lib/puestosStore'
 import { useCuadranteOperativoMes } from '@/lib/useCuadranteOperativoMes'
 import { ALERT_ERROR, ALERT_INFO, FOCUS_RING } from '@/lib/uiStyles'
 import type { FichaPolicia } from '@/types'
+import { isoFecha } from '@/lib/fechas'
 
 const TURNO_LABEL: Record<TurnoOperativo, string> = {
   M: 'Mañana',
@@ -41,14 +42,6 @@ const TURNO_LABEL: Record<TurnoOperativo, string> = {
 }
 
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
-
-function pad(n: number) {
-  return String(n).padStart(2, '0')
-}
-
-function isoFecha(anio: number, mes: number, dia: number) {
-  return `${anio}-${pad(mes)}-${pad(dia)}`
-}
 
 function puestosSinCubrir(resumen: ResumenDiaServicio) {
   return resumen.lineas.filter((linea) => linea.minimo > 0 && linea.personas.length < linea.minimo)

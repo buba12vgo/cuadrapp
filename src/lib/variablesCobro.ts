@@ -3,14 +3,7 @@ import { esDiaTrabajado } from '@/lib/convenio'
 import { esFestivo } from '@/lib/festivos'
 import { esJornadaDisponible } from '@/lib/jornadaDisponible'
 import type { EventoOperativo, Turno } from '@/types'
-
-function pad(n: number) {
-  return String(n).padStart(2, '0')
-}
-
-function isoFecha(anio: number, mes: number, dia: number) {
-  return `${anio}-${pad(mes)}-${pad(dia)}`
-}
+import { isoFecha } from '@/lib/fechas'
 
 function diaSemana(anio: number, mes: number, dia: number) {
   return new Date(anio, mes - 1, dia).getDay()

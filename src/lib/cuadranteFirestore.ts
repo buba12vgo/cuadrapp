@@ -20,6 +20,7 @@ import {
 import { getTiposPermiso } from '@/lib/permisosStore'
 import { getPuestos } from '@/lib/puestosStore'
 import type { FichaPolicia, Turno } from '@/types'
+import { isoFecha, pad2 } from '@/lib/fechas'
 
 const TURNOS: Turno[] = ['M', 'T', 'N', 'MT', 'L', 'P', 'D', 'V']
 
@@ -42,12 +43,8 @@ export type OpcionesCuadranteFirestore = {
   migrarLibranzaAPermiso?: boolean
 }
 
-function pad(n: number) {
-  return String(n).padStart(2, '0')
-}
-
 export function idDocumentoCuadrante(anio: number, mes: number) {
-  return `${anio}-${pad(mes)}`
+  return `${anio}-${pad2(mes)}`
 }
 
 function esTurno(valor: unknown): valor is Turno {
@@ -62,10 +59,6 @@ function esTurnoAsignable(turno: Turno): turno is TurnoAsignable {
     turno === 'MT' ||
     turno === 'P'
   )
-}
-
-function isoFecha(anio: number, mes: number, dia: number) {
-  return `${anio}-${pad(mes)}-${pad(dia)}`
 }
 
 function mapaAbrevAPuesto(puestos: PuestoConfig[]) {

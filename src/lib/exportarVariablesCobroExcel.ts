@@ -6,25 +6,7 @@ import {
   conteoVariablesCobroVacio,
 } from '@/lib/variablesCobro'
 import type { FichaPolicia } from '@/types'
-
-const MESES = [
-  'Enero',
-  'Febrero',
-  'Marzo',
-  'Abril',
-  'Mayo',
-  'Junio',
-  'Julio',
-  'Agosto',
-  'Septiembre',
-  'Octubre',
-  'Noviembre',
-  'Diciembre',
-] as const
-
-function pad(n: number) {
-  return String(n).padStart(2, '0')
-}
+import { MESES, pad2 } from '@/lib/fechas'
 
 export type ExportarVariablesCobroOpciones = {
   anio: number
@@ -80,7 +62,7 @@ export function exportarVariablesCobroExcel(opciones: ExportarVariablesCobroOpci
     hoja,
     `Variables ${nombreMes.slice(0, 3)}`.slice(0, 31),
   )
-  XLSX.writeFile(libro, `variables-cobro-${anio}-${pad(mes)}.xlsx`)
+  XLSX.writeFile(libro, `variables-cobro-${anio}-${pad2(mes)}.xlsx`)
 }
 
 function conteoVacio(): ConteoVariablesCobro {

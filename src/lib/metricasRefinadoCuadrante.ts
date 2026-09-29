@@ -21,6 +21,7 @@ import {
   puntajeEquilibrioVariablesMensual,
   sumatorioFMensual,
 } from '@/lib/variablesCobro'
+import { isoFecha as isoFechaCuadrante } from '@/lib/fechas'
 
 export const PESO_DEFICIT_MINIMO = 50_000
 export const PESO_FINDES_NF = 3_000
@@ -29,11 +30,6 @@ export const PESO_FINDE_PARTIDO = 500
 export const PESO_VARIABLES = 1
 
 type CuadranteMensual = Record<string, Turno[]>
-
-function isoFechaCuadrante(anio: number, mes: number, dia: number) {
-  return `${anio}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`
-}
-
 type TurnoOperativoMes = 'M' | 'T' | 'N'
 
 function turnoOperativoMes(

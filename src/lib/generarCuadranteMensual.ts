@@ -49,6 +49,7 @@ import {
   patronesAtomicos,
   resolverFindesGrupo,
 } from '@/lib/resolverFindes'
+import { isoFecha as isoFechaCuadrante } from '@/lib/fechas'
 
 export type CuadranteMensual = Record<string, Turno[]>
 
@@ -62,14 +63,6 @@ export const PASADAS_REFINO_CUADRANTE_MENSUAL = 4
 
 /** Rondas del refinado final coordinado (sudoku). */
 export const MAX_RONDAS_REFINO_SUDOKU = 12
-
-function padDia(n: number) {
-  return String(n).padStart(2, '0')
-}
-
-function isoFechaCuadrante(anio: number, mes: number, dia: number) {
-  return `${anio}-${padDia(mes)}-${padDia(dia)}`
-}
 
 type TurnoOperativoMes = Exclude<TurnoAnual, 'V'>
 

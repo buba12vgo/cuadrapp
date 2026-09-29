@@ -52,6 +52,7 @@ import {
 } from '@/lib/planAnualFirestore'
 import type { ObjetivosGlobales, PlanAnual } from '@/lib/generarPlanAnual'
 import { ANIO_REFERENCIA_VACACIONES_DEFECTO } from '@/lib/vacaciones'
+import { esFechaIso } from '@/lib/fechas'
 import type {
   EventoOperativo,
   FichaPolicia,
@@ -447,10 +448,7 @@ function eventoDesdeFirestore(
   docId: string,
   data: Record<string, unknown>,
 ): EventoOperativo | null {
-  const fecha =
-    typeof data.fecha === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data.fecha)
-      ? data.fecha
-      : null
+  const fecha = esFechaIso(data.fecha) ? data.fecha : null
   if (!fecha || !esTipoEvento(data.tipo)) return null
 
   return {
@@ -468,7 +466,7 @@ function eventoDesdeFirestore(
 
 function eventoParaFirestore(evento: EventoOperativo): EventoOperativo {
   const fecha = evento.fecha.trim()
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+  if (!esFechaIso(fecha)) {
     throw new Error('La fecha del evento no es válida')
   }
   const id = evento.id.trim() || `ev-${fecha}`
@@ -894,7 +892,7 @@ function solicitudDesdeFirestore(
   const creadaEn = texto(data.creadaEn)
   if (!TIPOS_SOLICITUD.has(tipo as TipoSolicitud)) return null
   if (!ESTADOS_SOLICITUD.has(estado as EstadoSolicitud)) return null
-  if (!agenteId || !/^\d{4}-\d{2}-\d{2}$/.test(fecha) || !creadaEn) return null
+  if (!agenteId || !esFechaIso(fecha) || !creadaEn) return null
   const solicitud: Solicitud = {
     id,
     tipo: tipo as TipoSolicitud,

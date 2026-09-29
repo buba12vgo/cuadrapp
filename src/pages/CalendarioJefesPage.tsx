@@ -61,23 +61,7 @@ import { useTiposPermiso } from '@/lib/permisosStore'
 import { usePuestosData } from '@/lib/puestosStore'
 import { agentesCuadranteJefes, ROL_LABEL } from '@/lib/rolesCuadrante'
 import type { Turno } from '@/types'
-
-const MESES = [
-  'Enero',
-  'Febrero',
-  'Marzo',
-  'Abril',
-  'Mayo',
-  'Junio',
-  'Julio',
-  'Agosto',
-  'Septiembre',
-  'Octubre',
-  'Noviembre',
-  'Diciembre',
-] as const
-
-const DIAS_SEMANA = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const
+import { DIAS_SEMANA, MESES, isoFecha } from '@/lib/fechas'
 
 const LEYENDA: Array<{ turno: Turno; label: string }> = [
   { turno: 'M', label: 'Mañana' },
@@ -138,14 +122,6 @@ const SELECT_TOOLBAR =
   `h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-ink shadow-none ${FOCUS_RING} focus:border-brand-400`
 
 type FiltroLeyenda = Turno | 'TODOS'
-
-function pad(n: number) {
-  return String(n).padStart(2, '0')
-}
-
-function isoFecha(anio: number, mes: number, dia: number) {
-  return `${anio}-${pad(mes)}-${pad(dia)}`
-}
 
 function mesAnterior(anio: number, mes: number) {
   if (mes <= 1) return { anio: anio - 1, mes: 12 }

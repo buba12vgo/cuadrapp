@@ -8,6 +8,7 @@ import {
 import { esJornadaDisponible } from '@/lib/jornadaDisponible'
 import { esRolCuadranteJefes } from '@/lib/rolesCuadrante'
 import type { FichaPolicia, Turno } from '@/types'
+import { isoFecha as isoDia } from '@/lib/fechas'
 
 export type TipoSolicitud = 'PERMISO' | 'CAMBIO_DIA' | 'CAMBIO_MES' | 'VACACIONES'
 export type EstadoSolicitud = 'PENDIENTE' | 'ACEPTADA' | 'RECHAZADA'
@@ -290,10 +291,6 @@ export type OpcionCambioDia = {
   placa: string
   nombre: string
   puesto: string | null
-}
-
-function isoDia(anio: number, mes: number, dia: number) {
-  return `${anio}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`
 }
 
 function descanso(fila: Turno[] | undefined, dia: number) {

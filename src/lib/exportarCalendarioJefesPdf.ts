@@ -13,23 +13,7 @@ import type { PermisoConfig } from '@/lib/permisos'
 import { getTiposPermiso } from '@/lib/permisosStore'
 import { ROL_LABEL } from '@/lib/rolesCuadrante'
 import type { EventoOperativo, FichaPolicia, Turno } from '@/types'
-
-const MESES = [
-  'Enero',
-  'Febrero',
-  'Marzo',
-  'Abril',
-  'Mayo',
-  'Junio',
-  'Julio',
-  'Agosto',
-  'Septiembre',
-  'Octubre',
-  'Noviembre',
-  'Diciembre',
-] as const
-
-const DIAS_SEMANA = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const
+import { DIAS_SEMANA, MESES, isoFecha } from '@/lib/fechas'
 
 /** Fondos, pastillas y filete izquierdo, alineados con la pantalla. */
 const ESTILO_TURNO: Record<
@@ -61,14 +45,6 @@ const LEYENDA_TURNOS: Array<{ turno: Turno; label: string }> = [
   { turno: 'D', label: 'Descanso' },
   { turno: 'V', label: 'Vacaciones' },
 ]
-
-function pad(n: number) {
-  return String(n).padStart(2, '0')
-}
-
-function isoFecha(anio: number, mes: number, dia: number) {
-  return `${anio}-${pad(mes)}-${pad(dia)}`
-}
 
 function escapeHtml(valor: string) {
   return valor

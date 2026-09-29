@@ -17,21 +17,7 @@ import { useCuadranteJefesMes } from '@/lib/useCuadranteJefesMes'
 import { useCuadranteOperativoMes } from '@/lib/useCuadranteOperativoMes'
 import { BTN_GHOST, FOCUS_RING } from '@/lib/uiStyles'
 import type { FichaPolicia, Turno } from '@/types'
-
-const MESES = [
-  'Enero',
-  'Febrero',
-  'Marzo',
-  'Abril',
-  'Mayo',
-  'Junio',
-  'Julio',
-  'Agosto',
-  'Septiembre',
-  'Octubre',
-  'Noviembre',
-  'Diciembre',
-] as const
+import { MESES, isoFecha } from '@/lib/fechas'
 
 const DIAS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const
 
@@ -44,14 +30,6 @@ const PILDORA: Record<Turno, string> = {
   P: 'bg-rose-100 text-rose-800',
   D: 'bg-slate-200 text-slate-500',
   V: 'bg-emerald-100 text-emerald-800',
-}
-
-function pad(n: number) {
-  return String(n).padStart(2, '0')
-}
-
-function isoFecha(anio: number, mes: number, dia: number) {
-  return `${anio}-${pad(mes)}-${pad(dia)}`
 }
 
 function partir(iso: string) {

@@ -1,19 +1,5 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
-
-const MESES = [
-  'Enero',
-  'Febrero',
-  'Marzo',
-  'Abril',
-  'Mayo',
-  'Junio',
-  'Julio',
-  'Agosto',
-  'Septiembre',
-  'Octubre',
-  'Noviembre',
-  'Diciembre',
-] as const
+import { MESES } from '@/lib/fechas'
 
 type MovilMesValor = {
   anio: number
@@ -50,9 +36,7 @@ export function useMovilMes() {
   return valor
 }
 
-export function isoFechaMovil(anio: number, mes: number, dia: number) {
-  return `${anio}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`
-}
+export { isoFecha as isoFechaMovil } from '@/lib/fechas'
 
 const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'] as const
 const DIAS_CORTOS = ['D', 'L', 'M', 'X', 'J', 'V', 'S'] as const

@@ -1,12 +1,5 @@
 /** Festivos nacionales y de Galicia. El calendario operativo los reutilizará. */
-
-function pad(n: number) {
-  return String(n).padStart(2, '0')
-}
-
-function iso(anio: number, mes: number, dia: number) {
-  return `${anio}-${pad(mes)}-${pad(dia)}`
-}
+import { isoFecha as iso } from '@/lib/fechas'
 
 function sumarDias(fecha: Date, dias: number) {
   const copia = new Date(fecha)

@@ -12,31 +12,7 @@ import {
   celdasMesCalendario,
   detalleDiaCalendarioJefe,
 } from '@/lib/exportarCalendarioJefesPdf'
-
-const MESES = [
-  'Enero',
-  'Febrero',
-  'Marzo',
-  'Abril',
-  'Mayo',
-  'Junio',
-  'Julio',
-  'Agosto',
-  'Septiembre',
-  'Octubre',
-  'Noviembre',
-  'Diciembre',
-] as const
-
-const DIAS_SEMANA = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const
-
-function pad(n: number) {
-  return String(n).padStart(2, '0')
-}
-
-function isoFecha(anio: number, mes: number, dia: number) {
-  return `${anio}-${pad(mes)}-${pad(dia)}`
-}
+import { DIAS_SEMANA, MESES, isoFecha, pad2 } from '@/lib/fechas'
 
 export type ExportarCalendarioJefesExcelOpciones = {
   anio: number
@@ -138,7 +114,7 @@ export function construirLibroCalendarioJefes(
     hoja,
     `${nombreMes.slice(0, 3)} ${anio}`.slice(0, 31),
   )
-  return { libro, nombreArchivo: `calendario-${agente.numeroPlaca}-${anio}-${pad(mes)}.xlsx` }
+  return { libro, nombreArchivo: `calendario-${agente.numeroPlaca}-${anio}-${pad2(mes)}.xlsx` }
 }
 
 export function exportarCalendarioJefesExcel(

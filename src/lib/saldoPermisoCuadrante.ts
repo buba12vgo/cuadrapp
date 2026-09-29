@@ -15,14 +15,7 @@ import {
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
 import type { PermisoConfig } from '@/lib/permisos'
 import type { FichaPolicia, Turno } from '@/types'
-
-function pad(n: number) {
-  return String(n).padStart(2, '0')
-}
-
-function isoFecha(anio: number, mes: number, dia: number) {
-  return `${anio}-${pad(mes)}-${pad(dia)}`
-}
+import { isoFecha } from '@/lib/fechas'
 
 export function resumenMesAgente(
   fila: Turno[],

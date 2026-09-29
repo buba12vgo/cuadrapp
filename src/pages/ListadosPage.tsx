@@ -41,21 +41,7 @@ import {
   ROL_LABEL,
   esRolCuadranteJefes,
 } from '@/lib/rolesCuadrante'
-
-const MESES = [
-  'Enero',
-  'Febrero',
-  'Marzo',
-  'Abril',
-  'Mayo',
-  'Junio',
-  'Julio',
-  'Agosto',
-  'Septiembre',
-  'Octubre',
-  'Noviembre',
-  'Diciembre',
-] as const
+import { MESES } from '@/lib/fechas'
 
 const ROLES: RolPolicia[] = [
   ...ROLES_OPERATIVO_CUADRANTE,

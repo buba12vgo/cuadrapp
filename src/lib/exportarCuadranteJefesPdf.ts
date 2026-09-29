@@ -22,21 +22,7 @@ import {
 } from '@/lib/permisos'
 import { getTiposPermiso } from '@/lib/permisosStore'
 import type { FichaPolicia, Turno } from '@/types'
-
-const MESES = [
-  'Enero',
-  'Febrero',
-  'Marzo',
-  'Abril',
-  'Mayo',
-  'Junio',
-  'Julio',
-  'Agosto',
-  'Septiembre',
-  'Octubre',
-  'Noviembre',
-  'Diciembre',
-] as const
+import { MESES, isoFecha } from '@/lib/fechas'
 
 const DIA_SEMANA = ['D', 'L', 'M', 'X', 'J', 'V', 'S'] as const
 
@@ -64,14 +50,6 @@ const LEYENDA_TURNOS: Array<{ turno: Turno; label: string }> = [
   { turno: 'D', label: 'Descanso' },
   { turno: 'V', label: 'Vacaciones' },
 ]
-
-function pad(n: number) {
-  return String(n).padStart(2, '0')
-}
-
-function isoFecha(anio: number, mes: number, dia: number) {
-  return `${anio}-${pad(mes)}-${pad(dia)}`
-}
 
 function escapeHtml(valor: string) {
   return valor

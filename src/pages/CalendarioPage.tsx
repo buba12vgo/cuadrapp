@@ -41,32 +41,9 @@ import { eventosEnFecha, useEventosData } from '@/lib/eventosStore'
 import { isFirebaseReady } from '@/lib/firebase'
 import { useMinimosSemanaData, usePuestosData } from '@/lib/puestosStore'
 import type { EventoOperativo } from '@/types'
+import { DIAS_SEMANA, MESES, isoFecha } from '@/lib/fechas'
 
-const MESES = [
-  'Enero',
-  'Febrero',
-  'Marzo',
-  'Abril',
-  'Mayo',
-  'Junio',
-  'Julio',
-  'Agosto',
-  'Septiembre',
-  'Octubre',
-  'Noviembre',
-  'Diciembre',
-] as const
-
-const DIAS_SEMANA = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const
 const TURNOS = ['M', 'T', 'N'] as const
-
-function pad(n: number) {
-  return String(n).padStart(2, '0')
-}
-
-function isoFecha(anio: number, mes: number, dia: number) {
-  return `${anio}-${pad(mes)}-${pad(dia)}`
-}
 
 function leerNumero(valor: string) {
   const n = Number(valor)

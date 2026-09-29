@@ -122,21 +122,7 @@ import {
   esJornadaDisponible,
   NOMBRE_JORNADA_DISPONIBLE,
 } from '@/lib/jornadaDisponible'
-
-const MESES = [
-  'Enero',
-  'Febrero',
-  'Marzo',
-  'Abril',
-  'Mayo',
-  'Junio',
-  'Julio',
-  'Agosto',
-  'Septiembre',
-  'Octubre',
-  'Noviembre',
-  'Diciembre',
-] as const
+import { MESES, isoFecha } from '@/lib/fechas'
 
 const DIA_SEMANA = ['D', 'L', 'M', 'X', 'J', 'V', 'S'] as const
 const ROLES = ROLES_OPERATIVO_CUADRANTE
@@ -175,10 +161,6 @@ const TURNOS_VISTA: Array<{ valor: FiltroVistaTurno; label: string }> = [
   { valor: 'V', label: 'V' },
 ]
 
-function pad(n: number) {
-  return String(n).padStart(2, '0')
-}
-
 function apellidoCorto(apellidos: string) {
   const parte = apellidos.trim().split(/\s+/)[0]
   return parte ? parte.slice(0, 5) : ''
@@ -209,10 +191,6 @@ function turnoOperativoAgente(
     if (turno === 'M' || turno === 'T' || turno === 'N') return turno
   }
   return null
-}
-
-function isoFecha(anio: number, mes: number, dia: number) {
-  return `${anio}-${pad(mes)}-${pad(dia)}`
 }
 
 function leerFecha(valor: string) {

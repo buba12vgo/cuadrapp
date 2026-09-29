@@ -92,21 +92,7 @@ import {
 } from '@/lib/jornadaDisponible'
 import { exportarCuadranteJefesPdf } from '@/lib/exportarCuadranteJefesPdf'
 import type { Turno } from '@/types'
-
-const MESES = [
-  'Enero',
-  'Febrero',
-  'Marzo',
-  'Abril',
-  'Mayo',
-  'Junio',
-  'Julio',
-  'Agosto',
-  'Septiembre',
-  'Octubre',
-  'Noviembre',
-  'Diciembre',
-] as const
+import { MESES, isoFecha } from '@/lib/fechas'
 
 const DIA_SEMANA = ['D', 'L', 'M', 'X', 'J', 'V', 'S'] as const
 const ANIO_ACTUAL = 2026
@@ -141,14 +127,6 @@ const CLASE_TURNO: Record<Turno, string> = {
 /** Laboral: D → M → T → N → P → V. Finde y festivo: incluye M-T. */
 const CICLO_SEMANA: Turno[] = ['D', 'M', 'T', 'N', 'P', 'V']
 const CICLO_FINDE: Turno[] = ['D', 'M', 'T', 'N', 'MT', 'P', 'V']
-
-function pad(n: number) {
-  return String(n).padStart(2, '0')
-}
-
-function isoFecha(anio: number, mes: number, dia: number) {
-  return `${anio}-${pad(mes)}-${pad(dia)}`
-}
 
 function leerFecha(valor: string) {
   const [anio, mes, dia] = valor.split('-').map(Number)

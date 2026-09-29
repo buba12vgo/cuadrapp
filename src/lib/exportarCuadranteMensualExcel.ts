@@ -23,32 +23,10 @@ import {
   type TurnoAnual,
 } from '@/lib/generarPlanAnual'
 import type { FichaPolicia, RolPolicia, Turno, EventoOperativo } from '@/types'
-
-const MESES = [
-  'Enero',
-  'Febrero',
-  'Marzo',
-  'Abril',
-  'Mayo',
-  'Junio',
-  'Julio',
-  'Agosto',
-  'Septiembre',
-  'Octubre',
-  'Noviembre',
-  'Diciembre',
-] as const
+import { MESES, isoFecha, pad2 } from '@/lib/fechas'
 
 const DIA_SEMANA = ['D', 'L', 'M', 'X', 'J', 'V', 'S'] as const
 const TURNOS_OP = ['M', 'T', 'N'] as const
-
-function pad(n: number) {
-  return String(n).padStart(2, '0')
-}
-
-function isoFecha(anio: number, mes: number, dia: number) {
-  return `${anio}-${pad(mes)}-${pad(dia)}`
-}
 
 function turnoPlanMes(
   agente: { rolBase: RolPolicia; id: string },
@@ -195,5 +173,5 @@ export function exportarCuadranteMensualExcel(
   const libro = XLSX.utils.book_new()
   const hojaNombre = `${nombreMes.slice(0, 3)} ${anio}`
   XLSX.utils.book_append_sheet(libro, hoja, hojaNombre.slice(0, 31))
-  XLSX.writeFile(libro, `cuadrante-${anio}-${pad(mes)}.xlsx`)
+  XLSX.writeFile(libro, `cuadrante-${anio}-${pad2(mes)}.xlsx`)
 }

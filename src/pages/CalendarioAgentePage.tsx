@@ -35,23 +35,7 @@ import { ROL_LABEL } from '@/lib/rolesCuadrante'
 import { useCuadranteOperativoMes } from '@/lib/useCuadranteOperativoMes'
 import type { Turno } from '@/types'
 import { ChipEventoCalendario } from '@/components/ChipEventoCalendario'
-
-const MESES = [
-  'Enero',
-  'Febrero',
-  'Marzo',
-  'Abril',
-  'Mayo',
-  'Junio',
-  'Julio',
-  'Agosto',
-  'Septiembre',
-  'Octubre',
-  'Noviembre',
-  'Diciembre',
-] as const
-
-const DIAS_SEMANA = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const
+import { DIAS_SEMANA, MESES, isoFecha } from '@/lib/fechas'
 
 const PILDORA: Record<Turno, string> = {
   M: 'bg-blue-100 text-blue-800',
@@ -66,14 +50,6 @@ const PILDORA: Record<Turno, string> = {
 
 const SELECT_TOOLBAR =
   `h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-ink ${FOCUS_RING} focus:border-brand-400`
-
-function pad(n: number) {
-  return String(n).padStart(2, '0')
-}
-
-function isoFecha(anio: number, mes: number, dia: number) {
-  return `${anio}-${pad(mes)}-${pad(dia)}`
-}
 
 function mesAnterior(anio: number, mes: number) {
   if (mes <= 1) return { anio: anio - 1, mes: 12 }

@@ -69,10 +69,10 @@ function mapaAbrevAPuesto(puestos: PuestoConfig[]) {
 
 function puestoDesdeAbrev(
   abrev: string | undefined,
-  puestos: PuestoConfig[],
+  abrevAPuesto: Record<string, PuestoBase>,
 ): PuestoBase | null {
   if (!abrev) return null
-  return mapaAbrevAPuesto(puestos)[abrev] ?? null
+  return abrevAPuesto[abrev] ?? null
 }
 
 function normalizarTurnoJefes(
@@ -160,6 +160,7 @@ export function cuadranteDesdeFirestore(
   const puestos = opts.puestos ?? getPuestos()
   const permisos = opts.permisos ?? getTiposPermiso()
   const migrar = Boolean(opts.migrarLibranzaAPermiso)
+  const abrevAPuesto = mapaAbrevAPuesto(puestos)
 
   const placaAId = new Map(
     agentes.map((agente) => [agente.numeroPlaca, agente.id]),
@@ -184,7 +185,7 @@ export function cuadranteDesdeFirestore(
         ? NOMBRE_JORNADA_DISPONIBLE
         : turno === 'P'
           ? permisoDesdeAbrev(permisos, abrev)
-          : puestoDesdeAbrev(abrev, puestos)
+          : puestoDesdeAbrev(abrev, abrevAPuesto)
       if (asignado && esTurnoAsignable(turno)) {
         const fecha = isoFecha(anio, mes, dia)
         if (!asignaciones[fecha]) asignaciones[fecha] = {}

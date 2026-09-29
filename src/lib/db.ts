@@ -307,15 +307,46 @@ export async function saveAgentes(
   return payloads
 }
 
-export async function getCuadrante(
+type ColeccionCuadrante =
+  | typeof COLECCION_CUADRANTES
+  | typeof COLECCION_CUADRANTES_JEFES
+
+async function leerCuadranteDe(
+  coleccion: ColeccionCuadrante,
   mes: number,
   anio: number,
 ): Promise<CuadranteMensualFirestore | null> {
   const firestore = await requireDb()
   const docId = idDocumentoCuadrante(anio, mes)
-  const snapshot = await getDoc(doc(firestore, COLECCION_CUADRANTES, docId))
+  const snapshot = await getDoc(doc(firestore, coleccion, docId))
   if (!snapshot.exists()) return null
   return parseCuadranteFirestore(snapshot.data())
+}
+
+async function escribirCuadranteEn(
+  coleccion: ColeccionCuadrante,
+  mes: number,
+  anio: number,
+  datosCuadrante: CuadranteMensualFirestore,
+): Promise<void> {
+  const firestore = await requireDb()
+  const docId = idDocumentoCuadrante(anio, mes)
+  await conTiempoLimite(
+    setDoc(
+      doc(firestore, coleccion, docId),
+      {
+        ...datosCuadrante,
+        anio,
+        mes,
+        actualizadoEn: new Date().toISOString(),
+      },
+      { merge: true },
+    ),
+  )
+}
+
+export function getCuadrante(mes: number, anio: number) {
+  return leerCuadranteDe(COLECCION_CUADRANTES, mes, anio)
 }
 
 export async function getPlanesAnuales(agentes: FichaPolicia[]): Promise<{
@@ -361,59 +392,24 @@ export async function savePlanAnual(
   )
 }
 
-export async function saveCuadrante(
+export function saveCuadrante(
   mes: number,
   anio: number,
   datosCuadrante: CuadranteMensualFirestore,
-): Promise<void> {
-  const firestore = await requireDb()
-  const docId = idDocumentoCuadrante(anio, mes)
-  await conTiempoLimite(
-    setDoc(
-      doc(firestore, COLECCION_CUADRANTES, docId),
-      {
-        ...datosCuadrante,
-        anio,
-        mes,
-        actualizadoEn: new Date().toISOString(),
-      },
-      { merge: true },
-    ),
-  )
+) {
+  return escribirCuadranteEn(COLECCION_CUADRANTES, mes, anio, datosCuadrante)
 }
 
-export async function getCuadranteJefes(
-  mes: number,
-  anio: number,
-): Promise<CuadranteMensualFirestore | null> {
-  const firestore = await requireDb()
-  const docId = idDocumentoCuadrante(anio, mes)
-  const snapshot = await getDoc(
-    doc(firestore, COLECCION_CUADRANTES_JEFES, docId),
-  )
-  if (!snapshot.exists()) return null
-  return parseCuadranteFirestore(snapshot.data())
+export function getCuadranteJefes(mes: number, anio: number) {
+  return leerCuadranteDe(COLECCION_CUADRANTES_JEFES, mes, anio)
 }
 
-export async function saveCuadranteJefes(
+export function saveCuadranteJefes(
   mes: number,
   anio: number,
   datosCuadrante: CuadranteMensualFirestore,
-): Promise<void> {
-  const firestore = await requireDb()
-  const docId = idDocumentoCuadrante(anio, mes)
-  await conTiempoLimite(
-    setDoc(
-      doc(firestore, COLECCION_CUADRANTES_JEFES, docId),
-      {
-        ...datosCuadrante,
-        anio,
-        mes,
-        actualizadoEn: new Date().toISOString(),
-      },
-      { merge: true },
-    ),
-  )
+) {
+  return escribirCuadranteEn(COLECCION_CUADRANTES_JEFES, mes, anio, datosCuadrante)
 }
 
 function leerMinimosPuesto(valor: unknown): MinimosPuesto | null {
@@ -601,6 +597,13 @@ export async function seedPuestosSiVacios(
   return lista
 }
 
+function normalizarDiasAnuales(valor: unknown, codigo: string) {
+  if (typeof valor === 'number' && Number.isFinite(valor)) {
+    return Math.min(366, Math.max(0, Math.round(valor)))
+  }
+  return codigo === 'ASUNTOS_PROPIOS' ? 6 : 0
+}
+
 function permisoDesdeFirestore(
   docId: string,
   data: Record<string, unknown>,
@@ -616,17 +619,11 @@ function permisoDesdeFirestore(
       ? data.abreviatura.trim().toUpperCase()
       : ''
   if (!codigo || !nombre || !abreviatura) return null
-  const diasAnuales =
-    typeof data.diasAnuales === 'number' && Number.isFinite(data.diasAnuales)
-      ? Math.min(366, Math.max(0, Math.round(data.diasAnuales)))
-      : codigo === 'ASUNTOS_PROPIOS'
-        ? 6
-        : 0
   return {
     codigo,
     nombre,
     abreviatura,
-    diasAnuales,
+    diasAnuales: normalizarDiasAnuales(data.diasAnuales, codigo),
     visible: data.visible !== false,
     requiereSaldo:
       typeof data.requiereSaldo === 'boolean' ? data.requiereSaldo : undefined,
@@ -639,17 +636,11 @@ function permisoParaFirestore(permiso: PermisoConfig): PermisoConfig {
   const abreviatura = permiso.abreviatura.trim().toUpperCase()
   if (!codigo) throw new Error('El código del permiso es obligatorio')
   if (!nombre) throw new Error('El nombre del permiso es obligatorio')
-  const diasAnuales =
-    typeof permiso.diasAnuales === 'number' && Number.isFinite(permiso.diasAnuales)
-      ? Math.min(366, Math.max(0, Math.round(permiso.diasAnuales)))
-      : codigo === 'ASUNTOS_PROPIOS'
-        ? 6
-        : 0
   return {
     codigo,
     nombre,
     abreviatura,
-    diasAnuales,
+    diasAnuales: normalizarDiasAnuales(permiso.diasAnuales, codigo),
     visible: permiso.visible !== false,
     requiereSaldo: permisoRequiereSaldo(permiso),
   }

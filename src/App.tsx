@@ -1,34 +1,43 @@
+import { lazy, type ComponentType } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAcceso } from '@/contexts/AccesoContext'
 import { inicioMovil } from '@/lib/acceso'
 import { AccesoShell } from '@/components/AccesoShell'
-import { MovilCalendarioPage } from '@/pages/movil/MovilCalendarioPage'
-import { MovilCuadrantePage } from '@/pages/movil/MovilCuadrantePage'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
-import { AgentesPage } from '@/pages/AgentesPage'
-import { CalendarioPage } from '@/pages/CalendarioPage'
-import { CalendarioAgentePage } from '@/pages/CalendarioAgentePage'
-import { DiarioAgentesPage } from '@/pages/DiarioAgentesPage'
-import { SolicitudesPage } from '@/pages/SolicitudesPage'
-import { CalendarioJefesPage } from '@/pages/CalendarioJefesPage'
-import { CuadranteJefesPage } from '@/pages/CuadranteJefesPage'
-import { CuadranteMensualPage } from '@/pages/CuadranteMensualPage'
-import { MinimosPage } from '@/pages/MinimosPage'
-import { PlanAnualPage } from '@/pages/PlanAnualPage'
-import { PermisosPage } from '@/pages/PermisosPage'
-import { PermisosAgentesPage } from '@/pages/PermisosAgentesPage'
-import { MovilPermisosPage } from '@/pages/movil/MovilPermisosPage'
-import { MovilDiarioPage } from '@/pages/movil/MovilDiarioPage'
-import { MovilEventosPage } from '@/pages/movil/MovilEventosPage'
-import { MovilServicioPage } from '@/pages/movil/MovilServicioPage'
-import { PuestosPage } from '@/pages/PuestosPage'
 import { LoginPage } from '@/pages/LoginPage'
-import { ListadosPage } from '@/pages/ListadosPage'
-import { OpcionesPage } from '@/pages/OpcionesPage'
-import { ReglasPage } from '@/pages/ReglasPage'
-import { RoadmapTimeline } from '@/components/RoadmapTimeline'
-import { UsuariosPage } from '@/pages/UsuariosPage'
 import { InicioAcceso } from '@/components/InicioAcceso'
+
+function pagina<K extends string>(
+  cargar: () => Promise<Record<K, ComponentType>>,
+  nombre: K,
+) {
+  return lazy(() => cargar().then((mod) => ({ default: mod[nombre] })))
+}
+
+const MovilCalendarioPage = pagina(() => import('@/pages/movil/MovilCalendarioPage'), 'MovilCalendarioPage')
+const MovilCuadrantePage = pagina(() => import('@/pages/movil/MovilCuadrantePage'), 'MovilCuadrantePage')
+const AgentesPage = pagina(() => import('@/pages/AgentesPage'), 'AgentesPage')
+const CalendarioPage = pagina(() => import('@/pages/CalendarioPage'), 'CalendarioPage')
+const CalendarioAgentePage = pagina(() => import('@/pages/CalendarioAgentePage'), 'CalendarioAgentePage')
+const DiarioAgentesPage = pagina(() => import('@/pages/DiarioAgentesPage'), 'DiarioAgentesPage')
+const SolicitudesPage = pagina(() => import('@/pages/SolicitudesPage'), 'SolicitudesPage')
+const CalendarioJefesPage = pagina(() => import('@/pages/CalendarioJefesPage'), 'CalendarioJefesPage')
+const CuadranteJefesPage = pagina(() => import('@/pages/CuadranteJefesPage'), 'CuadranteJefesPage')
+const CuadranteMensualPage = pagina(() => import('@/pages/CuadranteMensualPage'), 'CuadranteMensualPage')
+const MinimosPage = pagina(() => import('@/pages/MinimosPage'), 'MinimosPage')
+const PlanAnualPage = pagina(() => import('@/pages/PlanAnualPage'), 'PlanAnualPage')
+const PermisosPage = pagina(() => import('@/pages/PermisosPage'), 'PermisosPage')
+const PermisosAgentesPage = pagina(() => import('@/pages/PermisosAgentesPage'), 'PermisosAgentesPage')
+const MovilPermisosPage = pagina(() => import('@/pages/movil/MovilPermisosPage'), 'MovilPermisosPage')
+const MovilDiarioPage = pagina(() => import('@/pages/movil/MovilDiarioPage'), 'MovilDiarioPage')
+const MovilEventosPage = pagina(() => import('@/pages/movil/MovilEventosPage'), 'MovilEventosPage')
+const MovilServicioPage = pagina(() => import('@/pages/movil/MovilServicioPage'), 'MovilServicioPage')
+const PuestosPage = pagina(() => import('@/pages/PuestosPage'), 'PuestosPage')
+const ListadosPage = pagina(() => import('@/pages/ListadosPage'), 'ListadosPage')
+const OpcionesPage = pagina(() => import('@/pages/OpcionesPage'), 'OpcionesPage')
+const ReglasPage = pagina(() => import('@/pages/ReglasPage'), 'ReglasPage')
+const RoadmapTimeline = pagina(() => import('@/components/RoadmapTimeline'), 'RoadmapTimeline')
+const UsuariosPage = pagina(() => import('@/pages/UsuariosPage'), 'UsuariosPage')
 
 function InicioMovil() {
   const acceso = useAcceso()

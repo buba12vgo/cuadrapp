@@ -7,6 +7,7 @@ import {
   ListChecks,
   type LucideIcon,
 } from 'lucide-react'
+import { Suspense } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { AppDialogProvider } from '@/components/ui/ConfirmDialog'
 import { useAcceso } from '@/contexts/AccesoContext'
@@ -107,7 +108,11 @@ export function MovilLayout() {
                 {error}
               </p>
             ) : null}
-            <Outlet />
+            <Suspense
+              fallback={<p className="px-1 py-6 text-sm text-slate-500">Cargando…</p>}
+            >
+              <Outlet />
+            </Suspense>
           </main>
           <nav
             key={claveNav}

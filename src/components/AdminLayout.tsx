@@ -19,7 +19,7 @@ import {
   UserCog,
   Users,
 } from 'lucide-react'
-import { Fragment, useState } from 'react'
+import { Fragment, Suspense, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { AppDialogProvider } from '@/components/ui/ConfirmDialog'
 import { useAcceso, type RolPreview } from '@/contexts/AccesoContext'
@@ -389,7 +389,11 @@ export function AdminLayout() {
           </header>
 
           <main className="flex min-h-0 flex-1 flex-col overflow-hidden p-2 sm:p-2.5">
-            <Outlet />
+            <Suspense
+              fallback={<p className="px-2 py-4 text-sm text-muted">Cargando…</p>}
+            >
+              <Outlet />
+            </Suspense>
           </main>
 
           <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-line bg-surface px-3 py-1.5 text-[11px] text-muted lg:hidden">

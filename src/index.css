@@ -75,8 +75,13 @@
     table-layout: fixed;
   }
 
+  /*
+   * Pulso finito que se queda en el 50 % (anillo marcado). Animar box-shadow
+   * repinta la rejilla en cada frame: con cientos de celdas en aviso un pulso
+   * infinito mantenía el hilo principal saturado aunque nadie tocara nada.
+   */
   .aviso-vivo {
-    animation: aviso-pulso 1.8s ease-in-out infinite;
+    animation: aviso-pulso 1.8s ease-in-out 3.5 forwards;
   }
 
   .aviso-entrada {

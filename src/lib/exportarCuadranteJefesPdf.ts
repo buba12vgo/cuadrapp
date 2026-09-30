@@ -23,6 +23,7 @@ import {
 import { getTiposPermiso } from '@/lib/permisosStore'
 import type { FichaPolicia, Turno } from '@/types'
 import { MESES, isoFecha } from '@/lib/fechas'
+import { escapeHtml, imprimirHtml } from '@/lib/impresionPdf'
 
 const DIA_SEMANA = ['D', 'L', 'M', 'X', 'J', 'V', 'S'] as const
 
@@ -50,14 +51,6 @@ const LEYENDA_TURNOS: Array<{ turno: Turno; label: string }> = [
   { turno: 'D', label: 'Descanso' },
   { turno: 'V', label: 'Vacaciones' },
 ]
-
-function escapeHtml(valor: string) {
-  return valor
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
 
 function textoCelda(
   turno: Turno,
@@ -542,24 +535,5 @@ export function exportarCuadranteJefesPdf(
 </body>
 </html>`
 
-  const ventana = window.open('', '_blank')
-  if (!ventana) {
-    throw new Error(
-      'El navegador bloqueó la ventana de impresión. Permite ventanas emergentes para exportar el PDF.',
-    )
-  }
-  ventana.opener = null
-  ventana.document.open()
-  ventana.document.write(html)
-  ventana.document.close()
-  ventana.focus()
-  const imprimir = () => {
-    ventana.print()
-    ventana.addEventListener('afterprint', () => ventana.close())
-  }
-  if (ventana.document.readyState === 'complete') {
-    window.setTimeout(imprimir, 50)
-  } else {
-    ventana.addEventListener('load', imprimir, { once: true })
-  }
+  imprimirHtml(html)
 }

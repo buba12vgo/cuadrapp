@@ -11,6 +11,7 @@ import { getTiposPermiso } from '@/lib/permisosStore'
 import { ROL_LABEL } from '@/lib/rolesCuadrante'
 import type { EventoOperativo, FichaPolicia, Turno } from '@/types'
 import { DIAS_SEMANA, MESES, isoFecha } from '@/lib/fechas'
+import { escapeHtml, imprimirHtml } from '@/lib/impresionPdf'
 
 /** Fondos, pastillas y filete izquierdo, alineados con la pantalla. */
 const ESTILO_TURNO: Record<
@@ -42,14 +43,6 @@ const LEYENDA_TURNOS: Array<{ turno: Turno; label: string }> = [
   { turno: 'D', label: 'Descanso' },
   { turno: 'V', label: 'Vacaciones' },
 ]
-
-function escapeHtml(valor: string) {
-  return valor
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
 
 export type ExportarCalendarioJefesPdfOpciones = {
   anio: number
@@ -376,24 +369,5 @@ export function exportarCalendarioJefesPdf(
 </body>
 </html>`
 
-  const ventana = window.open('', '_blank')
-  if (!ventana) {
-    throw new Error(
-      'El navegador bloqueó la ventana de impresión. Permite ventanas emergentes para exportar el PDF.',
-    )
-  }
-  ventana.opener = null
-  ventana.document.open()
-  ventana.document.write(html)
-  ventana.document.close()
-  ventana.focus()
-  const imprimir = () => {
-    ventana.print()
-    ventana.addEventListener('afterprint', () => ventana.close())
-  }
-  if (ventana.document.readyState === 'complete') {
-    window.setTimeout(imprimir, 50)
-  } else {
-    ventana.addEventListener('load', imprimir, { once: true })
-  }
+  imprimirHtml(html)
 }

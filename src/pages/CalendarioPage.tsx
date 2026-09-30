@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { FileDown } from 'lucide-react'
 import { ChipEventoCalendario } from '@/components/ChipEventoCalendario'
 import { ETIQUETA_EVENTO } from '@/lib/etiquetasEvento'
 import { CalendarioResumenPanel } from '@/components/dashboard/CalendarioResumenPanel'
@@ -16,6 +17,7 @@ import {
   BTN_DANGER,
   BTN_GHOST,
   BTN_PRIMARY,
+  BTN_SECONDARY,
   CAMPO,
   CAMPO_NUM,
   PAGE_SECTION,
@@ -37,6 +39,7 @@ import {
 } from '@/lib/calendarioPuestos'
 import { diasDelMes } from '@/lib/convenio'
 import { deleteEvento, saveEvento } from '@/lib/db'
+import { exportarCalendarioEventosPdf } from '@/lib/exportarCalendarioEventosPdf'
 import { isDesignPreview } from '@/lib/designPreview'
 import { eventosEnFecha, useEventosData } from '@/lib/eventosStore'
 import { isFirebaseReady } from '@/lib/firebase'
@@ -423,6 +426,17 @@ export function CalendarioPage() {
     }
   }
 
+  function exportarPdf() {
+    try {
+      exportarCalendarioEventosPdf({ anio, mes, eventos: eventosData, puestos, semana })
+    } catch (err) {
+      void showAlert(
+        err instanceof Error ? err.message : 'No se pudo exportar el PDF',
+        'Exportar PDF',
+      )
+    }
+  }
+
   return (
     <section className={PAGE_SECTION}>
       <PageHeader
@@ -457,6 +471,15 @@ export function CalendarioPage() {
                 }
               />
             </label>
+            <button
+              type="button"
+              className={`${BTN_SECONDARY} h-8 px-2.5 text-xs`}
+              onClick={exportarPdf}
+              title="Exportar el calendario del mes a PDF"
+            >
+              <FileDown className="h-3.5 w-3.5" />
+              PDF
+            </button>
           </>
         }
       />

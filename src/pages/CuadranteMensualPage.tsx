@@ -81,10 +81,8 @@ import {
   totalTrabajados,
 } from '@/lib/convenio'
 import { esFestivo } from '@/lib/festivos'
-import {
-  generarCuadranteMensualAsync,
-  type CuadranteMensual,
-} from '@/lib/generarCuadranteMensual'
+import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
+import { generarCuadranteMensualEnSegundoPlano } from '@/lib/generarCuadranteEnSegundoPlano'
 import {
   esPoliciaBolsa,
   type PlanAnual,
@@ -650,7 +648,7 @@ export function CuadranteMensualPage() {
         requestAnimationFrame(() => resolve())
       })
 
-      const nuevo = await generarCuadranteMensualAsync(
+      const nuevo = await generarCuadranteMensualEnSegundoPlano(
         planAnual,
         ids,
         anio,

@@ -682,8 +682,9 @@ function intentarRotarAgenteParaMinimos(
   if (fila[diaObjetivo] === turno) return null
   const n = fila.length
   for (let pasos = 1; pasos < n; pasos++) {
+    // rotarFilaCiclica(fila, pasos)[i] === fila[(i - pasos + n) % n]
+    if (fila[(diaObjetivo - pasos + n) % n] !== turno) continue
     const rotada = rotarFilaCiclica(fila, pasos)
-    if (rotada[diaObjetivo] !== turno) continue
     if (filaAceptableParaDesfase(rotada, fila, anio, mes)) return rotada
   }
   return null
@@ -700,13 +701,13 @@ function intentarIntercambioDiaEntreAgentes(
   if (filaA[dia] === filaB[dia]) return null
   const conteoAntes =
     (filaA[dia] === turno ? 1 : 0) + (filaB[dia] === turno ? 1 : 0)
+  const conteoDespues =
+    (filaB[dia] === turno ? 1 : 0) + (filaA[dia] === turno ? 1 : 0)
+  if (conteoDespues <= conteoAntes) return null
   const pruebaA = [...filaA]
   const pruebaB = [...filaB]
   pruebaA[dia] = filaB[dia]
   pruebaB[dia] = filaA[dia]
-  const conteoDespues =
-    (pruebaA[dia] === turno ? 1 : 0) + (pruebaB[dia] === turno ? 1 : 0)
-  if (conteoDespues <= conteoAntes) return null
   if (!filaAceptableParaMinimos(pruebaA, filaA, anio, mes)) return null
   if (!filaAceptableParaMinimos(pruebaB, filaB, anio, mes)) return null
   return [pruebaA, pruebaB]
@@ -716,6 +717,42 @@ function puntuacionCandidato(fila: Turno[], alto: number, bajo: number) {
   const descansoOrigen = longitudBloqueD(fila, bajo)
   const uneDescanso = adyacenteADescanso(fila, alto) ? 1 : 0
   return descansoOrigen * 10 + uneDescanso
+}
+
+/**
+ * Recorre los índices `0..n-1` por puntuación descendente y, a igualdad, por
+ * índice ascendente: el mismo orden que un `sort` estable por `b - a`, pero
+ * solo paga O(log n) por cada candidato consumido en vez de ordenar todos.
+ */
+function* indicesPorPuntuacion(puntuaciones: number[]) {
+  const n = puntuaciones.length
+  const monticulo = Array.from({ length: n }, (_, i) => i)
+  const antes = (a: number, b: number) =>
+    puntuaciones[a] !== puntuaciones[b]
+      ? puntuaciones[a] > puntuaciones[b]
+      : a < b
+  const hundir = (desde: number, tam: number) => {
+    let i = desde
+    for (;;) {
+      const izq = 2 * i + 1
+      if (izq >= tam) return
+      const der = izq + 1
+      const hijo =
+        der < tam && antes(monticulo[der], monticulo[izq]) ? der : izq
+      if (!antes(monticulo[hijo], monticulo[i])) return
+      const tmp = monticulo[i]
+      monticulo[i] = monticulo[hijo]
+      monticulo[hijo] = tmp
+      i = hijo
+    }
+  }
+  for (let i = (n >> 1) - 1; i >= 0; i--) hundir(i, n)
+  for (let tam = n; tam > 0; tam--) {
+    const cima = monticulo[0]
+    monticulo[0] = monticulo[tam - 1]
+    hundir(0, tam - 1)
+    yield cima
+  }
 }
 
 function diasPorCobertura(cobertura: number[], predicado: (valor: number) => boolean) {
@@ -761,13 +798,29 @@ function equilibrarCoberturaInterna(
     coberturaActual: number[],
     permitirFindes: boolean,
   ) => {
-    const candidatos: Array<{
+    // Con 150 agentes salen miles de candidatos por llamada y casi siempre se
+    // acepta uno de los primeros: se guardan en arrays paralelos y se consumen
+    // en orden desde un montículo en lugar de crear objetos y ordenarlos todos.
+    const candFila: number[] = []
+    const candAlto: number[] = []
+    const candBajo: number[] = []
+    const candScore: number[] = []
+    // El cuadrante no cambia hasta aceptar un traslado: fila y turno de cada
+    // agente se resuelven una vez por llamada, no por cada pareja de días.
+    const filas: Array<{
       id: string
-      alto: number
-      bajo: number
-      score: number
+      fila: Turno[]
+      turno: Exclude<Turno, 'V' | 'D' | 'L' | 'P'>
     }> = []
+    for (const id of ids) {
+      const fila = cuadrante[id]
+      if (!fila) continue
+      const turno = turnoFijo ?? turnoTrabajoDeFila(fila)
+      if (!turno) continue
+      filas.push({ id, fila, turno })
+    }
     for (const bajo of diasBajos) {
+      if (esFinDeSemana(anio, mes, bajo + 1)) continue
       for (const alto of diasAltos) {
         if (!puedeTomarDeDia(alto, coberturaActual)) continue
         if (coberturaActual[alto] <= coberturaActual[bajo]) continue
@@ -777,48 +830,33 @@ function equilibrarCoberturaInterna(
         ) {
           continue
         }
-        if (
-          esFinDeSemana(anio, mes, alto + 1) ||
-          esFinDeSemana(anio, mes, bajo + 1)
-        ) {
-          continue
-        }
-        for (const id of ids) {
-          const fila = cuadrante[id]
-          if (!fila) continue
-          const turno = turnoFijo ?? turnoTrabajoDeFila(fila)
-          if (!turno) continue
+        if (esFinDeSemana(anio, mes, alto + 1)) continue
+        const base =
+          (coberturaActual[bajo] === 0 ? 1000 : 0) +
+          (coberturaActual[alto] - coberturaActual[bajo]) * 20
+        for (let f = 0; f < filas.length; f++) {
+          const { fila, turno } = filas[f]
           if (fila[alto] !== turno || fila[bajo] !== 'D') continue
-          const priorizaCero = coberturaActual[bajo] === 0 ? 1000 : 0
-          candidatos.push({
-            id,
-            alto,
-            bajo,
-            score:
-              priorizaCero +
-              (coberturaActual[alto] - coberturaActual[bajo]) * 20 +
-              puntuacionCandidato(fila, alto, bajo),
-          })
+          candFila.push(f)
+          candAlto.push(alto)
+          candBajo.push(bajo)
+          candScore.push(base + puntuacionCandidato(fila, alto, bajo))
         }
       }
     }
-    candidatos.sort((a, b) => b.score - a.score)
-    for (const cand of candidatos) {
-      const fila = cuadrante[cand.id]
-      if (!fila) continue
-      const turno = turnoFijo ?? turnoTrabajoDeFila(fila)
-      if (!turno) continue
+    for (const c of indicesPorPuntuacion(candScore)) {
+      const { id, fila, turno } = filas[candFila[c]]
       const siguiente = intentarTraslado(
         fila,
-        cand.alto,
-        cand.bajo,
+        candAlto[c],
+        candBajo[c],
         turno,
         anio,
         mes,
         permitirFindes,
       )
       if (!siguiente) continue
-      cuadrante[cand.id] = siguiente
+      cuadrante[id] = siguiente
       return true
     }
     return false

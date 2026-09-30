@@ -216,18 +216,21 @@ export function exportarCalendarioEventosPdf(
     .marco {
       flex: 1 1 auto;
       min-height: 0;
-      border: 1px solid #cbd5e1;
-      border-radius: 8px;
+      border: 1.5px solid #334155;
+      border-radius: 6px;
       overflow: hidden;
     }
     table.cal {
       width: 100%;
       height: 100%;
-      border-collapse: separate;
-      border-spacing: 1px;
+      border-collapse: collapse;
       table-layout: fixed;
-      background: #e2e8f0;
     }
+    table.cal th, table.cal td { border: 1.25px solid #64748b; }
+    table.cal tr > :first-child { border-left: 0; }
+    table.cal tr > :last-child { border-right: 0; }
+    table.cal thead th { border-top: 0; }
+    table.cal tbody tr:last-child td { border-bottom: 0; }
     th.dow {
       padding: 3px 0;
       background: #1e293b;

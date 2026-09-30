@@ -1,5 +1,6 @@
 import type { Turno } from '@/types'
 import { esDiaTrabajado, esFinDeSemana } from '@/lib/convenio'
+import { claveDiaCalendario } from '@/lib/fechas'
 
 /** Máximo de fines de semana laborables seguidos (semanas consecutivas). */
 export const MAX_FINDES_CONSECUTIVOS = 2
@@ -17,7 +18,21 @@ export function findesMesCuadra(cantidad: number) {
   return cantidad >= MIN_FINDES_MES && cantidad <= MAX_FINDES_MES
 }
 
+const semanasCache = new Map<number, string>()
+
+/** Lunes (`YYYY-MM-DD`) de la semana del día. Se consulta miles de veces por generación. */
 export function semanaCalendarioId(anio: number, mes: number, dia: number) {
+  const clave = claveDiaCalendario(anio, mes, dia)
+  if (clave == null) return calcularSemanaCalendarioId(anio, mes, dia)
+  let id = semanasCache.get(clave)
+  if (id === undefined) {
+    id = calcularSemanaCalendarioId(anio, mes, dia)
+    semanasCache.set(clave, id)
+  }
+  return id
+}
+
+function calcularSemanaCalendarioId(anio: number, mes: number, dia: number) {
   const fecha = new Date(anio, mes - 1, dia)
   const js = fecha.getDay()
   const lunes = new Date(fecha)
@@ -28,7 +43,7 @@ export function semanaCalendarioId(anio: number, mes: number, dia: number) {
   return `${y}-${m}-${d}`
 }
 
-export function semanasDelMes(anio: number, mes: number, nDias: number) {
+function calcularSemanasDelMes(anio: number, mes: number, nDias: number) {
   const semanas: string[] = []
   const visto = new Set<string>()
   for (let dia = 1; dia <= nDias; dia++) {
@@ -39,6 +54,64 @@ export function semanasDelMes(anio: number, mes: number, nDias: number) {
     }
   }
   return semanas.sort()
+}
+
+type CalendarioFindesMes = {
+  semanas: readonly string[]
+  /** Días (base 1) de sábado/domingo de cada semana de `semanas`, en orden. */
+  diasFindePorSemana: readonly (readonly number[])[]
+  pares: readonly ParFinde[]
+}
+
+const calendarioFindesCache = new Map<number, CalendarioFindesMes>()
+
+function calcularCalendarioFindes(
+  anio: number,
+  mes: number,
+  nDias: number,
+): CalendarioFindesMes {
+  const semanas = calcularSemanasDelMes(anio, mes, nDias)
+  const diasFindePorSemana = semanas.map((semana) => {
+    const dias: number[] = []
+    for (let dia = 1; dia <= nDias; dia++) {
+      if (semanaCalendarioId(anio, mes, dia) !== semana) continue
+      if (esFinDeSemana(anio, mes, dia)) dias.push(dia)
+    }
+    return dias
+  })
+  const pares: ParFinde[] = []
+  for (let dia = 1; dia <= nDias; dia++) {
+    if (new Date(anio, mes - 1, dia).getDay() !== 6) continue
+    if (dia + 1 > nDias) continue
+    pares.push({ sabado: dia, domingo: dia + 1 })
+  }
+  return { semanas, diasFindePorSemana, pares }
+}
+
+/**
+ * Semanas, findes y pares sábado+domingo del mes. Dependen solo de
+ * (anio, mes, nDias) y el generador los consulta millones de veces.
+ */
+function calendarioFindes(anio: number, mes: number, nDias: number) {
+  const clave = claveDiaCalendario(anio, mes, nDias)
+  if (clave == null) return calcularCalendarioFindes(anio, mes, nDias)
+  let calendario = calendarioFindesCache.get(clave)
+  if (!calendario) {
+    calendario = calcularCalendarioFindes(anio, mes, nDias)
+    calendarioFindesCache.set(clave, calendario)
+  }
+  return calendario
+}
+
+function semanaConFindeLaborado(fila: Turno[], diasFinde: readonly number[]) {
+  for (const dia of diasFinde) {
+    if (esDiaTrabajado(fila[dia - 1])) return true
+  }
+  return false
+}
+
+export function semanasDelMes(anio: number, mes: number, nDias: number) {
+  return [...calendarioFindes(anio, mes, nDias).semanas]
 }
 
 export function finDeSemanaLaboradoEnSemana(
@@ -60,11 +133,11 @@ export function maxFindesConsecutivosLaborados(
   anio: number,
   mes: number,
 ) {
-  const semanas = semanasDelMes(anio, mes, fila.length)
+  const { diasFindePorSemana } = calendarioFindes(anio, mes, fila.length)
   let maximo = 0
   let racha = 0
-  for (const semana of semanas) {
-    if (finDeSemanaLaboradoEnSemana(fila, anio, mes, semana)) {
+  for (const diasFinde of diasFindePorSemana) {
+    if (semanaConFindeLaborado(fila, diasFinde)) {
       racha += 1
       maximo = Math.max(maximo, racha)
     } else {
@@ -80,10 +153,10 @@ export function findesLaboradosEnMes(
   anio: number,
   mes: number,
 ) {
-  const semanas = semanasDelMes(anio, mes, fila.length)
+  const { diasFindePorSemana } = calendarioFindes(anio, mes, fila.length)
   let total = 0
-  for (const semana of semanas) {
-    if (finDeSemanaLaboradoEnSemana(fila, anio, mes, semana)) total += 1
+  for (const diasFinde of diasFindePorSemana) {
+    if (semanaConFindeLaborado(fila, diasFinde)) total += 1
   }
   return total
 }
@@ -101,18 +174,13 @@ export function finDeSemanaLaboradoEnDia(
 /** Sábado+domingo del mismo finde, ambos dentro del mes. */
 export type ParFinde = { sabado: number; domingo: number }
 
+/** Compartido entre llamadas: no mutar. */
 export function paresFindeCompletos(
   anio: number,
   mes: number,
   nDias: number,
-): ParFinde[] {
-  const pares: ParFinde[] = []
-  for (let dia = 1; dia <= nDias; dia++) {
-    if (new Date(anio, mes - 1, dia).getDay() !== 6) continue
-    if (dia + 1 > nDias) continue
-    pares.push({ sabado: dia, domingo: dia + 1 })
-  }
-  return pares
+): readonly ParFinde[] {
+  return calendarioFindes(anio, mes, nDias).pares
 }
 
 function esParFindePartido(fila: Turno[], par: ParFinde) {

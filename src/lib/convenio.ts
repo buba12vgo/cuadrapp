@@ -1,4 +1,5 @@
 import type { Turno } from '@/types'
+import { claveDiaCalendario } from '@/lib/fechas'
 
 /** Días operativos del convenio en meses de 30 o 31 días. */
 export const DIAS_OPERATIVOS_ESTANDAR = 17
@@ -85,8 +86,22 @@ export function totalDiasTrabajadosJefes(
   return n
 }
 
+const diaSemanaCache = new Map<number, number>()
+
+/** `getDay()` cacheado: los generadores lo piden por cada celda y pasada. */
+export function diaSemanaJs(anio: number, mes: number, dia: number) {
+  const clave = claveDiaCalendario(anio, mes, dia)
+  if (clave == null) return new Date(anio, mes - 1, dia).getDay()
+  let weekday = diaSemanaCache.get(clave)
+  if (weekday === undefined) {
+    weekday = new Date(anio, mes - 1, dia).getDay()
+    diaSemanaCache.set(clave, weekday)
+  }
+  return weekday
+}
+
 export function esFinDeSemana(anio: number, mes: number, dia: number) {
-  const weekday = new Date(anio, mes - 1, dia).getDay()
+  const weekday = diaSemanaJs(anio, mes, dia)
   return weekday === 0 || weekday === 6
 }
 

@@ -1,5 +1,5 @@
 /** Festivos nacionales y de Galicia. El calendario operativo los reutilizará. */
-import { isoFecha as iso } from '@/lib/fechas'
+import { claveDiaCalendario, isoFecha as iso } from '@/lib/fechas'
 
 function sumarDias(fecha: Date, dias: number) {
   const copia = new Date(fecha)
@@ -57,7 +57,16 @@ export function festivosDelAnio(anio: number) {
   return set
 }
 
+const esFestivoCache = new Map<number, boolean>()
+
 /** `mes` es 1–12. */
 export function esFestivo(anio: number, mes: number, dia: number) {
-  return festivosDelAnio(anio).has(iso(anio, mes, dia))
+  const clave = claveDiaCalendario(anio, mes, dia)
+  if (clave == null) return festivosDelAnio(anio).has(iso(anio, mes, dia))
+  let festivo = esFestivoCache.get(clave)
+  if (festivo === undefined) {
+    festivo = festivosDelAnio(anio).has(iso(anio, mes, dia))
+    esFestivoCache.set(clave, festivo)
+  }
+  return festivo
 }

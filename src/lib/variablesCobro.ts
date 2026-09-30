@@ -1,13 +1,9 @@
 import type { AsignacionesDiarias, TurnoAsignable } from '@/lib/calendarioPuestos'
-import { esDiaTrabajado } from '@/lib/convenio'
+import { diaSemanaJs as diaSemana, esDiaTrabajado } from '@/lib/convenio'
 import { esFestivo } from '@/lib/festivos'
 import { esJornadaDisponible } from '@/lib/jornadaDisponible'
 import type { EventoOperativo, Turno } from '@/types'
 import { isoFecha } from '@/lib/fechas'
-
-function diaSemana(anio: number, mes: number, dia: number) {
-  return new Date(anio, mes - 1, dia).getDay()
-}
 
 /** Festivo nacional/gallego o evento de calendario tipo FESTIVO. */
 export function diaEsFestivoCobro(
@@ -17,6 +13,7 @@ export function diaEsFestivoCobro(
   eventos: EventoOperativo[],
 ) {
   if (esFestivo(anio, mes, dia)) return true
+  if (eventos.length === 0) return false
   const fecha = isoFecha(anio, mes, dia)
   return eventos.some(
     (evento) => evento.fecha === fecha && evento.tipo === 'FESTIVO',
@@ -90,19 +87,17 @@ export type OpcionesConteoCobro = {
   agenteId?: string
 }
 
+/** `diasFestivoCobrados` va por número de día: todas las entradas son del mismo mes. */
 function sumarFestivoDia(
-  diasFestivoCobrados: Map<string, number>,
-  anio: number,
-  mes: number,
+  diasFestivoCobrados: Map<number, number>,
   dia: number,
   counts: ConteoVariablesCobro,
   unidades: number,
 ) {
-  const fecha = isoFecha(anio, mes, dia)
-  const ya = diasFestivoCobrados.get(fecha) ?? 0
+  const ya = diasFestivoCobrados.get(dia) ?? 0
   if (unidades <= ya) return
   counts.festivo += unidades - ya
-  diasFestivoCobrados.set(fecha, unidades)
+  diasFestivoCobrados.set(dia, unidades)
 }
 
 /**
@@ -124,7 +119,7 @@ export function contarVariablesCobroAgente(
 ): ConteoVariablesCobro {
   const counts = conteoVariablesCobroVacio()
   const nDias = fila.length
-  const diasFestivoCobrados = new Map<string, number>()
+  const diasFestivoCobrados = new Map<number, number>()
   const asignaciones = opciones?.asignaciones
   const agenteId = opciones?.agenteId
 
@@ -158,18 +153,11 @@ export function contarVariablesCobroAgente(
     if (wd === 6 && tarde) counts.conciliacion_sabado_tarde++
 
     if (diaEsFestivoCobro(anio, mes, dia, eventos)) {
-      sumarFestivoDia(
-        diasFestivoCobrados,
-        anio,
-        mes,
-        dia,
-        counts,
-        turno === 'MT' ? 2 : 1,
-      )
+      sumarFestivoDia(diasFestivoCobrados, dia, counts, turno === 'MT' ? 2 : 1)
     }
 
     if (turno === 'N' && (wd === 6 || wd === 0)) {
-      sumarFestivoDia(diasFestivoCobrados, anio, mes, dia, counts, 1)
+      sumarFestivoDia(diasFestivoCobrados, dia, counts, 1)
     }
 
     if (wd === 6 && turno === 'N') {
@@ -178,7 +166,7 @@ export function contarVariablesCobroAgente(
         domingo <= nDias &&
         diaEsFestivoCobro(anio, mes, domingo, eventos)
       ) {
-        sumarFestivoDia(diasFestivoCobrados, anio, mes, domingo, counts, 1)
+        sumarFestivoDia(diasFestivoCobrados, domingo, counts, 1)
       }
     }
   }

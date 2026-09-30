@@ -19,7 +19,8 @@ import {
 import {
   contarVariablesCobroAgente,
   puntajeEquilibrioVariablesMensual,
-  sumatorioFMensual,
+  totalConciliaciones,
+  totalFestivos,
 } from '@/lib/variablesCobro'
 import { isoFecha as isoFechaCuadrante } from '@/lib/fechas'
 
@@ -85,17 +86,19 @@ export function contarDeficitsMinimosCuadrante(
 ) {
   const nDias = diasDelMes(anio, mes)
   const grupos = agentesPorTurnoMes(cuadrante, agenteIds, planAnual, mes, nDias)
+  const minimosPorDia = Array.from({ length: nDias }, (_, dia) =>
+    minimosParaFecha(
+      isoFechaCuadrante(anio, mes, dia + 1),
+      eventos,
+      minimosSemana,
+      puestos,
+    ),
+  )
   let total = 0
   for (const turno of ['M', 'T', 'N'] as TurnoOperativo[]) {
     const ids = grupos.get(turno) ?? []
     for (let dia = 0; dia < nDias; dia++) {
-      const minimos = minimosParaFecha(
-        isoFechaCuadrante(anio, mes, dia + 1),
-        eventos,
-        minimosSemana,
-        puestos,
-      )
-      const minimo = totalMinimosTurno(minimos, turno, puestos)
+      const minimo = totalMinimosTurno(minimosPorDia[dia], turno, puestos)
       const deficit = minimo - conteoTurnoDia(cuadrante, ids, dia, turno)
       if (deficit > 0) total += deficit
     }
@@ -174,8 +177,9 @@ export function puntuacionGlobalCuadrante(
     const conteos = ids.map((id) =>
       contarVariablesCobroAgente(cuadrante[id] ?? [], anio, mes, eventos),
     )
-    const sumatoriosF = ids.map((id) =>
-      sumatorioFMensual(cuadrante[id] ?? [], anio, mes, eventos),
+    // Igual que sumatorioFMensual por agente, sin volver a contar el mes.
+    const sumatoriosF = conteos.map(
+      (conteo) => totalFestivos(conteo) + totalConciliaciones(conteo),
     )
     total +=
       puntajeEquilibrioVariablesMensual(conteos, sumatoriosF) * PESO_VARIABLES

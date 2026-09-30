@@ -29,3 +29,16 @@ export function isoFecha(anio: number, mes: number, dia: number) {
 export function esFechaIso(valor: unknown): valor is string {
   return typeof valor === 'string' && FECHA_ISO_RE.test(valor)
 }
+
+/**
+ * Clave numérica única para cachear por día natural (`mes` en base 1). Devuelve
+ * `null` fuera de rango: `Date` normaliza desbordes y dos entradas distintas
+ * podrían compartir clave sin representar el mismo día.
+ */
+export function claveDiaCalendario(anio: number, mes: number, dia: number) {
+  if (!Number.isInteger(anio) || !Number.isInteger(mes) || !Number.isInteger(dia)) {
+    return null
+  }
+  if (mes < 1 || mes > 12 || dia < 1 || dia > 31) return null
+  return (anio * 13 + mes) * 32 + dia
+}

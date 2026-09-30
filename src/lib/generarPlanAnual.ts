@@ -898,22 +898,32 @@ type PuntajeEquilibrioMeses = {
   desviacion: number
 }
 
-function puntajeEquilibrioMeses(
-  plan: PlanAnual,
-  ids: string[],
-  objetivos: ObjetivosGlobales,
+/** Mismo criterio que `mesesPendientesCuadre` + desviación, sobre conteos ya calculados. */
+function puntajeDesdeConteos(
+  conteos: Cupos[],
+  esperadoPara: (activos: number) => Cupos,
 ): PuntajeEquilibrioMeses {
-  const mesesMal = mesesPendientesCuadre(plan, ids, objetivos)
+  let pendientes = 0
   let desviacion = 0
-  for (const mes of mesesMal) {
-    const conteo = conteoMes(plan, ids, mes)
+  for (const conteo of conteos) {
     const activos = conteo.M + conteo.T + conteo.N
-    desviacion += desviacionObjetivo(
-      conteo,
-      cuposDesdePorcentajes(activos, objetivos),
-    )
+    if (activos <= 0) continue
+    const esperado = esperadoPara(activos)
+    if (
+      conteo.M === esperado.M &&
+      conteo.T === esperado.T &&
+      conteo.N === esperado.N
+    ) {
+      continue
+    }
+    pendientes += 1
+    desviacion += desviacionObjetivo(conteo, esperado)
   }
-  return { pendientes: mesesMal.length, desviacion }
+  return { pendientes, desviacion }
+}
+
+function conteosPorMes(plan: PlanAnual, ids: string[]) {
+  return Array.from({ length: MESES }, (_, mes) => conteoMes(plan, ids, mes))
 }
 
 function mejoraEquilibrioMeses(
@@ -944,6 +954,29 @@ function intentarMejorarMes(
   if (cuadraCupos(conteo, objetivos)) return false
 
   let mejorado = false
+  const esperados = new Map<number, Cupos>()
+  const esperadoPara = (n: number) => {
+    let esperado = esperados.get(n)
+    if (!esperado) {
+      esperado = cuposDesdePorcentajes(n, objetivos)
+      esperados.set(n, esperado)
+    }
+    return esperado
+  }
+  // Un swap en la misma fila con fila[mes]=desde y fila[mesB]=hacia solo mueve
+  // una unidad entre esos dos turnos en ambos meses (requiere ids sin repetir).
+  const conteos = conteosPorMes(plan, ids)
+  const moverConteo = (
+    mesB: number,
+    desde: TurnoActivo,
+    hacia: TurnoActivo,
+  ) => {
+    conteos[mes][desde] -= 1
+    conteos[mes][hacia] += 1
+    conteos[mesB][hacia] -= 1
+    conteos[mesB][desde] += 1
+  }
+  let puntajeActual = puntajeDesdeConteos(conteos, esperadoPara)
 
   for (const surplus of TURNOS_ACTIVOS) {
     for (const deficit of TURNOS_ACTIVOS) {
@@ -956,7 +989,7 @@ function intentarMejorarMes(
         for (let mesB = 0; mesB < MESES; mesB++) {
           if (mesB === mes) continue
           if (plan[id]?.[mesB] !== deficit) continue
-          const puntajeAntes = puntajeEquilibrioMeses(plan, ids, objetivos)
+          const puntajeAntes = puntajeActual
           if (
             !intentarSwapMismaFila(
               plan,
@@ -969,25 +1002,33 @@ function intentarMejorarMes(
           ) {
             continue
           }
-          const puntajeDesp = puntajeEquilibrioMeses(plan, ids, objetivos)
+          moverConteo(mesB, surplus, deficit)
+          const puntajeDesp = puntajeDesdeConteos(conteos, esperadoPara)
           if (!mejoraEquilibrioMeses(puntajeAntes, puntajeDesp)) {
-            intentarSwapMismaFila(
-              plan,
-              agentesById,
-              id,
-              mes,
-              mesB,
-              planAnioAnterior,
-            )
+            if (
+              intentarSwapMismaFila(
+                plan,
+                agentesById,
+                id,
+                mes,
+                mesB,
+                planAnioAnterior,
+              )
+            ) {
+              moverConteo(mesB, deficit, surplus)
+            } else {
+              puntajeActual = puntajeDesp
+            }
             continue
           }
+          puntajeActual = puntajeDesp
           mejorado = true
           if (puntajeDesp.pendientes === 0) return true
         }
       }
 
-      const conteoActual = conteoMes(plan, ids, mes)
-      const objetivoActual = cuposDesdePorcentajes(activos, objetivos)
+      const conteoActual = conteos[mes]
+      const objetivoActual = esperadoPara(activos)
       if (conteoActual[surplus] <= objetivoActual[surplus]) continue
       if (conteoActual[deficit] >= objetivoActual[deficit]) continue
 
@@ -1004,7 +1045,6 @@ function intentarMejorarMes(
             if (agenteB && debeBalancearMTAnual(agenteB)) continue
             if (plan[idB]?.[mes] !== deficit) continue
             if (plan[idB]?.[mesB] !== surplus) continue
-            const puntajeAntes = puntajeEquilibrioMeses(plan, ids, objetivos)
             if (
               !intentarDobleSwapPreservandoCupos(
                 plan,
@@ -1018,21 +1058,18 @@ function intentarMejorarMes(
             ) {
               continue
             }
-            const puntajeDesp = puntajeEquilibrioMeses(plan, ids, objetivos)
-            if (!mejoraEquilibrioMeses(puntajeAntes, puntajeDesp)) {
-              intentarDobleSwapPreservandoCupos(
-                plan,
-                agentesById,
-                idA,
-                idB,
-                mes,
-                mesB,
-                planAnioAnterior,
-              )
-              continue
-            }
-            mejorado = true
-            if (puntajeDesp.pendientes === 0) return true
+            // El 2×2 solo permuta turnos dentro de cada mes: los conteos no
+            // cambian, el puntaje tampoco y nunca se acepta. Se deshace igual
+            // que antes (la vuelta revalida restricciones y puede no aplicarse).
+            intentarDobleSwapPreservandoCupos(
+              plan,
+              agentesById,
+              idA,
+              idB,
+              mes,
+              mesB,
+              planAnioAnterior,
+            )
           }
         }
       }

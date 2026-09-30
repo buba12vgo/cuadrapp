@@ -90,7 +90,7 @@ import {
   type PlanAnual,
   type TurnoAnual,
 } from '@/lib/generarPlanAnual'
-import { mensajesInfraccion } from '@/lib/reglasCuadrante'
+import { mensajesInfraccionFila } from '@/lib/reglasCuadrante'
 import { exportarCuadranteMensualExcel } from '@/lib/exportarCuadranteMensualExcel'
 import {
   contarVariablesCobroAgente,
@@ -175,6 +175,46 @@ function turnoPlanMes(
   if (turno != null) return turno
   if (esPoliciaBolsa(agente.rolBase)) return null
   return 'M'
+}
+
+const FILA_VACIA: Turno[] = []
+const SIN_AVISOS: string[] = []
+
+type AvisosFilaCache = {
+  anio: number
+  mes: number
+  cola: Turno[] | undefined
+  avisos: string[][]
+}
+
+/**
+ * Las ediciones sustituyen solo la fila tocada (`{ ...actual, [id]: fila }`),
+ * así que el resto de filas conserva identidad y reutiliza sus avisos.
+ */
+const avisosPorFila = new WeakMap<Turno[], AvisosFilaCache>()
+
+function avisosDeFila(
+  fila: Turno[],
+  anio: number,
+  mes: number,
+  cola: Turno[] | undefined,
+) {
+  const previo = avisosPorFila.get(fila)
+  if (
+    previo &&
+    previo.anio === anio &&
+    previo.mes === mes &&
+    previo.cola === cola
+  ) {
+    return previo.avisos
+  }
+  const avisos = mensajesInfraccionFila(fila, {
+    anio,
+    mes,
+    colaMesAnterior: cola,
+  })
+  avisosPorFila.set(fila, { anio, mes, cola, avisos })
+  return avisos
 }
 
 /** Turno M/T/N del mes: el del plan, o el primero que ya tenga la fila. */
@@ -1170,6 +1210,23 @@ export function CuadranteMensualPage() {
     }
   }
 
+  const columnasAgente = agentesVisibles.map((agente) => {
+    const fila = cuadrante[agente.id] ?? FILA_VACIA
+    const turnoMes = turnoPlanMes(agente, planAnual, mes)
+    return {
+      agente,
+      fila,
+      turnoMes,
+      turnoMesOperativo:
+        turnoMes === 'M' || turnoMes === 'T' || turnoMes === 'N'
+          ? turnoMes
+          : null,
+      descansoAlternable:
+        turnoOperativoAgente(agente, planAnual, mes, fila) != null,
+      avisos: avisosDeFila(fila, anio, mes, colaMesAnterior[agente.id]),
+    }
+  })
+
   return (
     <section className={PAGE_SECTION}>
       <PageHeader
@@ -1402,8 +1459,7 @@ export function CuadranteMensualPage() {
               >
                 Día
               </th>
-              {agentesVisibles.map((agente) => {
-                const turnoPlan = turnoPlanMes(agente, planAnual, mes)
+              {columnasAgente.map(({ agente, turnoMes: turnoPlan }) => {
                 const nombre = `${agente.nombre} ${agente.apellidos}`
                 return (
                   <th
@@ -1500,10 +1556,10 @@ export function CuadranteMensualPage() {
                       </span>
                     </button>
                   </td>
-                  {agentesVisibles.map((agente) => {
-                    const fila = cuadrante[agente.id] ?? []
+                  {columnasAgente.map((columna) => {
+                    const { agente, fila, turnoMesOperativo } = columna
                     const turno = fila[dia - 1] ?? 'D'
-                    const fecha = isoFecha(anio, mes, dia)
+                    const fecha = fechaDia
                     const turnoAsignable = esTurnoAsignable(turno)
                       ? turno
                       : null
@@ -1529,17 +1585,8 @@ export function CuadranteMensualPage() {
                     const esJd = Boolean(
                       asignado && esJornadaDisponible(asignado),
                     )
-                    const avisos = mensajesInfraccion(fila, dia - 1, {
-                      anio,
-                      mes,
-                      colaMesAnterior: colaMesAnterior[agente.id],
-                    })
+                    const avisos = columna.avisos[dia - 1] ?? SIN_AVISOS
                     const rota = avisos.length > 0
-                    const turnoMes = turnoPlanMes(agente, planAnual, mes)
-                    const turnoMesOperativo =
-                      turnoMes === 'M' || turnoMes === 'T' || turnoMes === 'N'
-                        ? turnoMes
-                        : null
                     const descansoDelFiltro =
                       turno === 'D' &&
                       turnoMesOperativo != null &&
@@ -1562,12 +1609,7 @@ export function CuadranteMensualPage() {
                           : ''
                     const puedeAlternar =
                       turno === 'D'
-                        ? turnoOperativoAgente(
-                            agente,
-                            planAnual,
-                            mes,
-                            fila,
-                          ) != null
+                        ? columna.descansoAlternable
                         : operativo || turno === 'MT'
                     const interactiva =
                       !atenuada &&
@@ -1673,9 +1715,7 @@ export function CuadranteMensualPage() {
               >
                 Σ
               </td>
-              {agentesVisibles.map((agente) => {
-                const fila = cuadrante[agente.id] ?? []
-                const turnoPlan = turnoPlanMes(agente, planAnual, mes)
+              {columnasAgente.map(({ agente, fila, turnoMes: turnoPlan }) => {
                 const trabajados = totalTrabajados(fila)
                 const variables = contarVariablesCobroAgente(
                   fila,

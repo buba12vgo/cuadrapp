@@ -141,10 +141,48 @@ function turnoPrevioDia(
   return colaMesAnterior[colaMesAnterior.length - 1]
 }
 
+/** Recuentos de fines de semana de la fila completa, calculados bajo demanda. */
+type FindesFila = {
+  laborados: () => number
+  maxConsecutivos: () => number
+}
+
+function findesDeFila(
+  fila: Turno[],
+  contexto: ContextoReglasCuadrante,
+): FindesFila {
+  let laborados: number | undefined
+  let maxConsecutivos: number | undefined
+  return {
+    laborados: () =>
+      (laborados ??= findesLaboradosEnMes(fila, contexto.anio, contexto.mes)),
+    maxConsecutivos: () =>
+      (maxConsecutivos ??= maxFindesConsecutivosLaborados(
+        fila,
+        contexto.anio,
+        contexto.mes,
+      )),
+  }
+}
+
 export function infraccionesCelda(
   fila: Turno[],
   dia: number,
   contexto?: ContextoReglasCuadrante,
+) {
+  return infraccionesDia(
+    fila,
+    dia,
+    contexto,
+    contexto ? findesDeFila(fila, contexto) : undefined,
+  )
+}
+
+function infraccionesDia(
+  fila: Turno[],
+  dia: number,
+  contexto: ContextoReglasCuadrante | undefined,
+  findes: FindesFila | undefined,
 ) {
   const infracciones: CodigoRegla[] = []
   const turno = fila[dia]
@@ -186,8 +224,12 @@ export function infraccionesCelda(
     infracciones.push('FINDE_PARTIDO')
   }
 
-  if (contexto && esFinDeSemana(contexto.anio, contexto.mes, dia + 1)) {
-    const findesMes = findesLaboradosEnMes(fila, contexto.anio, contexto.mes)
+  if (
+    contexto &&
+    findes &&
+    esFinDeSemana(contexto.anio, contexto.mes, dia + 1)
+  ) {
+    const findesMes = findes.laborados()
     if (findesMes > MAX_FINDES_MES) {
       infracciones.push('FINDES_MES_EXCESO')
     }
@@ -196,8 +238,7 @@ export function infraccionesCelda(
     }
     if (
       finDeSemanaLaboradoEnDia(fila, contexto.anio, contexto.mes, dia + 1) &&
-      maxFindesConsecutivosLaborados(fila, contexto.anio, contexto.mes) >
-        MAX_FINDES_CONSECUTIVOS
+      findes.maxConsecutivos() > MAX_FINDES_CONSECUTIVOS
     ) {
       infracciones.push('FINDES_CONSECUTIVOS')
     }
@@ -213,6 +254,19 @@ export function mensajesInfraccion(
 ) {
   return infraccionesCelda(fila, dia, contexto).map(
     (codigo) => MENSAJE_REGLA[codigo],
+  )
+}
+
+/** `mensajesInfraccion` de cada día de la fila, con los recuentos de findes compartidos. */
+export function mensajesInfraccionFila(
+  fila: Turno[],
+  contexto: ContextoReglasCuadrante,
+): string[][] {
+  const findes = findesDeFila(fila, contexto)
+  return Array.from(fila, (_, dia) =>
+    infraccionesDia(fila, dia, contexto, findes).map(
+      (codigo) => MENSAJE_REGLA[codigo],
+    ),
   )
 }
 

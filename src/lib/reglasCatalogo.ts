@@ -128,10 +128,10 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     categoria: 'TURNOS',
     titulo: 'Separación entre noches en el plan anual',
     descripcion:
-      'Tras un mes de noche no se puede volver a hacer noche en los dos meses siguientes del mismo año. Marzo N no permite noche otra vez hasta junio como muy pronto. Diciembre N bloquea enero del año siguiente (meses seguidos); febrero sí puede ser N si hace falta para las preferencias.',
+      'Tras un mes de noche no se puede volver a hacer noche en los dos meses siguientes del mismo año. Marzo N no permite noche otra vez hasta junio como muy pronto. Entre años solo cuenta diciembre: no se repite N en diciembre dos años seguidos.',
     estado: 'implementada',
     detalle:
-      'La separación de dos meses es lineal y solo dentro del año. Entre años solo se prohíben meses consecutivos: diciembre N impide enero N. Febrero del año siguiente puede ser N. Diciembre N dos años seguidos sigue prohibido por otra regla. Autogenerar respeta estas normas; la edición manual de una celda no se bloquea (el aviso queda en la celda).',
+      'La separación de dos meses es lineal y solo dentro del año. El año anterior solo se consulta para diciembre (regla «Diciembre noche sin repetición anual»); enero y el resto de meses pueden ser N aunque diciembre anterior fuera noche, y el mismo mes puede repetir N de un año a otro. Autogenerar respeta estas normas; la edición manual de una celda no se bloquea (el aviso queda en la celda).',
     referencia: 'generarPlanAnual · puedeNoche · MESES_SIN_N_TRAS_NOCHE = 2',
   },
   {
@@ -281,7 +281,7 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     categoria: 'PLAN_ANUAL',
     titulo: 'Limpiar el año del plan anual',
     descripcion:
-      'Limpiar año deja en blanco solo el año seleccionado, con dos confirmaciones, para poder meter el cuadrante real y generar el siguiente con las normas de fin de año (diciembre N, enero, etc.).',
+      'Limpiar año deja en blanco solo el año seleccionado, con dos confirmaciones, para poder meter el cuadrante real y generar el siguiente con las normas de fin de año (diciembre N, racha de tardes de enero).',
     estado: 'implementada',
     detalle:
       'No se tocan los demás años ni los % objetivo. Tras vaciar, las celdas se pueden rellenar a mano. Autogenerar el año siguiente consulta diciembre del año ya editado.',

@@ -68,13 +68,12 @@ export const PASADAS_REFINO_PLAN_ANUAL = 3
 
 const MESES = 12
 const TURNOS_ACTIVOS = ['M', 'T', 'N'] as const
-const MES_ENERO = 0
 const MES_DICIEMBRE = 11
 /**
  * Tras un mes de noche, los dos meses siguientes del mismo año no pueden ser N.
  * Marzo N → abril y mayo bloqueados; junio es lo más pronto.
- * Entre años, dos meses seguidos sí están prohibidos: diciembre N bloquea enero.
- * Febrero del año siguiente puede ser N para cuadrar preferencias.
+ * Entre años solo cuenta diciembre: N en diciembre impide N en diciembre del
+ * año siguiente. Enero y el resto de meses no miran el año anterior.
  */
 const MESES_SIN_N_TRAS_NOCHE = 2
 /**
@@ -135,13 +134,6 @@ function nochesDemasiadoCercanas(a: number, b: number) {
   return a !== b && Math.abs(a - b) <= MESES_SIN_N_TRAS_NOCHE
 }
 
-function eneroBloqueadoPorDiciembreAnterior(
-  mes: number,
-  diciembreAnteriorN: boolean,
-) {
-  return diciembreAnteriorN && mes === MES_ENERO
-}
-
 function diciembreNProhibidoEsteAnio(
   mes: number,
   diciembreAnteriorN: boolean,
@@ -151,7 +143,6 @@ function diciembreNProhibidoEsteAnio(
 
 function puedeNoche(fila: Fila, mes: number, diciembreAnteriorN: boolean) {
   if (fila[mes] != null) return false
-  if (eneroBloqueadoPorDiciembreAnterior(mes, diciembreAnteriorN)) return false
   if (diciembreNProhibidoEsteAnio(mes, diciembreAnteriorN)) return false
   for (let otro = 0; otro < MESES; otro++) {
     if (fila[otro] !== 'N') continue
@@ -165,7 +156,6 @@ function puedeColocarNoche(
   mes: number,
   diciembreAnteriorN: boolean,
 ) {
-  if (eneroBloqueadoPorDiciembreAnterior(mes, diciembreAnteriorN)) return false
   if (diciembreNProhibidoEsteAnio(mes, diciembreAnteriorN)) return false
   for (let otro = 0; otro < MESES; otro++) {
     if (otro === mes) continue
@@ -1589,14 +1579,11 @@ function infraccionGraveTurnoEnPlan(
   }
   const dicAnteriorN = diciembreNProhibido(agente.id, planAnioAnterior)
   const dicAnteriorT = diciembreAnteriorTarde(agente.id, planAnioAnterior)
-  if (turno === 'N' && mes === MES_ENERO && dicAnteriorN) {
-    return 'No puede hacer noche en enero si diciembre del año anterior fue noche'
+  if (mes === MES_DICIEMBRE && turno === 'N' && dicAnteriorN) {
+    return 'No puede repetir noche en diciembre respecto al año anterior'
   }
   if (turno === 'N' && !puedeColocarNoche(fila, mes, dicAnteriorN)) {
     return 'No se puede repetir noche en los dos meses siguientes (mismo año)'
-  }
-  if (mes === MES_DICIEMBRE && turno === 'N' && dicAnteriorN) {
-    return 'No puede repetir noche en diciembre respecto al año anterior'
   }
   if (turno === 'T') {
     const racha = rachaTardeSiColoca(fila, mes, dicAnteriorT)
@@ -1713,14 +1700,11 @@ export function validarTurnoEnPlan(
     }
     const dicAnteriorN = diciembreNProhibido(agente.id, planAnioAnterior)
     const dicAnteriorT = diciembreAnteriorTarde(agente.id, planAnioAnterior)
-    if (turno === 'N' && mes === MES_ENERO && dicAnteriorN) {
-      return 'No puede hacer noche en enero si diciembre del año anterior fue noche'
+    if (mes === MES_DICIEMBRE && turno === 'N' && dicAnteriorN) {
+      return 'No puede repetir noche en diciembre respecto al año anterior'
     }
     if (turno === 'N' && !puedeColocarNoche(fila, mes, dicAnteriorN)) {
       return 'No se puede repetir noche en los dos meses siguientes (mismo año)'
-    }
-    if (mes === MES_DICIEMBRE && turno === 'N' && dicAnteriorN) {
-      return 'No puede repetir noche en diciembre respecto al año anterior'
     }
     if (turno === 'T') {
       const racha = rachaTardeSiColoca(fila, mes, dicAnteriorT)

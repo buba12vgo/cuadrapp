@@ -43,7 +43,7 @@ function CabeceraMes() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-            Cuadrapp · {etiquetaRol || 'consulta'}
+            MoaPP · {etiquetaRol || 'consulta'}
           </p>
           <p className="text-sm text-slate-300">
             {user?.email ? user.email : 'Jefes y responsables'}

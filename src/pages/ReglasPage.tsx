@@ -44,7 +44,7 @@ export function ReglasPage() {
               <p>
                 Catálogo de condicionantes de turnos, días, puestos y plantilla.
                 Las <span className="font-medium text-emerald-800">implementadas</span>{' '}
-                ya tienen lógica en Cuadrapp.
+                ya tienen lógica en MoaPP.
               </p>
             </div>
 

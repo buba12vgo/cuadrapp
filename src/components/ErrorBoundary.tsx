@@ -12,7 +12,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('[Cuadrapp] Error de renderizado', error, info.componentStack)
+    console.error('[MoaPP] Error de renderizado', error, info.componentStack)
   }
 
   render() {
@@ -28,7 +28,7 @@ export class ErrorBoundary extends Component<Props, State> {
             </h1>
             <p className="mt-2 text-sm text-muted">
               {versionVieja
-                ? 'Hay una versión nueva de Cuadrapp o se ha perdido la conexión. Recarga para continuar.'
+                ? 'Hay una versión nueva de MoaPP o se ha perdido la conexión. Recarga para continuar.'
                 : this.state.error.message || 'Ha ocurrido un error inesperado.'}
             </p>
             <button

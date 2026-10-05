@@ -122,7 +122,7 @@ if (!mismas(pestanasMovil('SUPERADMIN'), ['solicitudes', 'cuadrante', 'calendari
 if (!mismas(pestanasMovil('ADMIN'), ['solicitudes', 'cuadrante', 'calendario', 'diario'])) {
   fallos.push('nav admin')
 }
-if (!mismas(pestanasMovil('CONSULTA_JEFES', jefatura), ['cuadrante', 'calendario', 'diario'])) {
+if (!mismas(pestanasMovil('CONSULTA_JEFES', jefatura), ['cuadrante', 'calendario', 'diario', 'permisos'])) {
   fallos.push('nav jefe')
 }
 if (!mismas(pestanasMovil('CONSULTA_JEFES'), ['eventos', 'servicio', 'diario', 'solicitudes', 'permisos'])) {
@@ -133,6 +133,8 @@ if (inicioMovil('CONSULTA_JEFES', jefatura) !== '/m/cuadrante') fallos.push('ini
 if (inicioMovil('CONSULTA_JEFES') !== '/m/servicio') fallos.push('inicio agente')
 if (puedeVerRuta('CONSULTA_JEFES', '/m/cuadrante')) fallos.push('agente entra en cuadrante')
 if (puedeVerRuta('CONSULTA_JEFES', '/m/solicitudes', jefatura)) fallos.push('jefe entra en solicitudes')
+if (!puedeVerRuta('CONSULTA_JEFES', '/m/permisos', jefatura)) fallos.push('jefe entra en permisos')
+if (puedeVerRuta('ADMIN', '/m/permisos')) fallos.push('admin entra en permisos')
 if (!puedeVerRuta('ADMIN', '/m/solicitudes')) fallos.push('admin entra en solicitudes')
 if (puedeVerRuta('ADMIN', '/m/servicio')) fallos.push('admin entra en agente')
 if (!puedeVerRuta('CONSULTA_JEFES', '/m/servicio')) fallos.push('agente entra en servicio')

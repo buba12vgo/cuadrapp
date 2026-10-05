@@ -216,7 +216,7 @@ export function pestanasMovil(
     return ['solicitudes', 'cuadrante', 'calendario', 'diario']
   }
   if (rol === 'CONSULTA_JEFES' && opciones?.esJefatura === true) {
-    return ['cuadrante', 'calendario', 'diario']
+    return ['cuadrante', 'calendario', 'diario', 'permisos']
   }
   return ['eventos', 'servicio', 'diario', 'solicitudes', 'permisos']
 }

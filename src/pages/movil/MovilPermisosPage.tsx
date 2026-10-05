@@ -13,7 +13,7 @@ import { useMovilMes } from '@/pages/movil/movilMes'
 
 export function MovilPermisosPage() {
   const { anio } = useMovilMes()
-  const { perfil } = useAcceso()
+  const { perfil, esJefatura } = useAcceso()
   const [agentesData] = useAgentesData()
   const jefes = useMemo(
     () => agentesCuadranteJefes(agentesData),
@@ -24,9 +24,10 @@ export function MovilPermisosPage() {
     [agentesData, perfil],
   )
   const veTodos = vePermisosDeTodos(perfil?.rol)
+  const veGrupoJefes = veTodos || esJefatura
   const visibles = useMemo(
-    () => (veTodos ? jefes : propio ? [propio] : []),
-    [veTodos, jefes, propio],
+    () => (veGrupoJefes ? jefes : propio ? [propio] : []),
+    [veGrupoJefes, jefes, propio],
   )
   const { agenteId, elegir } = useSeleccionAgente(visibles, propio)
   const { permisos, resumenes, loading } = useSaldosPermisosAnio(visibles, anio)
@@ -47,9 +48,10 @@ export function MovilPermisosPage() {
   return (
     <div className="flex flex-col gap-3">
       <p className="px-1 text-sm text-slate-500">
-        Permisos de {anio}. Totales, disfrutados y pendientes.
+        Permisos de {anio}. Totales, disfrutados y pendientes
+        {veGrupoJefes ? '. Solo consulta.' : '.'}
       </p>
-      {veTodos ? (
+      {visibles.length > 1 ? (
       <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1">
         {visibles.map((item) => {
           const activo = item.id === agente?.id
@@ -86,7 +88,7 @@ export function MovilPermisosPage() {
         </section>
       ) : (
         <p className="rounded-2xl bg-white px-3 py-4 text-sm text-slate-600">
-          {veTodos
+          {veGrupoJefes
             ? 'No hay jefes ni responsables en la plantilla.'
             : 'No hay una ficha vinculada a tu usuario.'}
         </p>

@@ -14,9 +14,8 @@ import {
 } from '@/lib/jornadaDisponible'
 import {
   anioHaCerrado,
-  CODIGO_DIAS_ANO_ANTERIOR,
   cuposAnioConRollover,
-  leerCuposPermisoAnio,
+  snapshotDaaPendiente,
   saldosPermisoAgente,
   totalRestanteTrasladable,
 } from '@/lib/cuposPermiso'
@@ -230,8 +229,7 @@ export async function asegurarRolloverDaaPlantilla(
       resumenesOrigen[agente.id] ?? resumenPermisosVacio(),
     )
     const daa = totalRestanteTrasladable(saldos)
-    const actual = leerCuposPermisoAnio(agente, anio)[CODIGO_DIAS_ANO_ANTERIOR]
-    if (actual === daa) continue
+    if (!snapshotDaaPendiente(agente, anio)) continue
 
     const siguiente: FichaPolicia = {
       ...agente,

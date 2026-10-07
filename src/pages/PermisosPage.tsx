@@ -262,7 +262,7 @@ function EditorModal({
               />
               <span className="text-sm text-slate-500">
                 {esDiasAnoAnterior(editandoCodigo ?? form.codigo)
-                  ? 'Este cupo se llena el 31 de diciembre a las 23:59 con los días no gastados.'
+                  ? 'Puedes poner el saldo inicial a mano en la ficha del agente. El 31 de diciembre a las 23:59 solo lo rellena si está vacío.'
                   : 'Ej. 6 en Asuntos propios. 0 = sin tope anual (no pasa a Días del Año Anterior).'}
               </span>
             </label>

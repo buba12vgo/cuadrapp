@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { FileDown } from 'lucide-react'
 import { ChipEventoCalendario } from '@/components/ChipEventoCalendario'
-import { ETIQUETA_EVENTO } from '@/lib/etiquetasEvento'
+import { etiquetaDeTipo } from '@/lib/etiquetasEvento'
+import { useTiposEvento } from '@/lib/tiposEventoStore'
 import { CalendarioResumenPanel } from '@/components/dashboard/CalendarioResumenPanel'
 import {
   DashboardBody,
@@ -25,7 +26,9 @@ import {
   TH,
 } from '@/lib/uiStyles'
 import {
-  TIPO_DIA_LABEL,
+  TIPO_DIA_NORMAL,
+  labelTipoDia,
+  opcionesTipoDiaEditor,
   minimosARecord,
   minimosDefectoParaFecha,
   minimosDesdeEvento,
@@ -110,6 +113,7 @@ function EditorDiaDrawer({
   onCerrar: () => void
 }) {
   const baseDia = () => minimosDefectoParaFecha(fecha, semana, puestos)
+  const [tiposEvento] = useTiposEvento()
   const [filas, setFilas] = useState<FilaEvento[]>(() =>
     filasDesdeEventos(fecha, eventos),
   )
@@ -160,9 +164,9 @@ function EditorDiaDrawer({
         tipo: tipoEventoDesdeEditor(fila.tipoDia),
         descripcion:
           fila.descripcion.trim() ||
-          (fila.tipoDia === 'NORMAL'
+          (fila.tipoDia === TIPO_DIA_NORMAL
             ? 'Mínimos personalizados'
-            : TIPO_DIA_LABEL[fila.tipoDia]),
+            : labelTipoDia(fila.tipoDia, tiposEvento)),
         modificadoresMinimos: record,
       })),
     )
@@ -212,7 +216,10 @@ function EditorDiaDrawer({
               </button>
             </div>
             {filas.map((fila, indice) => {
-              const etiqueta = ETIQUETA_EVENTO[tipoEventoDesdeEditor(fila.tipoDia)]
+              const etiqueta = etiquetaDeTipo(
+                tipoEventoDesdeEditor(fila.tipoDia),
+                tiposEvento,
+              )
               return (
                 <div
                   key={fila.id}
@@ -221,7 +228,7 @@ function EditorDiaDrawer({
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-bold text-slate-500">
                       Evento {indice + 1}
-                      {etiqueta ? ` · ${etiqueta.emoji}` : ''}
+                      {etiqueta.emoji ? ` · ${etiqueta.emoji}` : ''}
                     </span>
                     <button
                       type="button"
@@ -244,11 +251,13 @@ function EditorDiaDrawer({
                       )
                     }}
                   >
-                    {(Object.keys(TIPO_DIA_LABEL) as TipoDiaEditor[]).map((tipo) => (
-                      <option key={tipo} value={tipo}>
-                        {TIPO_DIA_LABEL[tipo]}
-                      </option>
-                    ))}
+                    {opcionesTipoDiaEditor(tiposEvento, fila.tipoDia).map(
+                      (tipo) => (
+                        <option key={tipo.codigo} value={tipo.codigo}>
+                          {tipo.nombre}
+                        </option>
+                      ),
+                    )}
                   </select>
                   <input
                     className={CAMPO}

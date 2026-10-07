@@ -1,7 +1,7 @@
 import { etiquetaTurno } from '@/lib/asignacionPuestos'
 import type { AsignacionesDiarias, PuestoConfig } from '@/lib/calendarioPuestos'
 import { celdasMesCalendario, detalleDiaCalendarioJefe } from '@/lib/calendarioMes'
-import { ETIQUETA_EVENTO } from '@/lib/etiquetasEvento'
+import { colorPdfDeTipo, etiquetaDeTipo } from '@/lib/etiquetasEvento'
 import { diasDelMes, esDiaTrabajado, esFinDeSemana, totalDiasTrabajadosJefes } from '@/lib/convenio'
 import { eventosEnFecha } from '@/lib/eventosStore'
 import { esFestivo } from '@/lib/festivos'
@@ -26,12 +26,6 @@ const ESTILO_TURNO: Record<
   P: { fondo: '#fff1f2', pill: '#ffe4e6', pillTexto: '#9f1239', borde: '#f43f5e' },
   D: { fondo: '#f1f5f9', pill: '#e2e8f0', pillTexto: '#475569', borde: '#cbd5e1' },
   V: { fondo: '#ecfdf5', pill: '#d1fae5', pillTexto: '#065f46', borde: '#10b981' },
-}
-
-const COLOR_EVENTO: Record<string, { fondo: string; texto: string }> = {
-  FESTIVO: { fondo: '#fee2e2', texto: '#7f1d1d' },
-  CRUCERO: { fondo: '#dbeafe', texto: '#1e3a8a' },
-  CONCIERTO: { fondo: '#fef9c3', texto: '#713f12' },
 }
 
 const LEYENDA_TURNOS: Array<{ turno: Turno; label: string }> = [
@@ -117,14 +111,11 @@ export function exportarCalendarioJefesPdf(
         const numColor = especial ? '#dc2626' : '#1e293b'
         const eventosHtml = eventosDia
           .map((evento) => {
-            const etiquetaEvento = ETIQUETA_EVENTO[evento.tipo]
-            const color = COLOR_EVENTO[evento.tipo] ?? {
-              fondo: '#f1f5f9',
-              texto: '#334155',
-            }
+            const etiquetaEvento = etiquetaDeTipo(evento.tipo)
+            const color = colorPdfDeTipo(evento.tipo)
             const texto =
-              evento.descripcion || etiquetaEvento?.texto || 'Evento'
-            const emoji = etiquetaEvento ? `${etiquetaEvento.emoji} ` : ''
+              evento.descripcion || etiquetaEvento.texto || 'Evento'
+            const emoji = etiquetaEvento.emoji ? `${etiquetaEvento.emoji} ` : ''
             return `<span class="ev" style="background:${color.fondo};color:${color.texto};">${emoji}${escapeHtml(texto)}</span>`
           })
           .join('')

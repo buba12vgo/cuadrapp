@@ -118,6 +118,11 @@ export function leerCuposPermisoAnio(agente: FichaPolicia, anio: number) {
   return leerMapaCupos(mapa[String(anio)])
 }
 
+/** El cierre automático no pisa un saldo DAA ya guardado (manual o previo). */
+export function snapshotDaaPendiente(agente: FichaPolicia, anio: number) {
+  return leerCuposPermisoAnio(agente, anio)[CODIGO_DIAS_ANO_ANTERIOR] == null
+}
+
 export type SaldoPermiso = {
   codigo: string
   nombre: string

@@ -53,6 +53,13 @@ import {
 import type { ObjetivosGlobales, PlanAnual } from '@/lib/generarPlanAnual'
 import { ANIO_REFERENCIA_VACACIONES_DEFECTO } from '@/lib/vacaciones'
 import { esFechaIso } from '@/lib/fechas'
+import {
+  clonarTipoEvento,
+  colorTipoEvento,
+  esTipoEventoSistema,
+  TIPOS_EVENTO_INICIALES,
+  type TipoEventoConfig,
+} from '@/lib/tiposEvento'
 import type {
   EventoOperativo,
   FichaPolicia,
@@ -67,17 +74,12 @@ const COLECCION_CUADRANTES_JEFES = 'cuadrantesJefes'
 const COLECCION_EVENTOS = 'eventos'
 const COLECCION_PUESTOS = 'puestos'
 const COLECCION_TIPOS_PERMISO = 'tiposPermiso'
+const COLECCION_TIPOS_EVENTO = 'tiposEvento'
 const COLECCION_SOLICITUDES = 'solicitudes'
 const COLECCION_CONFIG = 'config'
 const COLECCION_PLANES_ANUALES = 'planesAnuales'
 const DOC_MINIMOS_SEMANA = 'minimosSemana'
 
-const TIPOS_EVENTO: TipoEvento[] = [
-  'FESTIVO',
-  'CRUCERO',
-  'CONCIERTO',
-  'OPERATIVA_ESPECIAL',
-]
 const DIAS_SEMANA: DiaSemana[] = [1, 2, 3, 4, 5, 6, 7]
 
 const ROLES: RolPolicia[] = [
@@ -437,7 +439,7 @@ function leerModificadoresMinimos(
 }
 
 function esTipoEvento(valor: unknown): valor is TipoEvento {
-  return typeof valor === 'string' && TIPOS_EVENTO.includes(valor as TipoEvento)
+  return typeof valor === 'string' && valor.trim().length > 0
 }
 
 function eventoDesdeFirestore(
@@ -681,6 +683,97 @@ export async function deleteTipoPermiso(codigo: string): Promise<void> {
   )
 }
 
+function tipoEventoDesdeFirestore(
+  docId: string,
+  data: Record<string, unknown>,
+): TipoEventoConfig | null {
+  const codigo =
+    typeof data.codigo === 'string' && data.codigo.trim()
+      ? data.codigo.trim().toUpperCase()
+      : docId.trim().toUpperCase()
+  const nombre = typeof data.nombre === 'string' ? data.nombre.trim() : ''
+  if (!codigo || !nombre) return null
+  return clonarTipoEvento({
+    codigo,
+    nombre,
+    emoji: typeof data.emoji === 'string' ? data.emoji.trim() : '',
+    color: colorTipoEvento(data.color),
+    sistema: data.sistema === true || esTipoEventoSistema(codigo),
+  })
+}
+
+function tipoEventoParaFirestore(tipo: TipoEventoConfig): TipoEventoConfig {
+  const codigo = tipo.codigo.trim().toUpperCase()
+  const nombre = tipo.nombre.trim()
+  if (!codigo) throw new Error('El código del tipo de evento es obligatorio')
+  if (!nombre) throw new Error('El nombre del tipo de evento es obligatorio')
+  return clonarTipoEvento({
+    codigo,
+    nombre,
+    emoji: tipo.emoji.trim(),
+    color: colorTipoEvento(tipo.color),
+    sistema: tipo.sistema === true || esTipoEventoSistema(codigo),
+  })
+}
+
+export async function getTiposEvento(): Promise<TipoEventoConfig[]> {
+  const firestore = await requireDb()
+  const snapshot = await getDocs(collection(firestore, COLECCION_TIPOS_EVENTO))
+  const tipos: TipoEventoConfig[] = []
+  for (const documento of snapshot.docs) {
+    const tipo = tipoEventoDesdeFirestore(documento.id, documento.data())
+    if (tipo) tipos.push(tipo)
+  }
+  return tipos.sort((a, b) =>
+    a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }),
+  )
+}
+
+export async function saveTipoEvento(
+  tipo: TipoEventoConfig,
+): Promise<TipoEventoConfig> {
+  const firestore = await requireDb()
+  const payload = tipoEventoParaFirestore(tipo)
+  await conTiempoLimite(
+    setDoc(doc(firestore, COLECCION_TIPOS_EVENTO, payload.codigo), payload, {
+      merge: true,
+    }),
+  )
+  return payload
+}
+
+export async function deleteTipoEvento(codigo: string): Promise<void> {
+  const firestore = await requireDb()
+  const id = codigo.trim().toUpperCase()
+  if (!id) throw new Error('Código de tipo de evento vacío')
+  if (esTipoEventoSistema(id)) {
+    throw new Error('Este tipo de evento es de sistema y no se puede eliminar')
+  }
+  await conTiempoLimite(deleteDoc(doc(firestore, COLECCION_TIPOS_EVENTO, id)))
+}
+
+export async function seedTiposEventoSiVacios(
+  tipos: TipoEventoConfig[] = TIPOS_EVENTO_INICIALES,
+): Promise<TipoEventoConfig[]> {
+  const existentes = await getTiposEvento()
+  const porCodigo = new Map(existentes.map((tipo) => [tipo.codigo, tipo]))
+  const faltantes = tipos.filter((tipo) => !porCodigo.has(tipo.codigo))
+  if (faltantes.length === 0) return existentes
+
+  const firestore = await requireDb()
+  const batch = writeBatch(firestore)
+  const listaFaltantes = faltantes.map(tipoEventoParaFirestore)
+  for (const tipo of listaFaltantes) {
+    batch.set(doc(firestore, COLECCION_TIPOS_EVENTO, tipo.codigo), tipo, {
+      merge: true,
+    })
+  }
+  await conTiempoLimite(batch.commit())
+  return [...existentes, ...listaFaltantes].sort((a, b) =>
+    a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }),
+  )
+}
+
 export async function seedTiposPermisoSiVacios(
   permisos: PermisoConfig[] = PERMISOS_INICIALES,
 ): Promise<PermisoConfig[]> {
@@ -820,10 +913,12 @@ export async function cargarConfigOperativaSoloLectura(): Promise<{
   minimosSemana: MinimosSemana
   eventos: EventoOperativo[]
   tiposPermiso: PermisoConfig[]
+  tiposEvento: TipoEventoConfig[]
 }> {
-  const [puestos, tiposPermiso] = await Promise.all([
+  const [puestos, tiposPermiso, tiposEvento] = await Promise.all([
     getPuestos(),
     getTiposPermiso(),
+    getTiposEvento(),
   ])
   const [minimosSemana, eventos] = await Promise.all([
     getMinimosSemana(puestos),
@@ -834,6 +929,7 @@ export async function cargarConfigOperativaSoloLectura(): Promise<{
     minimosSemana: minimosSemana ?? crearMinimosSemana(puestos),
     eventos,
     tiposPermiso,
+    tiposEvento,
   }
 }
 
@@ -843,16 +939,18 @@ export async function cargarConfigOperativa(): Promise<{
   minimosSemana: MinimosSemana
   eventos: EventoOperativo[]
   tiposPermiso: PermisoConfig[]
+  tiposEvento: TipoEventoConfig[]
 }> {
-  const [puestos, tiposPermiso] = await Promise.all([
+  const [puestos, tiposPermiso, tiposEvento] = await Promise.all([
     seedPuestosSiVacios(),
     seedTiposPermisoSiVacios(),
+    seedTiposEventoSiVacios(),
   ])
   const [minimosSemana, eventos] = await Promise.all([
     seedMinimosSiVacios(puestos),
     getEventos(),
   ])
-  return { puestos, minimosSemana, eventos, tiposPermiso }
+  return { puestos, minimosSemana, eventos, tiposPermiso, tiposEvento }
 }
 
 const TIPOS_SOLICITUD = new Set<TipoSolicitud>([

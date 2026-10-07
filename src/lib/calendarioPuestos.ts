@@ -1,3 +1,4 @@
+import { CODIGO_OPERATIVA_ESPECIAL, type TipoEventoConfig } from '@/lib/tiposEvento'
 import type { EventoOperativo } from '@/types'
 
 export type TurnoOperativo = 'M' | 'T' | 'N'
@@ -141,13 +142,43 @@ export type AsignacionesDiarias = Record<
   Partial<Record<TurnoAsignable, Record<string, PuestoBase>>>
 >
 
-export type TipoDiaEditor = 'NORMAL' | 'FESTIVO' | 'CRUCERO' | 'CONCIERTO'
+export type TipoDiaEditor = string
+export const TIPO_DIA_NORMAL = 'NORMAL'
 
-export const TIPO_DIA_LABEL: Record<TipoDiaEditor, string> = {
+export const TIPO_DIA_LABEL: Record<string, string> = {
   NORMAL: 'Normal',
   FESTIVO: 'Festivo',
   CRUCERO: 'Crucero',
   CONCIERTO: 'Concierto',
+}
+
+export function labelTipoDia(tipo: TipoDiaEditor, tipos: TipoEventoConfig[]) {
+  if (tipo === TIPO_DIA_NORMAL) return 'Normal'
+  return (
+    tipos.find((item) => item.codigo === tipo)?.nombre ??
+    TIPO_DIA_LABEL[tipo] ??
+    tipo
+  )
+}
+
+export function opcionesTipoDiaEditor(
+  tipos: TipoEventoConfig[],
+  actual?: string,
+) {
+  const opciones = [
+    { codigo: TIPO_DIA_NORMAL, nombre: 'Normal' },
+    ...tipos
+      .filter((tipo) => tipo.codigo !== CODIGO_OPERATIVA_ESPECIAL)
+      .map((tipo) => ({ codigo: tipo.codigo, nombre: tipo.nombre })),
+  ]
+  if (
+    actual &&
+    actual !== TIPO_DIA_NORMAL &&
+    !opciones.some((opcion) => opcion.codigo === actual)
+  ) {
+    opciones.push({ codigo: actual, nombre: TIPO_DIA_LABEL[actual] ?? actual })
+  }
+  return opciones
 }
 
 export function nombresPuestos(puestos: PuestoConfig[]) {
@@ -334,15 +365,13 @@ export function minimosARecord(minimos: MinimosDia, puestos: PuestoConfig[]) {
 export function tipoEditorDesdeEvento(
   evento: EventoOperativo | undefined,
 ): TipoDiaEditor {
-  if (!evento) return 'NORMAL'
-  if (evento.tipo === 'FESTIVO') return 'FESTIVO'
-  if (evento.tipo === 'CRUCERO') return 'CRUCERO'
-  if (evento.tipo === 'CONCIERTO') return 'CONCIERTO'
-  return 'NORMAL'
+  if (!evento) return TIPO_DIA_NORMAL
+  if (evento.tipo === CODIGO_OPERATIVA_ESPECIAL) return TIPO_DIA_NORMAL
+  return evento.tipo
 }
 
 export function tipoEventoDesdeEditor(tipo: TipoDiaEditor) {
-  if (tipo === 'NORMAL') return 'OPERATIVA_ESPECIAL' as const
+  if (tipo === TIPO_DIA_NORMAL) return CODIGO_OPERATIVA_ESPECIAL
   return tipo
 }
 

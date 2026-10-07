@@ -14,6 +14,8 @@ import {
 import { hydratePlanesAnuales } from '@/lib/planAnualStore'
 import { PERMISOS_INICIALES } from '@/lib/permisos'
 import { hydrateTiposPermiso } from '@/lib/permisosStore'
+import { TIPOS_EVENTO_INICIALES } from '@/lib/tiposEvento'
+import { hydrateTiposEvento } from '@/lib/tiposEventoStore'
 import { hydratePuestosYMinimos } from '@/lib/puestosStore'
 import { sembrarUsuarioPreview } from '@/lib/usuariosAcceso'
 import { ANIO_REFERENCIA_VACACIONES_DEFECTO } from '@/lib/vacaciones'
@@ -35,6 +37,7 @@ export function bootstrapDesignPreview() {
   hydrateEventos(mockEventosCalendario)
   hydratePuestosYMinimos(PUESTOS_AGENTE, crearMinimosSemana(PUESTOS_AGENTE))
   hydrateTiposPermiso(PERMISOS_INICIALES)
+  hydrateTiposEvento(TIPOS_EVENTO_INICIALES)
   sembrarUsuarioPreview({
     uid: 'preview-consulta-elena',
     email: 'elena.jefa@cuadrapp.local',

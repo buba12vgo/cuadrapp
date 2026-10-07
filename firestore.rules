@@ -78,6 +78,11 @@ service cloud.firestore {
       allow write: if esSuperAdmin() || esAdminJefes();
     }
 
+    match /tiposEvento/{id} {
+      allow read: if leeJefes();
+      allow write: if esSuperAdmin() || esAdminJefes();
+    }
+
     match /cuadrantesJefes/{id} {
       allow read: if leeTodo() || esJefaturaConsulta();
       allow write: if esSuperAdmin() || esAdminJefes();

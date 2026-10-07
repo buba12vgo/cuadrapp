@@ -54,6 +54,8 @@ import {
   type ResumenPermisosAgente,
 } from '@/lib/conteoPermisos'
 import {
+  CODIGO_DIAS_ANO_ANTERIOR,
+  cuposAnioConRollover,
   diasAnualesCatalogo,
   esDiasAnoAnterior,
   leerCuposPermisoAgente,
@@ -136,12 +138,14 @@ function FichaPermisosBloque({
   esNuevo,
   cuposPermiso,
   onCuposPermiso,
+  onCuposAnio,
   onAgenteActualizado,
 }: {
   agente: FichaPolicia
   esNuevo?: boolean
   cuposPermiso: Record<string, number>
   onCuposPermiso: (codigo: string, dias: number) => void
+  onCuposAnio?: (cupos: FichaPolicia['cuposPermisoAnio']) => void
   onAgenteActualizado?: (ficha: FichaPolicia) => void
 }) {
   const [permisos] = useTiposPermiso()
@@ -150,16 +154,25 @@ function FichaPermisosBloque({
     resumenPermisosVacio(),
   )
   const [agenteAnio, setAgenteAnio] = useState(agente)
+  const [daaLocal, setDaaLocal] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(!esNuevo)
   const onAgenteActualizadoRef = useRef(onAgenteActualizado)
+  const onCuposAnioRef = useRef(onCuposAnio)
+  const daaLocalRef = useRef(daaLocal)
 
   useEffect(() => {
     onAgenteActualizadoRef.current = onAgenteActualizado
+    onCuposAnioRef.current = onCuposAnio
+    daaLocalRef.current = daaLocal
   })
 
   useEffect(() => {
     setAgenteAnio(agente)
   }, [agente])
+
+  useEffect(() => {
+    setDaaLocal({})
+  }, [agente.id])
 
   useEffect(() => {
     if (esNuevo) return
@@ -184,14 +197,29 @@ function FichaPermisosBloque({
       try {
         const actualizado = await asegurarRolloverDaa(agente, anio, permisos)
         if (cancelado) return
-        if (actualizado !== agente) onAgenteActualizadoRef.current?.(actualizado)
+        const daaEditado = daaLocalRef.current[String(anio)]
+        const conLocal =
+          daaEditado == null
+            ? actualizado
+            : {
+                ...actualizado,
+                cuposPermisoAnio: cuposAnioConRollover(
+                  actualizado,
+                  anio,
+                  daaEditado,
+                ),
+              }
+        if (conLocal !== agente) onAgenteActualizadoRef.current?.(conLocal)
+        if (conLocal.cuposPermisoAnio) {
+          onCuposAnioRef.current?.(conLocal.cuposPermisoAnio)
+        }
         const datos = await cargarResumenPermisosAgente(
-          actualizado,
+          conLocal,
           anio,
           permisos,
         )
         if (cancelado) return
-        setAgenteAnio(actualizado)
+        setAgenteAnio(conLocal)
         setResumen(datos)
       } catch {
         if (!cancelado) setResumen(resumenPermisosVacio())
@@ -205,9 +233,19 @@ function FichaPermisosBloque({
     }
   }, [agente, anio, esNuevo, permisos])
 
+  const cuposAnioVista = (() => {
+    let mapa = { ...(agenteAnio.cuposPermisoAnio ?? {}) }
+    for (const [year, dias] of Object.entries(daaLocal)) {
+      const delAnio = { ...(mapa[year] ?? {}) }
+      delAnio[CODIGO_DIAS_ANO_ANTERIOR] = dias
+      mapa[year] = delAnio
+    }
+    return Object.keys(mapa).length > 0 ? mapa : agenteAnio.cuposPermisoAnio
+  })()
   const agenteVista: FichaPolicia = {
     ...agenteAnio,
     cuposPermiso,
+    cuposPermisoAnio: cuposAnioVista,
   }
   const saldos = saldosPermisoAgente(agenteVista, permisos, anio, resumen)
   const usadosLpd = diasLibreDisponibilidad(resumen)
@@ -264,26 +302,37 @@ function FichaPermisosBloque({
                           </span>
                         </td>
                         <td className="py-1 text-right">
-                          {esDaa ? (
-                            <span className="tabular-nums">
-                              {saldo.cupo ?? 0}
-                            </span>
-                          ) : (
-                            <input
-                              type="number"
-                              min={0}
-                              max={366}
-                              className={`${CAMPO_NUM} w-14`}
-                              value={valorCupo}
-                              title="Tope anual de este agente. Vacío del catálogo: 0 = sin tope."
-                              onChange={(event) =>
-                                onCuposPermiso(
-                                  saldo.codigo,
-                                  normalizarDiasAnuales(Number(event.target.value)),
+                          <input
+                            type="number"
+                            min={0}
+                            max={366}
+                            className={`${CAMPO_NUM} w-14`}
+                            value={esDaa ? (saldo.cupo ?? 0) : valorCupo}
+                            title={
+                              esDaa
+                                ? 'Saldo inicial de Días del Año Anterior. El cierre del 31 dic solo lo rellena si está vacío.'
+                                : 'Tope anual de este agente. Vacío del catálogo: 0 = sin tope.'
+                            }
+                            onChange={(event) => {
+                              const dias = normalizarDiasAnuales(
+                                Number(event.target.value),
+                              )
+                              if (esDaa) {
+                                setDaaLocal((actual) => ({
+                                  ...actual,
+                                  [String(anio)]: dias,
+                                }))
+                                const siguiente = cuposAnioConRollover(
+                                  agenteVista,
+                                  anio,
+                                  dias,
                                 )
+                                onCuposAnioRef.current?.(siguiente)
+                                return
                               }
-                            />
-                          )}
+                              onCuposPermiso(saldo.codigo, dias)
+                            }}
+                          />
                         </td>
                         <td className="py-1 text-right tabular-nums">
                           {saldo.usados}
@@ -732,6 +781,9 @@ function FichaAgenteModal({
                 cuposPermiso: { ...actual.cuposPermiso, [codigo]: dias },
               }))
             }
+            onCuposAnio={(cupos) => {
+              cuposAnioRef.current = cupos
+            }}
             onAgenteActualizado={(ficha) => {
               cuposAnioRef.current = ficha.cuposPermisoAnio
             }}

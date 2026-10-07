@@ -11,11 +11,8 @@ export type RolPolicia =
  *  Jornada Disponible no es un turno: se marca sobre M/T/N/MT. */
 export type Turno = 'M' | 'T' | 'N' | 'MT' | 'L' | 'P' | 'D' | 'V'
 
-export type TipoEvento =
-  | 'FESTIVO'
-  | 'CRUCERO'
-  | 'CONCIERTO'
-  | 'OPERATIVA_ESPECIAL'
+/** Código del catálogo de tipos de evento (`tiposEvento`). */
+export type TipoEvento = string
 
 export interface Limitaciones {
   M: boolean
@@ -51,10 +48,13 @@ export interface FichaPolicia {
   anioReferenciaVacaciones?: number
   /**
    * Tope anual por código de permiso (anula el del catálogo).
-   * DAA no se guarda aquí: sale del cierre del 31 de diciembre.
+   * DAA no se guarda aquí: va en `cuposPermisoAnio` por año.
    */
   cuposPermiso?: Record<string, number>
-  /** Snapshot por año, sobre todo el cupo de Días del Año Anterior. */
+  /**
+   * Snapshot por año, sobre todo el cupo de Días del Año Anterior.
+   * Se puede poner a mano; el cierre del 31 dic solo lo rellena si falta.
+   */
   cuposPermisoAnio?: Record<string, Record<string, number>>
 }
 

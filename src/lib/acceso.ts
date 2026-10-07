@@ -14,6 +14,7 @@ export type Ambito =
   | 'diario-agentes'
   | 'solicitudes'
   | 'calendario'
+  | 'tipos-evento'
   | 'listados'
   | 'reglas'
   | 'usuarios'
@@ -90,6 +91,7 @@ const RUTA_AMBITO: Record<string, Ambito> = {
   '/admin/diario-agentes': 'diario-agentes',
   '/admin/solicitudes': 'solicitudes',
   '/admin/calendario': 'calendario',
+  '/admin/tipos-evento': 'tipos-evento',
   '/admin/listados': 'listados',
   '/admin/reglas': 'reglas',
   '/admin/usuarios': 'usuarios',
@@ -103,6 +105,7 @@ const ESCRITURA_ADMIN = new Set<Ambito>([
   'cuadrante-jefes',
   'calendario-jefes',
   'calendario',
+  'tipos-evento',
   'usuarios',
   'roadmap',
   'diario-agentes',

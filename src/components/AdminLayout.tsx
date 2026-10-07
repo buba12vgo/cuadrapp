@@ -16,6 +16,7 @@ import {
   Settings,
   Shield,
   Table2,
+  Tags,
   UserCog,
   Users,
 } from 'lucide-react'
@@ -101,6 +102,7 @@ const NAV_GROUPS: Array<{
         ambito: 'solicitudes',
       },
       { to: '/admin/calendario', label: 'Calendario Eventos', icon: CalendarDays, ambito: 'calendario' },
+      { to: '/admin/tipos-evento', label: 'Tipos de evento', icon: Tags, ambito: 'tipos-evento' },
       { to: '/admin/listados', label: 'Listados', icon: List, ambito: 'listados' },
     ],
   },

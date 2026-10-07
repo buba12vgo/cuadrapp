@@ -138,6 +138,10 @@ if (puedeVerRuta('ADMIN', '/m/permisos')) fallos.push('admin entra en permisos')
 if (!puedeVerRuta('ADMIN', '/m/solicitudes')) fallos.push('admin entra en solicitudes')
 if (puedeVerRuta('ADMIN', '/m/servicio')) fallos.push('admin entra en agente')
 if (!puedeVerRuta('CONSULTA_JEFES', '/m/servicio')) fallos.push('agente entra en servicio')
+if (!puedeVer('SUPERADMIN', 'tipos-evento') || !puedeEscribir('ADMIN', 'tipos-evento')) {
+  fallos.push('admin tipos evento')
+}
+if (puedeVer('CONSULTA_JEFES', 'tipos-evento')) fallos.push('consulta ve tipos evento')
 
 await server.close()
 if (fallos.length) {

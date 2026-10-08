@@ -232,6 +232,7 @@ export function AccesoProvider({ children }: { children: ReactNode }) {
         ? inicioMovil(rol, {
             esJefatura,
             puedeEditarEventos: perfil?.puedeEditarEventos,
+            email: perfil?.email,
           })
         : '/m/servicio',
       etiquetaRol: rol ? ETIQUETA_ROL_ACCESO[rol] : '',

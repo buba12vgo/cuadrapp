@@ -26,6 +26,19 @@ export function isoFecha(anio: number, mes: number, dia: number) {
   return `${anio}-${pad2(mes)}-${pad2(dia)}`
 }
 
+/** Día natural en hora de Madrid. */
+export function hoyEnMadrid(ahora = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Madrid',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(ahora)
+  const leer = (tipo: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((part) => part.type === tipo)?.value)
+  return { anio: leer('year'), mes: leer('month'), dia: leer('day') }
+}
+
 export function esFechaIso(valor: unknown): valor is string {
   return typeof valor === 'string' && FECHA_ISO_RE.test(valor)
 }

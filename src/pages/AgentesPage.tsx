@@ -5,7 +5,7 @@ import {
   DashboardMain,
   DashboardMainScroll,
 } from '@/components/ui/DashboardLayout'
-import { PageHeader } from '@/components/ui/PageHeader'
+import { PageHeader, ToolbarDivider, ToolbarSection } from '@/components/ui/PageHeader'
 import { Modal } from '@/components/ui/Modal'
 import { AvisoSoloLectura } from '@/components/AvisoSoloLectura'
 import { useAppDialog } from '@/components/ui/ConfirmDialog'
@@ -865,7 +865,15 @@ export function AgentesPage() {
   const [importando, setImportando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [firebaseOk, setFirebaseOk] = useState(isFirebaseReady())
+  const [rolFiltro, setRolFiltro] = useState<'TODOS' | RolPolicia>('TODOS')
   const inputExcel = useRef<HTMLInputElement>(null)
+  const agentesVisibles = useMemo(
+    () =>
+      rolFiltro === 'TODOS'
+        ? agentesData
+        : agentesData.filter((agente) => agente.rolBase === rolFiltro),
+    [agentesData, rolFiltro],
+  )
 
   useEffect(() => {
     let cancelado = false
@@ -1036,10 +1044,30 @@ export function AgentesPage() {
         subtitle={
           loading
             ? 'Cargando plantilla desde Firestore…'
-            : `${agentesData.length} fichas · importa Excel o crea manualmente`
+            : rolFiltro === 'TODOS'
+              ? `${agentesData.length} fichas · importa Excel o crea manualmente`
+              : `${agentesVisibles.length} de ${agentesData.length} fichas · ${ROL_LABEL[rolFiltro]}`
         }
         toolbar={
           <>
+            <ToolbarSection label="Tipo">
+              <select
+                className={CAMPO}
+                value={rolFiltro}
+                aria-label="Filtrar por tipo de agente"
+                onChange={(event) =>
+                  setRolFiltro(event.target.value as 'TODOS' | RolPolicia)
+                }
+              >
+                <option value="TODOS">Todos los tipos</option>
+                {ROLES.map((rol) => (
+                  <option key={rol} value={rol}>
+                    {ROL_LABEL[rol]}
+                  </option>
+                ))}
+              </select>
+            </ToolbarSection>
+            <ToolbarDivider />
             <input
               ref={inputExcel}
               type="file"
@@ -1118,8 +1146,17 @@ export function AgentesPage() {
                     «Nuevo agente».
                   </td>
                 </tr>
+              ) : rolFiltro !== 'TODOS' && agentesVisibles.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className={`${TD} py-6 text-center text-slate-500`}
+                  >
+                    Ningún agente de tipo {ROL_LABEL[rolFiltro]}.
+                  </td>
+                </tr>
               ) : (
-                agentesData.map((agente) => (
+                agentesVisibles.map((agente) => (
                   <tr key={agente.id} className="hover:bg-slate-50/70">
                     <td className={`${TD} font-mono tabular-nums text-slate-600`}>
                       {agente.numeroPlaca}

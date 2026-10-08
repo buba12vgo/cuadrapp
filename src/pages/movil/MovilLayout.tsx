@@ -92,6 +92,7 @@ export function MovilLayout() {
       : pestanasMovil(perfil.rol, {
           esJefatura,
           puedeEditarEventos: perfil.puedeEditarEventos,
+          email: perfil.email,
         })
   const claveNav = `${perfil?.rol ?? 'sin'}-${esJefatura ? 'jefatura' : 'consulta'}-${pestanas.join('.')}`
   return (

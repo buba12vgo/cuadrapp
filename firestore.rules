@@ -114,6 +114,212 @@ service cloud.firestore {
       allow read, write: if leeTodo();
     }
 
+    /** Usuarios con acceso a NODUS (admin o consulta de Cuadrapp). */
+    function esUsuarioNodus() {
+      return leeJefes();
+    }
+
+    function notaRelevoValida() {
+      return request.resource.data.autorUid == request.auth.uid
+        && request.resource.data.autorNombre is string
+        && request.resource.data.autorNombre.size() > 0
+        && request.resource.data.autorEmail is string
+        && request.resource.data.puestoId is string
+        && request.resource.data.puestoId.size() > 0
+        && request.resource.data.puestoNombre is string
+        && request.resource.data.fechaInicio is string
+        && request.resource.data.fechaFin is string
+        && request.resource.data.fechaFin >= request.resource.data.fechaInicio
+        && request.resource.data.turnos is list
+        && request.resource.data.texto is string
+        && request.resource.data.texto.size() > 0
+        && request.resource.data.texto.size() <= 4000
+        && request.resource.data.activo == true
+        && request.resource.data.creadoEn is string
+        && (
+          !request.resource.data.keys().hasAny(['imagenData'])
+          || (
+            request.resource.data.imagenData is string
+            && request.resource.data.imagenData.size() > 0
+            && request.resource.data.imagenData.size() <= 450000
+          )
+        );
+    }
+
+    function pad2(n) {
+      return n < 10 ? '0' + string(n) : string(n);
+    }
+
+    function nombreEsCecop(nombre) {
+      return nombre.matches('(?i)^centro de control 1$')
+        || nombre.matches('(?i)^centro de control 2$')
+        || nombre.matches('(?i)^control de accesos$');
+    }
+
+    /**
+     * El agente tiene, en el cuadrante de MoAPP de esa fecha, un puesto del CPCS
+     * (Centro de Control 1, Centro de Control 2 o Control de Accesos).
+     */
+    function asignadoEnCecop() {
+      let fecha = request.resource.data.fechaAsignacion;
+      let anio = int(fecha[0:4]);
+      let mes = int(fecha[5:7]);
+      let dia = int(fecha[8:10]);
+      let idMes = string(anio) + '-' + pad2(mes);
+      let cuadrante = get(/databases/$(database)/documents/cuadrantes/$(idMes)).data;
+      let placa = perfilConsulta().numeroPlaca;
+      let celda = cuadrante.agentes[placa][dia - 1];
+      let codigo = request.resource.data.puestoCodigo;
+      let puesto = get(/databases/$(database)/documents/puestos/$(codigo)).data;
+      let turno = request.resource.data.turnoCuadrante;
+      return fecha is string
+        && fecha.size() == 10
+        && codigo is string
+        && celda.keys().hasAll(['t', 'p'])
+        && puesto.abreviatura == celda.p
+        && nombreEsCecop(puesto.nombre)
+        && (
+          (turno == 'M' && (celda.t == 'M' || celda.t == 'MT'))
+          || (turno == 'T' && (celda.t == 'T' || celda.t == 'MT'))
+          || (turno == 'N' && celda.t == 'N')
+        );
+    }
+
+    /**
+     * Libro digital de relevos (NODUS Hub).
+     * RELEVO = entrega al turno siguiente.
+     * DIA con puesto CPCS = aviso del centro de control de ese día.
+     * AVISO = nota a otro puesto o turno; entra al libro cuando jefatura la valida.
+     */
+    match /relevosNotas/{id} {
+      allow read: if esUsuarioNodus();
+
+      allow create: if esUsuarioNodus()
+        && notaRelevoValida()
+        && (
+          (
+            request.resource.data.tipo == 'RELEVO'
+            && request.resource.data.puestoId != 'CECOP'
+          )
+          || (
+            request.resource.data.tipo == 'DIA'
+            && request.resource.data.puestoId == 'CECOP'
+            && (leeTodo() || (esConsulta() && asignadoEnCecop()))
+          )
+          || (
+            request.resource.data.tipo == 'AVISO'
+            && request.resource.data.puestoId != 'CECOP'
+            && request.resource.data.estadoValidacion == 'PENDIENTE'
+            && request.resource.data.turnos.size() > 0
+          )
+        );
+
+      allow update: if leeTodo()
+        || (esUsuarioNodus()
+          && resource.data.autorUid == request.auth.uid
+          && request.resource.data.autorUid == resource.data.autorUid
+          && request.resource.data.creadoEn == resource.data.creadoEn
+          && (
+            !resource.data.keys().hasAny(['estadoValidacion'])
+            || request.resource.data.estadoValidacion == resource.data.estadoValidacion
+          ))
+        || (
+          (leeTodo() || esJefaturaConsulta())
+          && resource.data.tipo == 'AVISO'
+          && resource.data.estadoValidacion == 'PENDIENTE'
+          && request.resource.data.tipo == 'AVISO'
+          && request.resource.data.estadoValidacion in ['PUBLICADA', 'RECHAZADA']
+          && request.resource.data.autorUid == resource.data.autorUid
+          && request.resource.data.creadoEn == resource.data.creadoEn
+          && request.resource.data.texto == resource.data.texto
+          && request.resource.data.puestoId == resource.data.puestoId
+        );
+
+      allow delete: if leeTodo()
+        || (esUsuarioNodus() && resource.data.autorUid == request.auth.uid);
+    }
+
+    /** Notas fijas por puesto: jefatura, admin y superadmin. */
+    match /relevosNotasFijas/{id} {
+      allow read: if esUsuarioNodus();
+      allow create: if (leeTodo() || esJefaturaConsulta())
+        && request.resource.data.autorUid == request.auth.uid
+        && request.resource.data.puestoId is string
+        && request.resource.data.puestoId.size() > 0
+        && request.resource.data.puestoNombre is string
+        && request.resource.data.turnos is list
+        && request.resource.data.texto is string
+        && request.resource.data.texto.size() > 0
+        && request.resource.data.texto.size() <= 4000
+        && request.resource.data.activo == true;
+      allow update: if leeTodo()
+        || (esJefaturaConsulta()
+          && resource.data.autorUid == request.auth.uid);
+      allow delete: if leeTodo() || esJefaturaConsulta();
+    }
+
+    function enteradoValido() {
+      return request.resource.data.keys().hasOnly([
+          'notaId', 'tipo', 'puestoId', 'puestoNombre',
+          'fecha', 'turno', 'claveTurno',
+          'uid', 'nombre', 'placa', 'identidad',
+          'puestoLectorId', 'puestoLectorNombre',
+          'leidoEn'
+        ])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.notaId is string
+        && request.resource.data.notaId.size() > 0
+        && request.resource.data.notaId.size() <= 200
+        && request.resource.data.tipo in ['FIJA', 'CECOP', 'RELEVO', 'AVISO']
+        && request.resource.data.puestoId is string
+        && request.resource.data.puestoId.size() > 0
+        && request.resource.data.puestoId.size() <= 80
+        && request.resource.data.puestoNombre is string
+        && request.resource.data.puestoNombre.size() > 0
+        && request.resource.data.puestoNombre.size() <= 120
+        && request.resource.data.fecha is string
+        && request.resource.data.fecha.size() == 10
+        && request.resource.data.turno in ['Mañana', 'Tarde', 'Noche']
+        && request.resource.data.claveTurno == request.resource.data.fecha + '|' + (
+          request.resource.data.turno == 'Mañana'
+            ? 'M'
+            : (request.resource.data.turno == 'Tarde' ? 'T' : 'N')
+        )
+        && request.resource.data.nombre is string
+        && request.resource.data.nombre.size() > 0
+        && request.resource.data.nombre.size() <= 120
+        && request.resource.data.placa is string
+        && request.resource.data.placa.size() <= 32
+        && request.resource.data.identidad is string
+        && request.resource.data.identidad.size() > 0
+        && request.resource.data.identidad.size() <= 128
+        && (
+          (request.resource.data.placa.size() > 0 && request.resource.data.identidad == request.resource.data.placa)
+          || (request.resource.data.placa.size() == 0 && request.resource.data.identidad == request.auth.uid)
+        )
+        && request.resource.data.puestoLectorId is string
+        && request.resource.data.puestoLectorId.size() <= 80
+        && request.resource.data.puestoLectorNombre is string
+        && request.resource.data.puestoLectorNombre.size() <= 120
+        && request.resource.data.leidoEn is string
+        && request.resource.data.leidoEn.size() >= 20
+        && request.resource.data.leidoEn.size() <= 40;
+    }
+
+    /** Enterado de una nota de servicio, por agente y turno. */
+    match /relevosEnterados/{id} {
+      allow read: if esUsuarioNodus();
+      allow create: if esUsuarioNodus() && enteradoValido();
+      allow update: if esUsuarioNodus()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.notaId == resource.data.notaId
+        && request.resource.data.tipo == resource.data.tipo
+        && request.resource.data.identidad == resource.data.identidad
+        && enteradoValido();
+      allow delete: if esUsuarioNodus() && resource.data.uid == request.auth.uid;
+    }
+
     function esCompaneroPendiente() {
       return esConsulta()
         && resource.data.tipo in ['CAMBIO_DIA', 'CAMBIO_MES', 'VACACIONES']
@@ -152,6 +358,167 @@ service cloud.firestore {
           && request.resource.data.motivoRechazo.size() > 0
           && request.resource.data.motivoRechazo.size() <= 400);
       allow delete: if false;
+    }
+
+    function movimientoGraficoValido() {
+      return request.resource.data.keys().hasOnly([
+          'fecha', 'hora', 'tipo', 'buque',
+          'muelleId', 'muelleNombre', 'atraque', 'consignatario',
+          'numeroEscala', 'numeroAgente', 'autorUid', 'creadoEn'
+        ])
+        && request.resource.data.autorUid == request.auth.uid
+        && request.resource.data.fecha is string
+        && request.resource.data.fecha.size() == 10
+        && request.resource.data.hora is string
+        && request.resource.data.hora.size() == 5
+        && request.resource.data.tipo in ['ALTA', 'BAJA']
+        && request.resource.data.buque is string
+        && request.resource.data.buque.size() > 0
+        && request.resource.data.buque.size() <= 120
+        && request.resource.data.muelleId is string
+        && request.resource.data.muelleId.size() > 0
+        && request.resource.data.muelleId.size() <= 40
+        && request.resource.data.muelleNombre is string
+        && request.resource.data.muelleNombre.size() > 0
+        && request.resource.data.muelleNombre.size() <= 80
+        && request.resource.data.atraque is string
+        && request.resource.data.atraque.size() > 0
+        && request.resource.data.atraque.size() <= 16
+        && request.resource.data.consignatario is string
+        && request.resource.data.consignatario.size() > 0
+        && request.resource.data.consignatario.size() <= 120
+        && request.resource.data.numeroEscala is string
+        && request.resource.data.numeroEscala.size() > 0
+        && request.resource.data.numeroEscala.size() <= 40
+        && request.resource.data.numeroAgente is string
+        && request.resource.data.numeroAgente.size() > 0
+        && request.resource.data.numeroAgente.size() <= 16
+        && request.resource.data.creadoEn is string
+        && request.resource.data.creadoEn.size() >= 20
+        && request.resource.data.creadoEn.size() <= 40
+        && (
+          leeTodo()
+          || (esConsulta() && request.resource.data.numeroAgente == perfilConsulta().numeroPlaca)
+        );
+    }
+
+    /** Libro de altas y bajas de NODUS Gráficos. Cada fila queda trazada con la placa. */
+    match /graficosMovimientos/{id} {
+      allow read: if esUsuarioNodus();
+      allow create: if esUsuarioNodus() && movimientoGraficoValido();
+      allow update, delete: if false;
+    }
+
+    function posicionAtraqueValida(item) {
+      return item.keys().hasOnly(['id', 'lat', 'lng', 'rumbo', 'escala'])
+        && item.id is string
+        && item.id.size() > 0
+        && item.id.size() <= 16
+        && item.lat is number
+        && item.lat >= 42.16
+        && item.lat <= 42.32
+        && item.lng is number
+        && item.lng >= -8.97
+        && item.lng <= -8.61
+        && item.rumbo is number
+        && item.rumbo >= 0
+        && item.rumbo < 360
+        && item.escala is number
+        && item.escala >= 0.5
+        && item.escala <= 3;
+    }
+
+    /** Plano de muelles y coordenadas de atraque. Solo admin o superadmin escriben. */
+    match /graficosConfig/{id} {
+      allow read: if esUsuarioNodus();
+      allow create, update: if leeTodo() && (
+        (id == 'plano'
+          && request.resource.data.keys().hasOnly(['muelles'])
+          && request.resource.data.muelles is list
+          && request.resource.data.muelles.size() > 0
+          && request.resource.data.muelles.size() <= 12)
+        || (id == 'posiciones'
+          && request.resource.data.keys().hasOnly(['posiciones'])
+          && request.resource.data.posiciones is list
+          && request.resource.data.posiciones.size() > 0
+          && request.resource.data.posiciones.size() <= 80
+          && posicionAtraqueValida(request.resource.data.posiciones[0])
+          && posicionAtraqueValida(request.resource.data.posiciones[request.resource.data.posiciones.size() - 1]))
+      );
+      allow delete: if false;
+    }
+
+    function diaRegistroValido() {
+      return request.resource.data.keys().hasOnly(['fecha', 'operadores', 'actualizadoEn', 'actualizadoPorUid', 'actualizadoPorNombre'])
+        && request.resource.data.fecha is string
+        && request.resource.data.fecha.size() == 10
+        && request.resource.data.operadores is map
+        && request.resource.data.actualizadoEn is string
+        && request.resource.data.actualizadoPorUid == request.auth.uid
+        && request.resource.data.actualizadoPorNombre is string
+        && request.resource.data.actualizadoPorNombre.size() > 0
+        && request.resource.data.actualizadoPorNombre.size() <= 120;
+    }
+
+    function filaRegistroValida() {
+      return request.resource.data.keys().hasOnly(['fecha', 'bloque', 'campos', 'abierto', 'fechaCierre', 'horaCierre', 'autorUid', 'autorNombre', 'autorPlaca', 'creadoEn'])
+        && request.resource.data.autorUid == request.auth.uid
+        && request.resource.data.fecha is string
+        && request.resource.data.fecha.size() == 10
+        && request.resource.data.bloque is string
+        && request.resource.data.bloque.size() > 0
+        && request.resource.data.bloque.size() <= 24
+        && request.resource.data.campos is map
+        && request.resource.data.campos.size() > 0
+        && request.resource.data.campos.size() <= 20
+        && request.resource.data.abierto is bool
+        && request.resource.data.autorNombre is string
+        && request.resource.data.autorNombre.size() > 0
+        && request.resource.data.autorNombre.size() <= 120
+        && request.resource.data.autorPlaca is string
+        && request.resource.data.autorPlaca.size() <= 16
+        && request.resource.data.creadoEn is string
+        && request.resource.data.creadoEn.size() >= 20
+        && request.resource.data.creadoEn.size() <= 40
+        && (
+          request.resource.data.abierto == true
+          || !request.resource.data.keys().hasAny(['fechaCierre'])
+          || (
+            request.resource.data.fechaCierre == request.resource.data.fecha
+            && request.resource.data.horaCierre is string
+            && request.resource.data.horaCierre.size() == 5
+          )
+        );
+    }
+
+    function cierreFilaValido() {
+      return resource.data.abierto == true
+        && request.resource.data.abierto == false
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['abierto', 'fechaCierre', 'horaCierre', 'campos', 'cerradoEn', 'cerradoPorUid', 'cerradoPorNombre'])
+        && request.resource.data.fechaCierre is string
+        && request.resource.data.fechaCierre.size() == 10
+        && request.resource.data.fechaCierre >= resource.data.fecha
+        && request.resource.data.horaCierre is string
+        && request.resource.data.horaCierre.size() == 5
+        && request.resource.data.campos is map
+        && request.resource.data.cerradoEn is string
+        && request.resource.data.cerradoPorUid == request.auth.uid
+        && request.resource.data.cerradoPorNombre is string
+        && request.resource.data.cerradoPorNombre.size() > 0
+        && request.resource.data.cerradoPorNombre.size() <= 120;
+    }
+
+    match /registroControlDias/{fecha} {
+      allow read: if esUsuarioNodus();
+      allow create, update: if esUsuarioNodus() && diaRegistroValido() && request.resource.data.fecha == fecha;
+      allow delete: if leeTodo();
+    }
+
+    match /registroControlFilas/{id} {
+      allow read: if esUsuarioNodus();
+      allow create: if esUsuarioNodus() && filaRegistroValida();
+      allow update: if esUsuarioNodus() && cierreFilaValido();
+      allow delete: if esUsuarioNodus() && (leeTodo() || resource.data.autorUid == request.auth.uid);
     }
   }
 }

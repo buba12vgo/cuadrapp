@@ -100,9 +100,54 @@ service cloud.firestore {
       allow write: if esSuperAdmin();
     }
 
+    function idMesCuadrante(anio, mes) {
+      return string(anio) + '-' + (mes < 10 ? '0' + string(mes) : string(mes));
+    }
+
+    function cuadranteOperativoForma(docId) {
+      return request.resource.data.keys().hasAll(['anio', 'mes', 'agentes', 'actualizadoEn'])
+        && request.resource.data.anio is int
+        && request.resource.data.anio >= 2020
+        && request.resource.data.anio <= 2040
+        && request.resource.data.mes is int
+        && request.resource.data.mes >= 1
+        && request.resource.data.mes <= 12
+        && docId == idMesCuadrante(request.resource.data.anio, request.resource.data.mes)
+        && request.resource.data.agentes is map
+        && request.resource.data.agentes.size() <= 400
+        && request.resource.data.actualizadoEn is string
+        && request.resource.data.actualizadoEn.size() >= 20
+        && request.resource.data.actualizadoEn.size() <= 40;
+    }
+
+    function cuadranteEsMesActual() {
+      return request.resource.data.anio == request.time.year()
+        && request.resource.data.mes == request.time.month();
+    }
+
+    /** Jefatura solo escribe el cuadrante operativo del mes en curso, y solo sus campos. */
+    function cuadranteJefaturaCreate(docId) {
+      return esJefaturaConsulta()
+        && cuadranteEsMesActual()
+        && cuadranteOperativoForma(docId)
+        && request.resource.data.keys().hasOnly(['anio', 'mes', 'agentes', 'actualizadoEn']);
+    }
+
+    function cuadranteJefaturaUpdate(docId) {
+      return esJefaturaConsulta()
+        && cuadranteEsMesActual()
+        && cuadranteOperativoForma(docId)
+        && request.resource.data.anio == resource.data.anio
+        && request.resource.data.mes == resource.data.mes
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['agentes', 'actualizadoEn']);
+    }
+
     match /cuadrantes/{id} {
       allow read: if leeJefes();
-      allow write: if leeTodo() || esJefaturaConsulta();
+      allow create: if leeTodo() || cuadranteJefaturaCreate(id);
+      allow update: if leeTodo() || cuadranteJefaturaUpdate(id);
+      allow delete: if leeTodo();
     }
 
     match /planesAnuales/{id} {

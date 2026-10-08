@@ -20,6 +20,7 @@ const MovilCalendarioPage = pagina(() => import('@/pages/movil/MovilCalendarioPa
 const MovilCuadrantePage = pagina(() => import('@/pages/movil/MovilCuadrantePage'), 'MovilCuadrantePage')
 const AgentesPage = pagina(() => import('@/pages/AgentesPage'), 'AgentesPage')
 const CalendarioPage = pagina(() => import('@/pages/CalendarioPage'), 'CalendarioPage')
+const TiposEventoPage = pagina(() => import('@/pages/TiposEventoPage'), 'TiposEventoPage')
 const CalendarioAgentePage = pagina(() => import('@/pages/CalendarioAgentePage'), 'CalendarioAgentePage')
 const DiarioAgentesPage = pagina(() => import('@/pages/DiarioAgentesPage'), 'DiarioAgentesPage')
 const SolicitudesPage = pagina(() => import('@/pages/SolicitudesPage'), 'SolicitudesPage')
@@ -81,6 +82,7 @@ export default function App() {
             element={<Navigate to="/admin/cuadrante-mensual" replace />}
           />
           <Route path="/admin/calendario" element={<CalendarioPage />} />
+          <Route path="/admin/tipos-evento" element={<TiposEventoPage />} />
           <Route path="/admin/listados" element={<ListadosPage />} />
           <Route path="/admin/reglas" element={<ReglasPage />} />
           <Route path="/admin/usuarios" element={<UsuariosPage />} />

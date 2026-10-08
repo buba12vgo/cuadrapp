@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { FileDown } from 'lucide-react'
 import { ChipEventoCalendario } from '@/components/ChipEventoCalendario'
-import { ETIQUETA_EVENTO } from '@/lib/etiquetasEvento'
+import { etiquetaEvento } from '@/lib/etiquetasEvento'
 import { CalendarioResumenPanel } from '@/components/dashboard/CalendarioResumenPanel'
 import {
   DashboardBody,
@@ -25,7 +25,6 @@ import {
   TH,
 } from '@/lib/uiStyles'
 import {
-  TIPO_DIA_LABEL,
   minimosARecord,
   minimosDefectoParaFecha,
   minimosDesdeEvento,
@@ -37,6 +36,14 @@ import {
   type PuestoConfig,
   type TipoDiaEditor,
 } from '@/lib/calendarioPuestos'
+import {
+  CODIGO_TIPO_CRUCERO,
+  CODIGO_TIPO_FESTIVO,
+  CODIGO_TIPO_OPERATIVA,
+  tiposEventoVisibles,
+  type TipoEventoConfig,
+} from '@/lib/tiposEvento'
+import { useTiposEvento } from '@/lib/tiposEventoStore'
 import { diasDelMes } from '@/lib/convenio'
 import { deleteEvento, saveEvento } from '@/lib/db'
 import { exportarCalendarioEventosPdf } from '@/lib/exportarCalendarioEventosPdf'
@@ -75,7 +82,21 @@ type FilaEvento = {
   descripcion: string
 }
 
-function filaNueva(fecha: string, tipoDia: TipoDiaEditor = 'CRUCERO'): FilaEvento {
+function etiquetaTipoDia(tipoDia: TipoDiaEditor, tipos: TipoEventoConfig[]) {
+  if (tipoDia === 'NORMAL') return 'Normal'
+  return tipos.find((tipo) => tipo.codigo === tipoDia)?.nombre ?? tipoDia
+}
+
+function opcionesTipoDia(tipos: TipoEventoConfig[]) {
+  return [
+    { codigo: 'NORMAL' as const, nombre: 'Normal' },
+    ...tiposEventoVisibles(tipos).filter(
+      (tipo) => tipo.codigo !== CODIGO_TIPO_OPERATIVA,
+    ),
+  ]
+}
+
+function filaNueva(fecha: string, tipoDia: TipoDiaEditor = CODIGO_TIPO_CRUCERO): FilaEvento {
   const sufijo =
     typeof crypto !== 'undefined' && 'randomUUID' in crypto
       ? crypto.randomUUID().slice(0, 8)
@@ -84,7 +105,7 @@ function filaNueva(fecha: string, tipoDia: TipoDiaEditor = 'CRUCERO'): FilaEvent
 }
 
 function filasDesdeEventos(fecha: string, eventos: EventoOperativo[]): FilaEvento[] {
-  if (eventos.length === 0) return [filaNueva(fecha, 'FESTIVO')]
+  if (eventos.length === 0) return [filaNueva(fecha, CODIGO_TIPO_FESTIVO)]
   return eventos.map((evento) => ({
     id: evento.id,
     tipoDia: tipoEditorDesdeEvento(evento),
@@ -97,6 +118,7 @@ function EditorDiaDrawer({
   eventos,
   puestos,
   semana,
+  tipos,
   guardando,
   onGuardar,
   onCerrar,
@@ -105,6 +127,7 @@ function EditorDiaDrawer({
   eventos: EventoOperativo[]
   puestos: PuestoConfig[]
   semana: MinimosSemana
+  tipos: TipoEventoConfig[]
   guardando?: boolean
   onGuardar: (eventos: EventoOperativo[]) => void | Promise<void>
   onCerrar: () => void
@@ -162,7 +185,7 @@ function EditorDiaDrawer({
           fila.descripcion.trim() ||
           (fila.tipoDia === 'NORMAL'
             ? 'Mínimos personalizados'
-            : TIPO_DIA_LABEL[fila.tipoDia]),
+            : etiquetaTipoDia(fila.tipoDia, tipos)),
         modificadoresMinimos: record,
       })),
     )
@@ -212,7 +235,7 @@ function EditorDiaDrawer({
               </button>
             </div>
             {filas.map((fila, indice) => {
-              const etiqueta = ETIQUETA_EVENTO[tipoEventoDesdeEditor(fila.tipoDia)]
+              const etiqueta = etiquetaEvento(tipoEventoDesdeEditor(fila.tipoDia))
               return (
                 <div
                   key={fila.id}
@@ -244,9 +267,9 @@ function EditorDiaDrawer({
                       )
                     }}
                   >
-                    {(Object.keys(TIPO_DIA_LABEL) as TipoDiaEditor[]).map((tipo) => (
-                      <option key={tipo} value={tipo}>
-                        {TIPO_DIA_LABEL[tipo]}
+                    {opcionesTipoDia(tipos).map((tipo) => (
+                      <option key={tipo.codigo} value={tipo.codigo}>
+                        {tipo.nombre}
                       </option>
                     ))}
                   </select>
@@ -360,6 +383,7 @@ export function CalendarioPage() {
   const { puedeEscribir } = useAcceso()
   const soloLectura = !puedeEscribir('calendario')
   const [eventosData, setEventosData] = useEventosData()
+  const [tiposEvento] = useTiposEvento()
   const [puestosTodos] = usePuestosData()
   const puestos = useMemo(
     () => puestosTodos.filter((puesto) => puesto.ambito === 'OPERATIVO'),
@@ -545,6 +569,7 @@ export function CalendarioPage() {
           eventos={eventosEditando}
           puestos={puestos}
           semana={semana}
+          tipos={tiposEvento}
           guardando={guardando}
           onGuardar={guardarDia}
           onCerrar={() => setFechaSeleccionada(null)}

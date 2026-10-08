@@ -59,12 +59,11 @@ import {
 } from '@/lib/cuadranteFirestore'
 import {
   diasDelMes,
-  esFinDeSemana,
   pesoJornadaJefes,
   totalDiasTrabajadosJefes,
 } from '@/lib/convenio'
 import { getAgentes, getCuadranteJefes, saveCuadranteJefes } from '@/lib/db'
-import { esFestivo } from '@/lib/festivos'
+import { diaEsEspecial } from '@/lib/diaEspecial'
 import { useEventosData } from '@/lib/eventosStore'
 import { ensureFirebase, isFirebaseReady } from '@/lib/firebase'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
@@ -124,7 +123,7 @@ const CLASE_TURNO: Record<Turno, string> = {
   V: CLASE_TURNO_CELDA.V,
 }
 
-/** Laboral: D → M → T → N → P → V. Finde y festivo: incluye M-T. */
+/** Laboral: D → M → T → N → P → V. Finde y festivo (oficial o de calendario): incluye M-T. */
 const CICLO_SEMANA: Turno[] = ['D', 'M', 'T', 'N', 'P', 'V']
 const CICLO_FINDE: Turno[] = ['D', 'M', 'T', 'N', 'MT', 'P', 'V']
 
@@ -300,8 +299,7 @@ export function CuadranteJefesPage() {
           T: totalMinimosTurno(minimosDia, 'T', puestosJefes),
           N: totalMinimosTurno(minimosDia, 'N', puestosJefes),
         },
-        especial:
-          esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia),
+        especial: diaEsEspecial(anio, mes, dia, eventosData),
         enServicio: jefes.filter(
           (agente) =>
             pesoJornadaJefes((cuadrante[agente.id] ?? [])[dia - 1]) > 0,
@@ -494,7 +492,7 @@ export function CuadranteJefesPage() {
     const anterior = filaActual[indice] ?? 'D'
     const siguiente = siguienteTurno(
       anterior,
-      esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia),
+      diaEsEspecial(anio, mes, dia, eventosData),
     )
     const fecha = isoFecha(anio, mes, dia)
 
@@ -873,7 +871,7 @@ export function CuadranteJefesPage() {
     <section className={PAGE_SECTION}>
       <PageHeader
         title="Cuadrante jefes de servicio"
-        subtitle={`Jefes y responsables · mensual · clic cicla turno (P = permiso) · finde y festivo incluyen M-T · Shift+clic o arrastre asigna puesto/permiso · arrastre al nombre = todos los días${loadingCuadrante ? ' · Cargando…' : ''}${mesGuardadoEnFirestore ? '' : ' · Sin guardar'}`}
+        subtitle={`Jefes y responsables · mensual · clic cicla turno (P = permiso) · finde y festivo (oficial o de calendario) incluyen M-T · Shift+clic o arrastre asigna puesto/permiso · arrastre al nombre = todos los días${loadingCuadrante ? ' · Cargando…' : ''}${mesGuardadoEnFirestore ? '' : ' · Sin guardar'}`}
         status={
           <SaveStatus
             guardando={guardandoCuadrante}
@@ -961,6 +959,7 @@ export function CuadranteJefesPage() {
                     puestos,
                     permisos: tiposPermiso,
                     diasVisibles,
+                    eventos: eventosData,
                   })
                 } catch (err) {
                   void alert(
@@ -1046,8 +1045,7 @@ export function CuadranteJefesPage() {
                   </th>
                   {diasVisibles.map((dia) => {
                     const weekday = new Date(anio, mes - 1, dia).getDay()
-                    const especial =
-                      esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia)
+                    const especial = diaEsEspecial(anio, mes, dia, eventosData)
                     const cobertura = coberturaPorDia[dia]
                     const diaCubierto = TURNOS_OP.every(
                       (turno) =>
@@ -1147,9 +1145,12 @@ export function CuadranteJefesPage() {
                             : null
                         const esJd = Boolean(asignado && esJornadaDisponible(asignado))
                         const atenuada = !turnoCoincideFiltro(turno, filtroTurno)
-                        const especial =
-                          esFinDeSemana(anio, mes, dia) ||
-                          esFestivo(anio, mes, dia)
+                        const especial = diaEsEspecial(
+                          anio,
+                          mes,
+                          dia,
+                          eventosData,
+                        )
                         const fondoSuave =
                           especial && (turno === 'D' || turno === 'V')
                             ? '!bg-amber-50'

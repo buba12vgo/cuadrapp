@@ -24,16 +24,16 @@ import {
   TITULO_BLOQUE,
 } from '@/lib/uiStyles'
 import { normalizarCodigo, sugerirAbreviatura } from '@/lib/calendarioPuestos'
-import { deleteTipoPermiso, saveTipoPermiso } from '@/lib/db'
+import { deleteTipoEvento, saveTipoEvento } from '@/lib/db'
 import { isFirebaseReady } from '@/lib/firebase'
 import {
-  diasAnualesCatalogo,
-  esDiasAnoAnterior,
-  normalizarDiasAnuales,
-} from '@/lib/cuposPermiso'
-import { permisoRequiereSaldo, type PermisoConfig } from '@/lib/permisos'
-import { useTiposPermiso } from '@/lib/permisosStore'
-import { FileText, Hash } from 'lucide-react'
+  ESTILOS_TIPO_EVENTO,
+  estiloTipoEvento,
+  tipoEventoEsSistema,
+  type TipoEventoConfig,
+} from '@/lib/tiposEvento'
+import { useTiposEvento } from '@/lib/tiposEventoStore'
+import { CalendarDays, Flag } from 'lucide-react'
 
 const CAMPO_FULL = `${CAMPO} w-full`
 
@@ -41,64 +41,61 @@ type Formulario = {
   codigo: string
   nombre: string
   abreviatura: string
-  diasAnuales: string
-  requiereSaldo: boolean
+  estiloId: string
+  esFestivo: boolean
+  orden: string
 }
 
-function formularioVacio(): Formulario {
+function formularioVacio(orden: number): Formulario {
   return {
     codigo: '',
     nombre: '',
     abreviatura: '',
-    diasAnuales: '0',
-    requiereSaldo: false,
+    estiloId: 'violeta',
+    esFestivo: false,
+    orden: String(orden),
   }
 }
 
-function formularioDesde(permiso: PermisoConfig): Formulario {
+function formularioDesde(tipo: TipoEventoConfig): Formulario {
   return {
-    codigo: permiso.codigo,
-    nombre: permiso.nombre,
-    abreviatura: permiso.abreviatura,
-    diasAnuales: String(diasAnualesCatalogo(permiso)),
-    requiereSaldo: permisoRequiereSaldo(permiso),
+    codigo: tipo.codigo,
+    nombre: tipo.nombre,
+    abreviatura: tipo.abreviatura,
+    estiloId: tipo.estiloId,
+    esFestivo: tipo.esFestivo,
+    orden: String(tipo.orden),
   }
 }
 
 function validar(
   form: Formulario,
-  permisos: PermisoConfig[],
+  tipos: TipoEventoConfig[],
   editandoCodigo: string | null,
 ): string | null {
   const nombre = form.nombre.trim()
   const codigo = normalizarCodigo(form.codigo || form.nombre)
   const abreviatura = form.abreviatura.trim().toUpperCase()
+  const orden = Number(form.orden)
 
   if (!nombre) return 'El nombre es obligatorio'
   if (!codigo) return 'El código es obligatorio'
   if (!abreviatura) return 'La abreviatura es obligatoria'
   if (abreviatura.length > 5) return 'La abreviatura máximo 5 caracteres'
-
-  if (
-    permisos.some(
-      (p) =>
-        p.nombre.toLowerCase() === nombre.toLowerCase() &&
-        p.codigo !== editandoCodigo,
-    )
-  ) {
-    return 'Ya existe un permiso con ese nombre'
-  }
-  if (permisos.some((p) => p.codigo === codigo && p.codigo !== editandoCodigo)) {
-    return 'Ya existe un permiso con ese código'
+  if (!Number.isInteger(orden) || orden < 0 || orden > 999) {
+    return 'El orden tiene que ser un número entero entre 0 y 999'
   }
   if (
-    permisos.some(
-      (p) =>
-        p.abreviatura.toUpperCase() === abreviatura &&
-        p.codigo !== editandoCodigo,
+    tipos.some(
+      (item) =>
+        item.nombre.toLowerCase() === nombre.toLowerCase() &&
+        item.codigo !== editandoCodigo,
     )
   ) {
-    return 'Ya existe un permiso con esa abreviatura'
+    return 'Ya existe un tipo de evento con ese nombre'
+  }
+  if (tipos.some((item) => item.codigo === codigo && item.codigo !== editandoCodigo)) {
+    return 'Ya existe un tipo de evento con ese código'
   }
   return null
 }
@@ -107,7 +104,7 @@ function EditorModal({
   titulo,
   inicial,
   editandoCodigo,
-  permisos,
+  tipos,
   guardando,
   onGuardar,
   onCancelar,
@@ -115,9 +112,9 @@ function EditorModal({
   titulo: string
   inicial: Formulario
   editandoCodigo: string | null
-  permisos: PermisoConfig[]
+  tipos: TipoEventoConfig[]
   guardando?: boolean
-  onGuardar: (permiso: PermisoConfig) => void | Promise<void>
+  onGuardar: (tipo: TipoEventoConfig) => void | Promise<void>
   onCancelar: () => void
 }) {
   const [form, setForm] = useState(inicial)
@@ -132,10 +129,12 @@ function EditorModal({
     setAbrevManual(Boolean(inicial.abreviatura))
   }, [inicial])
 
+  const estilo = estiloTipoEvento(form.estiloId)
+
   return (
     <Modal
       title={titulo}
-          subtitle="Tipos de permiso de toda la plantilla (celda P)."
+      subtitle="Catálogo de tipos para el calendario de eventos."
       onClose={onCancelar}
       size="sm"
       bodyClassName="mt-3"
@@ -151,42 +150,43 @@ function EditorModal({
           </button>
           <button
             type="submit"
-            form="permiso-form"
+            form="tipo-evento-form"
             className={BTN_PRIMARY}
             disabled={guardando}
           >
-            {guardando ? 'Guardando…' : 'Guardar permiso'}
+            {guardando ? 'Guardando…' : 'Guardar tipo'}
           </button>
         </>
       }
     >
       <form
-        id="permiso-form"
+        id="tipo-evento-form"
         className="flex flex-col gap-3"
         onSubmit={async (event) => {
           event.preventDefault()
-          const fallo = validar(form, permisos, editandoCodigo)
+          const fallo = validar(form, tipos, editandoCodigo)
           if (fallo) {
             setError(fallo)
             return
           }
+          const previo = tipos.find((item) => item.codigo === editandoCodigo)
           await onGuardar({
             codigo: normalizarCodigo(form.codigo || form.nombre),
             nombre: form.nombre.trim(),
             abreviatura: form.abreviatura.trim().toUpperCase(),
-            diasAnuales: normalizarDiasAnuales(Number(form.diasAnuales)),
-            visible: true,
-            requiereSaldo: form.requiereSaldo,
+            estiloId: form.estiloId,
+            esFestivo: form.esFestivo,
+            visible: previo ? previo.visible !== false : true,
+            orden: Number(form.orden),
+            sistema: previo ? tipoEventoEsSistema(previo) : false,
           })
         }}
       >
         <section className={BLOQUE}>
-          <h3 className={TITULO_BLOQUE}>Datos del permiso</h3>
+          <h3 className={TITULO_BLOQUE}>Datos del tipo</h3>
           <div className="flex flex-col gap-2">
             <label className="flex flex-col gap-0.5">
-              <span className="text-sm font-semibold text-slate-600">
-                Nombre
-              </span>
+              <span className="text-sm font-semibold text-slate-600">Nombre</span>
               <input
                 className={CAMPO_FULL}
                 value={form.nombre}
@@ -207,9 +207,7 @@ function EditorModal({
               />
             </label>
             <label className="flex flex-col gap-0.5">
-              <span className="text-sm font-semibold text-slate-600">
-                Código
-              </span>
+              <span className="text-sm font-semibold text-slate-600">Código</span>
               <input
                 className={CAMPO_FULL}
                 value={form.codigo}
@@ -241,45 +239,57 @@ function EditorModal({
               />
             </label>
             <label className="flex flex-col gap-0.5">
-              <span className="text-sm font-semibold text-slate-600">
-                Días al año (por agente)
+              <span className="text-sm font-semibold text-slate-600">Estilo</span>
+              <select
+                className={CAMPO_FULL}
+                value={form.estiloId}
+                onChange={(event) =>
+                  setForm((actual) => ({
+                    ...actual,
+                    estiloId: event.target.value,
+                  }))
+                }
+              >
+                {ESTILOS_TIPO_EVENTO.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.emoji} {item.etiqueta}
+                  </option>
+                ))}
+              </select>
+              <span className={`mt-1 inline-flex w-fit rounded px-1.5 py-0.5 text-xs font-semibold ${estilo.clase}`}>
+                {estilo.emoji} {form.nombre.trim() || 'Vista previa'}
               </span>
+            </label>
+            <label className="flex flex-col gap-0.5">
+              <span className="text-sm font-semibold text-slate-600">Orden</span>
               <input
                 className={CAMPO_FULL}
                 type="number"
                 min={0}
-                max={366}
-                value={form.diasAnuales}
+                max={999}
+                value={form.orden}
                 onChange={(event) =>
-                  setForm((actual) => ({
-                    ...actual,
-                    diasAnuales: event.target.value,
-                  }))
+                  setForm((actual) => ({ ...actual, orden: event.target.value }))
                 }
               />
-              <span className="text-sm text-slate-500">
-                {esDiasAnoAnterior(editandoCodigo ?? form.codigo)
-                  ? 'Saldo inicial por defecto si el agente aún no tiene cupo de ese año. El 31 de diciembre a las 23:59, si no hay saldo puesto a mano, se rellena con los días no gastados.'
-                  : 'Ej. 6 en Asuntos propios. 0 = sin tope anual (no pasa a Días del Año Anterior).'}
-              </span>
             </label>
             <label className="flex items-start gap-2 text-sm text-slate-800">
               <input
                 type="checkbox"
                 className="mt-0.5 h-4 w-4 accent-slate-950"
-                checked={form.requiereSaldo}
+                checked={form.esFestivo}
                 onChange={(event) =>
                   setForm((actual) => ({
                     ...actual,
-                    requiereSaldo: event.target.checked,
+                    esFestivo: event.target.checked,
                   }))
                 }
               />
               <span>
-                <span className="font-semibold">Exige saldo</span>
+                <span className="font-semibold">Festivo</span>
                 <span className="mt-0.5 block text-slate-500">
-                  Si está marcado, el agente solo puede pedirlo cuando le queden
-                  días. Si no, puede pedirlo sin saldo.
+                  Cuenta como festivo para cobro, conciliaciones compatibles y
+                  turno M/T de jefes, igual que un festivo oficial.
                 </span>
               </span>
             </label>
@@ -295,18 +305,18 @@ function EditorModal({
   )
 }
 
-export function PermisosPage() {
+export function TiposEventoPage() {
   const { alert: showAlert, confirm: askConfirm } = useAppDialog()
   const { puedeEscribir } = useAcceso()
-  const soloLectura = !puedeEscribir('permisos')
-  const [permisos, setPermisos] = useTiposPermiso()
+  const soloLectura = !puedeEscribir('tipos-evento')
+  const [tipos, setTipos] = useTiposEvento()
   const [modo, setModo] = useState<'nuevo' | 'editar' | null>(null)
-  const [editando, setEditando] = useState<PermisoConfig | null>(null)
+  const [editando, setEditando] = useState<TipoEventoConfig | null>(null)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const firebaseOk = isFirebaseReady()
 
-  async function guardar(permiso: PermisoConfig) {
+  async function guardar(tipo: TipoEventoConfig) {
     if (soloLectura) return
     if (!firebaseOk) {
       await showAlert('Firebase no está configurado; no se puede guardar.', 'Firebase')
@@ -315,15 +325,11 @@ export function PermisosPage() {
     setGuardando(true)
     setError(null)
     try {
-      const previo = permisos.find((item) => item.codigo === permiso.codigo)
-      const guardado = await saveTipoPermiso({
-        ...permiso,
-        visible: previo ? previo.visible !== false : permiso.visible !== false,
-      })
+      const guardado = await saveTipoEvento(tipo)
       if (modo === 'nuevo') {
-        setPermisos((actual) => [...actual, guardado])
+        setTipos((actual) => [...actual, guardado])
       } else if (editando) {
-        setPermisos((actual) =>
+        setTipos((actual) =>
           actual.map((item) =>
             item.codigo === editando.codigo ? guardado : item,
           ),
@@ -335,7 +341,7 @@ export function PermisosPage() {
       const mensaje =
         err instanceof Error
           ? err.message
-          : 'No se pudo guardar el tipo de permiso'
+          : 'No se pudo guardar el tipo de evento'
       setError(mensaje)
       await showAlert(mensaje, 'Error al guardar')
     } finally {
@@ -343,45 +349,18 @@ export function PermisosPage() {
     }
   }
 
-  async function cambiarVisible(permiso: PermisoConfig, visible: boolean) {
+  async function borrar(tipo: TipoEventoConfig) {
     if (soloLectura) return
-    const siguiente = { ...permiso, visible }
-    setPermisos((actual) =>
-      actual.map((item) => (item.codigo === permiso.codigo ? siguiente : item)),
-    )
-    if (!firebaseOk) return
-    setGuardando(true)
-    setError(null)
-    try {
-      const guardado = await saveTipoPermiso(siguiente)
-      setPermisos((actual) =>
-        actual.map((item) => (item.codigo === guardado.codigo ? guardado : item)),
-      )
-    } catch (err) {
-      setPermisos((actual) =>
-        actual.map((item) => (item.codigo === permiso.codigo ? permiso : item)),
-      )
-      const mensaje =
-        err instanceof Error ? err.message : 'No se pudo cambiar la visibilidad'
-      setError(mensaje)
-      await showAlert(mensaje, 'Error al guardar')
-    } finally {
-      setGuardando(false)
-    }
-  }
-
-  async function borrar(permiso: PermisoConfig) {
-    if (soloLectura) return
-    if (esDiasAnoAnterior(permiso.codigo)) {
+    if (tipoEventoEsSistema(tipo)) {
       await showAlert(
-        '«Días del Año Anterior» es un tipo de sistema: el 31 de diciembre a las 23:59 recibe el saldo no gastado.',
+        `«${tipo.nombre}» es un tipo de sistema y no se puede eliminar.`,
         'No se puede eliminar',
       )
       return
     }
     const ok = await askConfirm(
-      `¿Eliminar el permiso «${permiso.nombre}»?`,
-      'Eliminar permiso',
+      `¿Eliminar el tipo de evento «${tipo.nombre}»?`,
+      'Eliminar tipo',
       true,
     )
     if (!ok) return
@@ -392,15 +371,13 @@ export function PermisosPage() {
     setGuardando(true)
     setError(null)
     try {
-      await deleteTipoPermiso(permiso.codigo)
-      setPermisos((actual) =>
-        actual.filter((item) => item.codigo !== permiso.codigo),
-      )
+      await deleteTipoEvento(tipo.codigo)
+      setTipos((actual) => actual.filter((item) => item.codigo !== tipo.codigo))
     } catch (err) {
       const mensaje =
         err instanceof Error
           ? err.message
-          : 'No se pudo eliminar el tipo de permiso'
+          : 'No se pudo eliminar el tipo de evento'
       setError(mensaje)
       await showAlert(mensaje, 'Error al eliminar')
     } finally {
@@ -408,11 +385,15 @@ export function PermisosPage() {
     }
   }
 
+  const siguienteOrden =
+    tipos.reduce((max, tipo) => Math.max(max, tipo.orden), 0) + 1
+  const festivos = tipos.filter((tipo) => tipo.esFestivo).length
+
   return (
     <section className={PAGE_SECTION}>
       <PageHeader
-        title="Permisos"
-        subtitle={`${permisos.length} tipos · solo los visibles salen en la lista del agente`}
+        title="Tipos de evento"
+        subtitle={`${tipos.length} tipos · los marcados como festivo aplican cobro, conciliaciones y M/T de jefes`}
         actions={
           <button
             type="button"
@@ -423,7 +404,7 @@ export function PermisosPage() {
               setModo('nuevo')
             }}
           >
-            Nuevo permiso
+            Nuevo tipo
           </button>
         }
       />
@@ -440,76 +421,66 @@ export function PermisosPage() {
                   <th className={TH}>Nombre</th>
                   <th className={TH}>Código</th>
                   <th className={TH}>Abrev.</th>
-                  <th className={`${TH} text-right`}>Días/año</th>
-                  <th className={TH}>Saldo</th>
-                  <th className={TH}>Visible</th>
+                  <th className={TH}>Festivo</th>
+                  <th className={`${TH} text-right`}>Orden</th>
                   <th className={`${TH} text-right`}>Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {permisos.map((permiso) => (
-                  <tr key={permiso.codigo} className="hover:bg-slate-50/70">
-                    <td className={`${TD} font-medium`}>{permiso.nombre}</td>
-                    <td className={`${TD} font-mono text-slate-600`}>
-                      {permiso.codigo}
-                    </td>
-                    <td className={`${TD} font-mono text-slate-600`}>
-                      {permiso.abreviatura}
-                    </td>
-                    <td className={`${TD} text-right tabular-nums text-slate-600`}>
-                      {esDiasAnoAnterior(permiso.codigo)
-                        ? diasAnualesCatalogo(permiso) === 0
-                          ? 'Inicial 0'
-                          : `Inicial ${diasAnualesCatalogo(permiso)}`
-                        : diasAnualesCatalogo(permiso) === 0
-                          ? 'Sin tope'
-                          : diasAnualesCatalogo(permiso)}
-                    </td>
-                    <td className={TD}>
-                      {permisoRequiereSaldo(permiso) ? 'Con saldo' : 'Sin saldo'}
-                    </td>
-                    <td className={TD}>
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 accent-slate-950"
-                        checked={permiso.visible !== false}
-                        disabled={soloLectura || guardando}
-                        aria-label={`Visible para agentes: ${permiso.nombre}`}
-                        onChange={(event) =>
-                          void cambiarVisible(permiso, event.target.checked)
-                        }
-                      />
-                    </td>
-                    <td className={`${TD} text-right`}>
-                      <button
-                        type="button"
-                        className="mr-1.5 text-sm font-semibold text-slate-700 hover:underline disabled:opacity-40"
-                        disabled={soloLectura || guardando}
-                        onClick={() => {
-                          setEditando(permiso)
-                          setModo('editar')
-                        }}
-                      >
-                        Editar
-                      </button>
-                      <button
-                        type="button"
-                        className="text-sm font-semibold text-red-700 hover:underline disabled:opacity-40"
-                        disabled={soloLectura || guardando || esDiasAnoAnterior(permiso.codigo)}
-                        onClick={() => void borrar(permiso)}
-                      >
-                        Eliminar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {permisos.length === 0 ? (
+                {tipos.map((tipo) => {
+                  const estilo = estiloTipoEvento(tipo.estiloId)
+                  return (
+                    <tr key={tipo.codigo} className="hover:bg-slate-50/70">
+                      <td className={`${TD} font-medium`}>
+                        <span className={`inline-flex rounded px-1.5 py-0.5 text-xs font-semibold ${estilo.clase}`}>
+                          {estilo.emoji} {tipo.nombre}
+                        </span>
+                      </td>
+                      <td className={`${TD} font-mono text-slate-600`}>
+                        {tipo.codigo}
+                      </td>
+                      <td className={`${TD} font-mono text-slate-600`}>
+                        {tipo.abreviatura}
+                      </td>
+                      <td className={TD}>{tipo.esFestivo ? 'Sí' : 'No'}</td>
+                      <td className={`${TD} text-right tabular-nums text-slate-600`}>
+                        {tipo.orden}
+                      </td>
+                      <td className={`${TD} text-right`}>
+                        <button
+                          type="button"
+                          className="mr-1.5 text-sm font-semibold text-slate-700 hover:underline disabled:opacity-40"
+                          disabled={soloLectura || guardando}
+                          onClick={() => {
+                            setEditando(tipo)
+                            setModo('editar')
+                          }}
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          className="text-sm font-semibold text-red-700 hover:underline disabled:opacity-40"
+                          disabled={
+                            soloLectura ||
+                            guardando ||
+                            tipoEventoEsSistema(tipo)
+                          }
+                          onClick={() => void borrar(tipo)}
+                        >
+                          Eliminar
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
+                {tipos.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={5}
+                      colSpan={6}
                       className={`${TD} py-6 text-center text-slate-500`}
                     >
-                      No hay tipos de permiso. Crea Asuntos propios, IT, etc.
+                      No hay tipos de evento. Crea Festivo, Crucero, etc.
                     </td>
                   </tr>
                 ) : null}
@@ -519,31 +490,18 @@ export function PermisosPage() {
         </DashboardMain>
         <DashboardSidebar>
           <KpiGrid2>
-            <KpiCard icon={FileText} label="Tipos" value={permisos.length} />
-            <KpiCard
-              icon={Hash}
-              label="Abrev. media"
-              value={
-                permisos.length === 0
-                  ? '0'
-                  : (
-                      permisos.reduce(
-                        (s, p) => s + p.abreviatura.length,
-                        0,
-                      ) / permisos.length
-                    ).toFixed(1)
-              }
-            />
+            <KpiCard icon={CalendarDays} label="Tipos" value={tipos.length} />
+            <KpiCard icon={Flag} label="Festivos" value={festivos} />
           </KpiGrid2>
         </DashboardSidebar>
       </DashboardBody>
 
       {modo === 'nuevo' ? (
         <EditorModal
-          titulo="Nuevo permiso"
-          inicial={formularioVacio()}
+          titulo="Nuevo tipo de evento"
+          inicial={formularioVacio(siguienteOrden)}
           editandoCodigo={null}
-          permisos={permisos}
+          tipos={tipos}
           guardando={guardando}
           onGuardar={guardar}
           onCancelar={() => setModo(null)}
@@ -551,10 +509,10 @@ export function PermisosPage() {
       ) : null}
       {modo === 'editar' && editando ? (
         <EditorModal
-          titulo="Editar permiso"
+          titulo="Editar tipo de evento"
           inicial={formularioDesde(editando)}
           editandoCodigo={editando.codigo}
-          permisos={permisos}
+          tipos={tipos}
           guardando={guardando}
           onGuardar={guardar}
           onCancelar={() => {

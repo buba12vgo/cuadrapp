@@ -1,7 +1,6 @@
 import { ChipEventoCalendario } from '@/components/ChipEventoCalendario'
 import { detalleDiaCalendarioJefe } from '@/lib/calendarioMes'
-import { esFinDeSemana } from '@/lib/convenio'
-import { esFestivo } from '@/lib/festivos'
+import { diaEsEspecial } from '@/lib/diaEspecial'
 import { eventosEnFecha } from '@/lib/eventosStore'
 import { useCuadranteJefesMes } from '@/lib/useCuadranteJefesMes'
 import { ROL_LABEL } from '@/lib/rolesCuadrante'
@@ -37,7 +36,7 @@ export function MovilCuadrantePage() {
         const dia = indice + 1
         const fecha = isoFechaMovil(anio, mes, dia)
         const { largo, corto } = etiquetaDia(anio, mes, dia)
-        const especial = esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia)
+        const especial = diaEsEspecial(anio, mes, dia, datos.eventos)
         const eventos = eventosEnFecha(datos.eventos, fecha)
         const franjas = FRANJAS.map((franja) => ({
           ...franja,

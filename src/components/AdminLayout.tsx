@@ -101,6 +101,7 @@ const NAV_GROUPS: Array<{
         ambito: 'solicitudes',
       },
       { to: '/admin/calendario', label: 'Calendario Eventos', icon: CalendarDays, ambito: 'calendario' },
+      { to: '/admin/tipos-evento', label: 'Tipos de evento', icon: CalendarRange, ambito: 'tipos-evento' },
       { to: '/admin/listados', label: 'Listados', icon: List, ambito: 'listados' },
     ],
   },

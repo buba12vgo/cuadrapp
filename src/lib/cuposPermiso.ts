@@ -158,7 +158,7 @@ export function saldoTipoPermiso(
   let cupo = cupoBaseAgente(agente, permiso)
 
   if (esDiasAnoAnterior(permiso.codigo) || esDiasAnoAnterior(permiso.nombre)) {
-    cupo = daaAnio ?? 0
+    cupo = daaAnio ?? diasAnualesCatalogo(permiso)
   } else if (
     esLibrePorDisponibilidad(permiso.codigo) ||
     esLibrePorDisponibilidad(permiso.nombre)

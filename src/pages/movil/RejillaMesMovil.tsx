@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { celdasMesCalendario } from '@/lib/calendarioMes'
-import { esFinDeSemana } from '@/lib/convenio'
-import { esFestivo } from '@/lib/festivos'
+import { diaEsEspecial } from '@/lib/diaEspecial'
+import { useEventosData } from '@/lib/eventosStore'
 
 const CABECERA = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const
 
@@ -23,6 +23,7 @@ export function RejillaMesMovil({
     puntos?: Array<'verde' | 'ambar' | 'rojo'>
   }
 }) {
+  const [eventos] = useEventosData()
   const celdas = useMemo(() => celdasMesCalendario(anio, mes), [anio, mes])
 
   return (
@@ -44,7 +45,7 @@ export function RejillaMesMovil({
           if (dia == null) {
             return <div key={`hueco-${indice}`} className="aspect-square bg-slate-50/80" />
           }
-          const especial = esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia)
+          const especial = diaEsEspecial(anio, mes, dia, eventos)
           const seleccionado = dia === diaSeleccionado
           const extra = marca?.(dia)
           return (

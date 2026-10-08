@@ -1,10 +1,12 @@
 import { etiquetaTurno } from '@/lib/asignacionPuestos'
 import type { AsignacionesDiarias, PuestoConfig } from '@/lib/calendarioPuestos'
 import { celdasMesCalendario, detalleDiaCalendarioJefe } from '@/lib/calendarioMes'
-import { ETIQUETA_EVENTO } from '@/lib/etiquetasEvento'
-import { diasDelMes, esDiaTrabajado, esFinDeSemana, totalDiasTrabajadosJefes } from '@/lib/convenio'
+import { etiquetaEvento } from '@/lib/etiquetasEvento'
+import { diasDelMes, esDiaTrabajado, totalDiasTrabajadosJefes } from '@/lib/convenio'
+import { colorPdfTipoEvento } from '@/lib/tiposEvento'
+import { getTiposEvento } from '@/lib/tiposEventoStore'
 import { eventosEnFecha } from '@/lib/eventosStore'
-import { esFestivo } from '@/lib/festivos'
+import { diaEsEspecial, diaEsFestivoOperativo } from '@/lib/diaEspecial'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
 import type { PermisoConfig } from '@/lib/permisos'
 import { getTiposPermiso } from '@/lib/permisosStore'
@@ -28,17 +30,11 @@ const ESTILO_TURNO: Record<
   V: { fondo: '#ecfdf5', pill: '#d1fae5', pillTexto: '#065f46', borde: '#10b981' },
 }
 
-const COLOR_EVENTO: Record<string, { fondo: string; texto: string }> = {
-  FESTIVO: { fondo: '#fee2e2', texto: '#7f1d1d' },
-  CRUCERO: { fondo: '#dbeafe', texto: '#1e3a8a' },
-  CONCIERTO: { fondo: '#fef9c3', texto: '#713f12' },
-}
-
 const LEYENDA_TURNOS: Array<{ turno: Turno; label: string }> = [
   { turno: 'M', label: 'Mañana' },
   { turno: 'T', label: 'Tarde' },
   { turno: 'N', label: 'Noche' },
-  { turno: 'MT', label: 'M-T finde' },
+  { turno: 'MT', label: 'M-T finde/festivo' },
   { turno: 'P', label: 'Permiso' },
   { turno: 'D', label: 'Descanso' },
   { turno: 'V', label: 'Vacaciones' },
@@ -83,7 +79,10 @@ export function exportarCalendarioJefesPdf(
     const turno = (fila[dia - 1] ?? 'D') as Turno
     if (turno === 'N') noches += 1
     if (turno === 'P' || turno === 'L') permisosMes += 1
-    if (esDiaTrabajado(turno) && esFestivo(anio, mes, dia)) {
+    if (
+      esDiaTrabajado(turno) &&
+      diaEsFestivoOperativo(anio, mes, dia, opciones.eventos ?? [])
+    ) {
       festivosTrabajados += 1
     }
   }
@@ -107,7 +106,7 @@ export function exportarCalendarioJefesPdf(
         )
         const eventosDia = eventosEnFecha(opciones.eventos ?? [], fecha)
         const especial =
-          esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia)
+          diaEsEspecial(anio, mes, dia, opciones.eventos ?? [])
         const estilo = ESTILO_TURNO[turno] ?? ESTILO_TURNO.D
         const fondo = especial && turno === 'V' ? '#fffbeb' : estilo.fondo
         const puntos =
@@ -117,14 +116,10 @@ export function exportarCalendarioJefesPdf(
         const numColor = especial ? '#dc2626' : '#1e293b'
         const eventosHtml = eventosDia
           .map((evento) => {
-            const etiquetaEvento = ETIQUETA_EVENTO[evento.tipo]
-            const color = COLOR_EVENTO[evento.tipo] ?? {
-              fondo: '#f1f5f9',
-              texto: '#334155',
-            }
-            const texto =
-              evento.descripcion || etiquetaEvento?.texto || 'Evento'
-            const emoji = etiquetaEvento ? `${etiquetaEvento.emoji} ` : ''
+            const etiqueta = etiquetaEvento(evento.tipo)
+            const color = colorPdfTipoEvento(evento.tipo, getTiposEvento())
+            const texto = evento.descripcion || etiqueta.texto || 'Evento'
+            const emoji = etiqueta.emoji ? `${etiqueta.emoji} ` : ''
             return `<span class="ev" style="background:${color.fondo};color:${color.texto};">${emoji}${escapeHtml(texto)}</span>`
           })
           .join('')

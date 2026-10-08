@@ -77,10 +77,9 @@ import { usePlanAnual } from '@/lib/planAnualStore'
 import {
   diasDelMes,
   diasOperativosConvenio,
-  esFinDeSemana,
   totalTrabajados,
 } from '@/lib/convenio'
-import { esFestivo } from '@/lib/festivos'
+import { diaEsEspecial } from '@/lib/diaEspecial'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
 import { generarCuadranteMensualEnSegundoPlano } from '@/lib/generarCuadranteEnSegundoPlano'
 import {
@@ -1504,8 +1503,7 @@ export function CuadranteMensualPage() {
           <tbody>
             {diasVisibles.map((dia) => {
               const weekday = new Date(anio, mes - 1, dia).getDay()
-              const especial =
-                esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia)
+              const especial = diaEsEspecial(anio, mes, dia, eventosData)
               const fondoFila = especial ? 'bg-amber-50' : 'bg-white'
               const totales = { M: 0, T: 0, N: 0 }
               for (const agente of agentesOperativos) {

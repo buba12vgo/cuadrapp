@@ -1,21 +1,17 @@
-import type { TipoEvento } from '@/types'
+import { etiquetaTipoEvento } from '@/lib/tiposEvento'
+import { getTiposEvento } from '@/lib/tiposEventoStore'
 
-export const ETIQUETA_EVENTO: Partial<
-  Record<TipoEvento, { emoji: string; clase: string; texto: string }>
-> = {
-  FESTIVO: {
-    emoji: '🔴',
-    clase: 'bg-red-100 text-red-900',
-    texto: 'Festivo',
-  },
-  CRUCERO: {
-    emoji: '🚢',
-    clase: 'bg-blue-100 text-blue-900',
-    texto: 'Crucero',
-  },
-  CONCIERTO: {
-    emoji: '🎵',
-    clase: 'bg-yellow-100 text-yellow-900',
-    texto: 'Concierto',
-  },
+export function etiquetaEvento(tipo: string) {
+  return etiquetaTipoEvento(tipo, getTiposEvento())
 }
+
+/** @deprecated Usar etiquetaEvento(tipo). Conservado para lecturas puntuales. */
+export const ETIQUETA_EVENTO = new Proxy(
+  {} as Record<string, { emoji: string; clase: string; texto: string }>,
+  {
+    get(_target, prop) {
+      if (typeof prop !== 'string') return undefined
+      return etiquetaEvento(prop)
+    },
+  },
+)

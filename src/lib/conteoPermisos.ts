@@ -231,7 +231,7 @@ export async function asegurarRolloverDaaPlantilla(
     )
     const daa = totalRestanteTrasladable(saldos)
     const actual = leerCuposPermisoAnio(agente, anio)[CODIGO_DIAS_ANO_ANTERIOR]
-    if (actual === daa) continue
+    if (actual != null) continue
 
     const siguiente: FichaPolicia = {
       ...agente,

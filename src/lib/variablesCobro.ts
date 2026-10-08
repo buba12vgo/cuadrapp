@@ -1,23 +1,18 @@
 import type { AsignacionesDiarias, TurnoAsignable } from '@/lib/calendarioPuestos'
 import { diaSemanaJs as diaSemana, esDiaTrabajado } from '@/lib/convenio'
-import { esFestivo } from '@/lib/festivos'
+import { diaEsFestivoOperativo } from '@/lib/diaEspecial'
 import { esJornadaDisponible } from '@/lib/jornadaDisponible'
 import type { EventoOperativo, Turno } from '@/types'
 import { isoFecha } from '@/lib/fechas'
 
-/** Festivo nacional/gallego o evento de calendario tipo FESTIVO. */
+/** Festivo nacional/gallego o evento cuyo tipo está marcado como festivo. */
 export function diaEsFestivoCobro(
   anio: number,
   mes: number,
   dia: number,
   eventos: EventoOperativo[],
 ) {
-  if (esFestivo(anio, mes, dia)) return true
-  if (eventos.length === 0) return false
-  const fecha = isoFecha(anio, mes, dia)
-  return eventos.some(
-    (evento) => evento.fecha === fecha && evento.tipo === 'FESTIVO',
-  )
+  return diaEsFestivoOperativo(anio, mes, dia, eventos)
 }
 
 export const TIPOS_VARIABLE_COBRO = [

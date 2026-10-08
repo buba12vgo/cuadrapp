@@ -250,10 +250,10 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     categoria: 'PLANTILLA',
     titulo: 'Días del Año Anterior',
     descripcion:
-      'El 31 de diciembre a las 23:59 (hora de Madrid) los días de permiso no gastados de cada agente pasan al tipo «Días del Año Anterior» del año siguiente.',
+      'El 31 de diciembre a las 23:59 (hora de Madrid) los días de permiso no gastados de cada agente pasan al tipo «Días del Año Anterior» del año siguiente, salvo que ese año ya tenga un saldo puesto a mano. El catálogo y la ficha admiten un saldo inicial manual.',
     estado: 'implementada',
     detalle:
-      'Cierre perezoso al abrir la ficha o el cuadrante del año nuevo. Suma el restante de todos los conceptos con tope (AP, LPD, DAA no usados, etc.). El resto de cupos se reinicia al del catálogo o al override de la ficha.',
+      'Cierre perezoso al abrir la ficha o el cuadrante del año nuevo, solo si ese año aún no tiene cupo DAA. Suma el restante de todos los conceptos con tope (AP, LPD, DAA no usados, etc.). Si ya hay saldo a mano, no se pisa. El catálogo fija el saldo inicial por defecto.',
     referencia: 'cuposPermiso · conteoPermisos · instanteCierreAnioMs',
   },
   {
@@ -361,9 +361,9 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     categoria: 'CALENDARIO',
     titulo: 'Eventos que modifican mínimos',
     descripcion:
-      'Festivos, cruceros, conciertos y operativas especiales pueden alterar los mínimos del día en el calendario.',
+      'Los tipos de evento se crean, editan y eliminan en Tipos de evento. Si un tipo se marca como festivo, ese día cumple las normas de festivo: cobro, conciliaciones compatibles y turno M/T de jefes. También pueden alterar los mínimos del día.',
     estado: 'implementada',
-    referencia: 'CalendarioPage · modificadoresMinimos',
+    referencia: 'TiposEventoPage · diaEsFestivoOperativo · CalendarioPage · modificadoresMinimos',
   },
   {
     id: 'variable-conciliacion-viernes-noche',
@@ -397,7 +397,7 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     categoria: 'VARIABLES_COBRO',
     titulo: 'Festivo',
     descripcion:
-      'Cada día festivo trabajado en M, T o N suma una unidad de festivo. El turno M-T de jefes suma dos, porque cubre mañana y tarde. La noche de sábado y la noche de domingo se cobran como festivo aunque el día no esté en el calendario. Cuentan festivos del calendario nacional/gallego y eventos FESTIVO del calendario operativo.',
+      'Cada día festivo trabajado en M, T o N suma una unidad de festivo. El turno M-T de jefes suma dos, porque cubre mañana y tarde. La noche de sábado y la noche de domingo se cobran como festivo aunque el día no esté en el calendario. Cuentan festivos del calendario nacional/gallego y eventos cuyo tipo está marcado como festivo.',
     estado: 'implementada',
     detalle:
       'En M, T o N hay como máximo un festivo por día y agente. M-T cobra dos en ese mismo día. Si el sábado o el domingo ya es festivo de calendario, la noche no suma un segundo festivo ese mismo día. Si hay noche sábado (N) y el domingo siguiente es festivo, se suma el tramo 22–06 en domingo que aún no esté cobrado por el trabajo de ese domingo.',

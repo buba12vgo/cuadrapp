@@ -1,7 +1,7 @@
 import type { EventoOperativo } from '@/types'
 
 export type TurnoOperativo = 'M' | 'T' | 'N'
-/** Turnos que admiten asignación: operativos, M-T (finde) o permiso. */
+/** Turnos que admiten asignación: operativos, M-T (finde/festivo) o permiso. */
 export type TurnoAsignable = TurnoOperativo | 'MT' | 'P'
 export type MinimosPuesto = { M: number; T: number; N: number }
 /** Nombre del puesto (clave usada en asignaciones y eventos). */
@@ -141,9 +141,9 @@ export type AsignacionesDiarias = Record<
   Partial<Record<TurnoAsignable, Record<string, PuestoBase>>>
 >
 
-export type TipoDiaEditor = 'NORMAL' | 'FESTIVO' | 'CRUCERO' | 'CONCIERTO'
+export type TipoDiaEditor = 'NORMAL' | string
 
-export const TIPO_DIA_LABEL: Record<TipoDiaEditor, string> = {
+export const TIPO_DIA_LABEL: Record<string, string> = {
   NORMAL: 'Normal',
   FESTIVO: 'Festivo',
   CRUCERO: 'Crucero',
@@ -335,14 +335,12 @@ export function tipoEditorDesdeEvento(
   evento: EventoOperativo | undefined,
 ): TipoDiaEditor {
   if (!evento) return 'NORMAL'
-  if (evento.tipo === 'FESTIVO') return 'FESTIVO'
-  if (evento.tipo === 'CRUCERO') return 'CRUCERO'
-  if (evento.tipo === 'CONCIERTO') return 'CONCIERTO'
-  return 'NORMAL'
+  if (evento.tipo === 'OPERATIVA_ESPECIAL') return 'NORMAL'
+  return evento.tipo
 }
 
 export function tipoEventoDesdeEditor(tipo: TipoDiaEditor) {
-  if (tipo === 'NORMAL') return 'OPERATIVA_ESPECIAL' as const
+  if (tipo === 'NORMAL') return 'OPERATIVA_ESPECIAL'
   return tipo
 }
 

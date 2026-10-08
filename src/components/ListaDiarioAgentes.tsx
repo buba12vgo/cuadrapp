@@ -21,12 +21,12 @@ import {
   type PersonaTurno,
   type ResumenDiaServicio,
 } from '@/lib/coberturaDia'
-import { diasDelMes, esFinDeSemana } from '@/lib/convenio'
+import { diasDelMes } from '@/lib/convenio'
 import { cuadranteParaFirestore } from '@/lib/cuadranteFirestore'
 import { saveCuadrante } from '@/lib/db'
 import { isDesignPreview } from '@/lib/designPreview'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
-import { esFestivo } from '@/lib/festivos'
+import { diaEsEspecial } from '@/lib/diaEspecial'
 import { NOMBRE_JORNADA_DISPONIBLE } from '@/lib/jornadaDisponible'
 import { useTiposPermiso } from '@/lib/permisosStore'
 import { useMinimosSemanaData } from '@/lib/puestosStore'
@@ -259,7 +259,7 @@ export function ListaDiarioAgentes({
           const abierto = dia === diaAbierto
           const resumen = resumenDe(dia)
           const cortos = puestosSinCubrir(resumen)
-          const especial = esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia)
+          const especial = diaEsEspecial(anio, mes, dia, datos.eventos)
           const fecha = isoFecha(anio, mes, dia)
           return (
             <li key={dia} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">

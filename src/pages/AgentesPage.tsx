@@ -136,12 +136,14 @@ function FichaPermisosBloque({
   esNuevo,
   cuposPermiso,
   onCuposPermiso,
+  onCuposPermisoAnio,
   onAgenteActualizado,
 }: {
   agente: FichaPolicia
   esNuevo?: boolean
   cuposPermiso: Record<string, number>
   onCuposPermiso: (codigo: string, dias: number) => void
+  onCuposPermisoAnio?: (anio: number, codigo: string, dias: number) => void
   onAgenteActualizado?: (ficha: FichaPolicia) => void
 }) {
   const [permisos] = useTiposPermiso()
@@ -264,26 +266,40 @@ function FichaPermisosBloque({
                           </span>
                         </td>
                         <td className="py-1 text-right">
-                          {esDaa ? (
-                            <span className="tabular-nums">
-                              {saldo.cupo ?? 0}
-                            </span>
-                          ) : (
-                            <input
-                              type="number"
-                              min={0}
-                              max={366}
-                              className={`${CAMPO_NUM} w-14`}
-                              value={valorCupo}
-                              title="Tope anual de este agente. Vacío del catálogo: 0 = sin tope."
-                              onChange={(event) =>
-                                onCuposPermiso(
-                                  saldo.codigo,
-                                  normalizarDiasAnuales(Number(event.target.value)),
-                                )
+                          <input
+                            type="number"
+                            min={0}
+                            max={366}
+                            className={`${CAMPO_NUM} w-14`}
+                            value={esDaa ? (saldo.cupo ?? 0) : valorCupo}
+                            title={
+                              esDaa
+                                ? 'Saldo inicial de Días del Año Anterior para este año'
+                                : 'Tope anual de este agente. Vacío del catálogo: 0 = sin tope.'
+                            }
+                            onChange={(event) => {
+                              const dias = normalizarDiasAnuales(
+                                Number(event.target.value),
+                              )
+                              if (esDaa) {
+                                onCuposPermisoAnio?.(anio, saldo.codigo, dias)
+                                setAgenteAnio((actual) => ({
+                                  ...actual,
+                                  cuposPermisoAnio: {
+                                    ...(actual.cuposPermisoAnio ?? {}),
+                                    [String(anio)]: {
+                                      ...(actual.cuposPermisoAnio?.[
+                                        String(anio)
+                                      ] ?? {}),
+                                      [saldo.codigo]: dias,
+                                    },
+                                  },
+                                }))
+                                return
                               }
-                            />
-                          )}
+                              onCuposPermiso(saldo.codigo, dias)
+                            }}
+                          />
                         </td>
                         <td className="py-1 text-right tabular-nums">
                           {saldo.usados}
@@ -331,7 +347,8 @@ function FichaPermisosBloque({
                 {saldoLpd}
               </span>
               . El 31 de diciembre a las 23:59 los días que resten (AP, LPD,
-              DAA…) pasan a Días del Año Anterior.
+              DAA…) pasan a Días del Año Anterior, salvo que ya hayas puesto
+              un saldo a mano para ese año.
             </p>
             {esNuevo ? (
               <p className="text-sm text-slate-500">
@@ -732,6 +749,16 @@ function FichaAgenteModal({
                 cuposPermiso: { ...actual.cuposPermiso, [codigo]: dias },
               }))
             }
+            onCuposPermisoAnio={(anioCupo, codigo, dias) => {
+              const actual = cuposAnioRef.current ?? agente.cuposPermisoAnio ?? {}
+              cuposAnioRef.current = {
+                ...actual,
+                [String(anioCupo)]: {
+                  ...(actual[String(anioCupo)] ?? {}),
+                  [codigo]: dias,
+                },
+              }
+            }}
             onAgenteActualizado={(ficha) => {
               cuposAnioRef.current = ficha.cuposPermisoAnio
             }}

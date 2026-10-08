@@ -54,20 +54,20 @@ import {
   detalleDiaCalendarioJefe,
 } from '@/lib/calendarioMes'
 import { exportarCalendarioJefesPdf } from '@/lib/exportarCalendarioJefesPdf'
-import { esFestivo } from '@/lib/festivos'
+import { diaEsEspecial, diaEsFestivoOperativo } from '@/lib/diaEspecial'
 import { ensureFirebase, isFirebaseReady } from '@/lib/firebase'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
 import { useTiposPermiso } from '@/lib/permisosStore'
 import { usePuestosData } from '@/lib/puestosStore'
 import { agentesCuadranteJefes, ROL_LABEL } from '@/lib/rolesCuadrante'
-import type { Turno } from '@/types'
+import type { EventoOperativo, Turno } from '@/types'
 import { DIAS_SEMANA, MESES, isoFecha } from '@/lib/fechas'
 
 const LEYENDA: Array<{ turno: Turno; label: string }> = [
   { turno: 'M', label: 'Mañana' },
   { turno: 'T', label: 'Tarde' },
   { turno: 'N', label: 'Noche' },
-  { turno: 'MT', label: 'M-T finde' },
+  { turno: 'MT', label: 'M-T finde/festivo' },
   { turno: 'P', label: 'Permiso' },
   { turno: 'D', label: 'Descanso' },
   { turno: 'V', label: 'Vacaciones' },
@@ -138,6 +138,7 @@ function desgloseMes(
   anio: number,
   mes: number,
   nDias: number,
+  eventos: EventoOperativo[],
 ) {
   const c = {
     M: 0,
@@ -162,7 +163,7 @@ function desgloseMes(
     }
     if (turno === 'N') c.noches += 1
     const finde = esFinDeSemana(anio, mes, dia)
-    const festivo = esFestivo(anio, mes, dia)
+    const festivo = diaEsFestivoOperativo(anio, mes, dia, eventos)
     if (esDiaTrabajado(turno) && festivo) c.festivosTrabajados += 1
     if (esDiaTrabajado(turno) && finde) c.findeTrabajados += 1
   }
@@ -294,8 +295,8 @@ export function CalendarioJefesPage() {
     ? totalDiasTrabajadosJefes(fila, diasMes)
     : 0
   const desglose = useMemo(
-    () => desgloseMes(fila, anio, mes, nDias),
-    [fila, anio, mes, nDias],
+    () => desgloseMes(fila, anio, mes, nDias, eventosData),
+    [fila, anio, mes, nDias, eventosData],
   )
   const maxBarra = Math.max(
     1,
@@ -657,9 +658,7 @@ export function CalendarioJefesPage() {
                       )
                     : { etiqueta: etiquetaTurno(turno), detalle: null }
                   const eventosDia = eventosEnFecha(eventosData, fecha)
-                  const finde = esFinDeSemana(anio, mes, dia)
-                  const festivo = esFestivo(anio, mes, dia)
-                  const especial = finde || festivo
+                  const especial = diaEsEspecial(anio, mes, dia, eventosData)
                   const atenuada =
                     filtroLeyenda !== 'TODOS' && filtroLeyenda !== turno
                   const esDescansoCelda = turno === 'D'

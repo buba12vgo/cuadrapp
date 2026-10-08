@@ -26,10 +26,10 @@ import {
   TURNOS_COBERTURA,
   resumenDiaServicio,
 } from '@/lib/coberturaDia'
-import { esDiaTrabajado, esFinDeSemana, totalTrabajados } from '@/lib/convenio'
+import { esDiaTrabajado, totalTrabajados } from '@/lib/convenio'
 import { celdasMesCalendario } from '@/lib/calendarioMes'
 import { eventosEnFecha } from '@/lib/eventosStore'
-import { esFestivo } from '@/lib/festivos'
+import { diaEsEspecial } from '@/lib/diaEspecial'
 import { useMinimosSemanaData } from '@/lib/puestosStore'
 import { ROL_LABEL } from '@/lib/rolesCuadrante'
 import { useCuadranteOperativoMes } from '@/lib/useCuadranteOperativoMes'
@@ -277,7 +277,7 @@ export function CalendarioAgentePage() {
                   const turno = (fila[dia - 1] ?? 'D') as Turno
                   const fecha = isoFecha(anio, mes, dia)
                   const eventosDia = eventosEnFecha(datos.eventos, fecha)
-                  const especial = esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia)
+                  const especial = diaEsEspecial(anio, mes, dia, datos.eventos)
                   const semaforos = cobertura(dia).turnos
                   const abierto = dia === diaAbierto
                   const puesto = agente

@@ -8,9 +8,9 @@ import {
   resumenDiaServicio,
   type NivelSemaforo,
 } from '@/lib/coberturaDia'
-import { esDiaTrabajado, esFinDeSemana } from '@/lib/convenio'
+import { esDiaTrabajado } from '@/lib/convenio'
 import { celdasMesCalendario } from '@/lib/calendarioMes'
-import { esFestivo } from '@/lib/festivos'
+import { diaEsEspecial } from '@/lib/diaEspecial'
 import { useMinimosSemanaData } from '@/lib/puestosStore'
 import { esRolCuadranteJefes } from '@/lib/rolesCuadrante'
 import { useCuadranteJefesMes } from '@/lib/useCuadranteJefesMes'
@@ -143,7 +143,7 @@ export function CalendarioSolicitudPermiso({
             const turno = (fila[dia - 1] ?? 'D') as Turno
             const fechaDia = isoFecha(vista.anio, vista.mes, dia)
             const trabaja = esDiaTrabajado(turno)
-            const especial = esFinDeSemana(vista.anio, vista.mes, dia) || esFestivo(vista.anio, vista.mes, dia)
+            const especial = diaEsEspecial(vista.anio, vista.mes, dia, datos.eventos)
             const puesto = puestoEnCelda(
               datos.asignaciones,
               fechaDia,

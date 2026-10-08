@@ -58,8 +58,15 @@ import type {
   FichaPolicia,
   PreferenciaAnual,
   RolPolicia,
-  TipoEvento,
 } from '@/types'
+import {
+  ESTILOS_TIPO_EVENTO,
+  TIPOS_EVENTO_INICIALES,
+  esCodigoTipoEvento,
+  ordenarTiposEvento,
+  tipoEventoEsSistema,
+  type TipoEventoConfig,
+} from '@/lib/tiposEvento'
 
 const COLECCION_AGENTES = 'agentes'
 const COLECCION_CUADRANTES = 'cuadrantes'
@@ -67,17 +74,12 @@ const COLECCION_CUADRANTES_JEFES = 'cuadrantesJefes'
 const COLECCION_EVENTOS = 'eventos'
 const COLECCION_PUESTOS = 'puestos'
 const COLECCION_TIPOS_PERMISO = 'tiposPermiso'
+const COLECCION_TIPOS_EVENTO = 'tiposEvento'
 const COLECCION_SOLICITUDES = 'solicitudes'
 const COLECCION_CONFIG = 'config'
 const COLECCION_PLANES_ANUALES = 'planesAnuales'
 const DOC_MINIMOS_SEMANA = 'minimosSemana'
 
-const TIPOS_EVENTO: TipoEvento[] = [
-  'FESTIVO',
-  'CRUCERO',
-  'CONCIERTO',
-  'OPERATIVA_ESPECIAL',
-]
 const DIAS_SEMANA: DiaSemana[] = [1, 2, 3, 4, 5, 6, 7]
 
 const ROLES: RolPolicia[] = [
@@ -436,16 +438,14 @@ function leerModificadoresMinimos(
   return result
 }
 
-function esTipoEvento(valor: unknown): valor is TipoEvento {
-  return typeof valor === 'string' && TIPOS_EVENTO.includes(valor as TipoEvento)
-}
-
 function eventoDesdeFirestore(
   docId: string,
   data: Record<string, unknown>,
 ): EventoOperativo | null {
   const fecha = esFechaIso(data.fecha) ? data.fecha : null
-  if (!fecha || !esTipoEvento(data.tipo)) return null
+  const tipo =
+    typeof data.tipo === 'string' ? data.tipo.trim().toUpperCase() : ''
+  if (!fecha || !esCodigoTipoEvento(tipo)) return null
 
   return {
     id:
@@ -453,7 +453,7 @@ function eventoDesdeFirestore(
         ? data.id.trim()
         : docId || `ev-${fecha}`,
     fecha,
-    tipo: data.tipo,
+    tipo,
     descripcion:
       typeof data.descripcion === 'string' ? data.descripcion.trim() : '',
     modificadoresMinimos: leerModificadoresMinimos(data.modificadoresMinimos),
@@ -465,6 +465,10 @@ function eventoParaFirestore(evento: EventoOperativo): EventoOperativo {
   if (!esFechaIso(fecha)) {
     throw new Error('La fecha del evento no es válida')
   }
+  const tipo = evento.tipo.trim().toUpperCase()
+  if (!esCodigoTipoEvento(tipo)) {
+    throw new Error('El tipo del evento no es válido')
+  }
   const id = evento.id.trim() || `ev-${fecha}`
   const modificadoresMinimos: EventoOperativo['modificadoresMinimos'] = {}
   for (const [puesto, turnos] of Object.entries(evento.modificadoresMinimos)) {
@@ -473,7 +477,7 @@ function eventoParaFirestore(evento: EventoOperativo): EventoOperativo {
   return {
     id,
     fecha,
-    tipo: evento.tipo,
+    tipo,
     descripcion: evento.descripcion.trim(),
     modificadoresMinimos,
   }
@@ -730,6 +734,131 @@ export async function seedTiposPermisoSiVacios(
   )
 }
 
+function tipoEventoDesdeFirestore(
+  docId: string,
+  data: Record<string, unknown>,
+): TipoEventoConfig | null {
+  const codigo =
+    typeof data.codigo === 'string' && data.codigo.trim()
+      ? data.codigo.trim().toUpperCase()
+      : docId.trim().toUpperCase()
+  const nombre = typeof data.nombre === 'string' ? data.nombre.trim() : ''
+  const abreviatura =
+    typeof data.abreviatura === 'string'
+      ? data.abreviatura.trim().toUpperCase()
+      : ''
+  if (!esCodigoTipoEvento(codigo) || !nombre || !abreviatura) return null
+  const estiloId =
+    typeof data.estiloId === 'string' &&
+    ESTILOS_TIPO_EVENTO.some((item) => item.id === data.estiloId)
+      ? data.estiloId
+      : 'slate'
+  const ordenRaw = data.orden
+  const orden =
+    typeof ordenRaw === 'number' && Number.isFinite(ordenRaw)
+      ? Math.min(999, Math.max(0, Math.round(ordenRaw)))
+      : 0
+  const inicial = TIPOS_EVENTO_INICIALES.find((item) => item.codigo === codigo)
+  return {
+    codigo,
+    nombre,
+    abreviatura,
+    estiloId,
+    esFestivo:
+      typeof data.esFestivo === 'boolean'
+        ? data.esFestivo
+        : codigo === 'FESTIVO',
+    visible: data.visible !== false,
+    orden,
+    sistema: data.sistema === true || inicial?.sistema === true,
+  }
+}
+
+function tipoEventoParaFirestore(tipo: TipoEventoConfig): TipoEventoConfig {
+  const codigo = tipo.codigo.trim().toUpperCase()
+  const nombre = tipo.nombre.trim()
+  const abreviatura = tipo.abreviatura.trim().toUpperCase()
+  if (!esCodigoTipoEvento(codigo)) {
+    throw new Error('El código del tipo de evento no es válido')
+  }
+  if (!nombre) throw new Error('El nombre del tipo de evento es obligatorio')
+  if (!abreviatura) {
+    throw new Error('La abreviatura del tipo de evento es obligatoria')
+  }
+  const estiloId = ESTILOS_TIPO_EVENTO.some((item) => item.id === tipo.estiloId)
+    ? tipo.estiloId
+    : 'slate'
+  return {
+    codigo,
+    nombre,
+    abreviatura,
+    estiloId,
+    esFestivo: tipo.esFestivo === true,
+    visible: tipo.visible !== false,
+    orden: Math.min(999, Math.max(0, Math.round(tipo.orden || 0))),
+    sistema: tipoEventoEsSistema(tipo),
+  }
+}
+
+export async function getTiposEventoDb(): Promise<TipoEventoConfig[]> {
+  const firestore = await requireDb()
+  const snapshot = await getDocs(collection(firestore, COLECCION_TIPOS_EVENTO))
+  const tipos: TipoEventoConfig[] = []
+  for (const documento of snapshot.docs) {
+    const tipo = tipoEventoDesdeFirestore(documento.id, documento.data())
+    if (tipo) tipos.push(tipo)
+  }
+  return ordenarTiposEvento(tipos)
+}
+
+export async function saveTipoEvento(
+  tipo: TipoEventoConfig,
+): Promise<TipoEventoConfig> {
+  const firestore = await requireDb()
+  const payload = tipoEventoParaFirestore(tipo)
+  await conTiempoLimite(
+    setDoc(doc(firestore, COLECCION_TIPOS_EVENTO, payload.codigo), payload, {
+      merge: true,
+    }),
+  )
+  return payload
+}
+
+export async function deleteTipoEvento(codigo: string): Promise<void> {
+  const firestore = await requireDb()
+  const id = codigo.trim().toUpperCase()
+  if (!id) throw new Error('Código de tipo de evento vacío')
+  const inicial = TIPOS_EVENTO_INICIALES.find((item) => item.codigo === id)
+  if (inicial && tipoEventoEsSistema(inicial)) {
+    throw new Error('Este tipo de evento no se puede eliminar')
+  }
+  await conTiempoLimite(
+    deleteDoc(doc(firestore, COLECCION_TIPOS_EVENTO, id)),
+  )
+}
+
+export async function seedTiposEventoSiVacios(
+  tipos: TipoEventoConfig[] = TIPOS_EVENTO_INICIALES,
+): Promise<TipoEventoConfig[]> {
+  const existentes = await getTiposEventoDb()
+  const porCodigo = new Map(existentes.map((tipo) => [tipo.codigo, tipo]))
+  const faltantes = tipos.filter((tipo) => !porCodigo.has(tipo.codigo))
+  if (faltantes.length === 0) return ordenarTiposEvento(existentes)
+
+  const firestore = await requireDb()
+  const batch = writeBatch(firestore)
+  const listaFaltantes = faltantes.map(tipoEventoParaFirestore)
+  for (const tipo of listaFaltantes) {
+    batch.set(
+      doc(firestore, COLECCION_TIPOS_EVENTO, tipo.codigo),
+      tipo,
+      { merge: true },
+    )
+  }
+  await conTiempoLimite(batch.commit())
+  return ordenarTiposEvento([...existentes, ...listaFaltantes])
+}
+
 /** Firestore guarda mínimos indexados por código de puesto. */
 function minimosSemanaAFirestore(
   semana: MinimosSemana,
@@ -820,10 +949,12 @@ export async function cargarConfigOperativaSoloLectura(): Promise<{
   minimosSemana: MinimosSemana
   eventos: EventoOperativo[]
   tiposPermiso: PermisoConfig[]
+  tiposEvento: TipoEventoConfig[]
 }> {
-  const [puestos, tiposPermiso] = await Promise.all([
+  const [puestos, tiposPermiso, tiposEvento] = await Promise.all([
     getPuestos(),
     getTiposPermiso(),
+    getTiposEventoDb(),
   ])
   const [minimosSemana, eventos] = await Promise.all([
     getMinimosSemana(puestos),
@@ -834,6 +965,7 @@ export async function cargarConfigOperativaSoloLectura(): Promise<{
     minimosSemana: minimosSemana ?? crearMinimosSemana(puestos),
     eventos,
     tiposPermiso,
+    tiposEvento,
   }
 }
 
@@ -843,16 +975,18 @@ export async function cargarConfigOperativa(): Promise<{
   minimosSemana: MinimosSemana
   eventos: EventoOperativo[]
   tiposPermiso: PermisoConfig[]
+  tiposEvento: TipoEventoConfig[]
 }> {
-  const [puestos, tiposPermiso] = await Promise.all([
+  const [puestos, tiposPermiso, tiposEvento] = await Promise.all([
     seedPuestosSiVacios(),
     seedTiposPermisoSiVacios(),
+    seedTiposEventoSiVacios(),
   ])
   const [minimosSemana, eventos] = await Promise.all([
     seedMinimosSiVacios(puestos),
     getEventos(),
   ])
-  return { puestos, minimosSemana, eventos, tiposPermiso }
+  return { puestos, minimosSemana, eventos, tiposPermiso, tiposEvento }
 }
 
 const TIPOS_SOLICITUD = new Set<TipoSolicitud>([

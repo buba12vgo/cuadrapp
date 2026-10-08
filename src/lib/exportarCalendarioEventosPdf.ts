@@ -5,27 +5,18 @@ import {
   type PuestoConfig,
 } from '@/lib/calendarioPuestos'
 import { celdasMesCalendario } from '@/lib/calendarioMes'
-import { diasDelMes, esFinDeSemana } from '@/lib/convenio'
-import { ETIQUETA_EVENTO } from '@/lib/etiquetasEvento'
-import { esFestivo } from '@/lib/festivos'
+import { diasDelMes } from '@/lib/convenio'
+import { diaEsEspecial } from '@/lib/diaEspecial'
+import { etiquetaEvento } from '@/lib/etiquetasEvento'
 import { DIAS_SEMANA, MESES, isoFecha } from '@/lib/fechas'
 import { escapeHtml, imprimirHtml } from '@/lib/impresionPdf'
-import type { EventoOperativo, TipoEvento } from '@/types'
-
-/** Mismos tonos que las pastillas de la pantalla (bg-*-100 / text-*-900). */
-const COLOR_EVENTO: Record<TipoEvento, { fondo: string; texto: string; borde: string }> = {
-  FESTIVO: { fondo: '#fee2e2', texto: '#7f1d1d', borde: '#ef4444' },
-  CRUCERO: { fondo: '#dbeafe', texto: '#1e3a8a', borde: '#3b82f6' },
-  CONCIERTO: { fondo: '#fef9c3', texto: '#713f12', borde: '#eab308' },
-  OPERATIVA_ESPECIAL: { fondo: '#f1f5f9', texto: '#334155', borde: '#94a3b8' },
-}
-
-const TEXTO_TIPO: Record<TipoEvento, string> = {
-  FESTIVO: 'Festivo',
-  CRUCERO: 'Crucero',
-  CONCIERTO: 'Concierto',
-  OPERATIVA_ESPECIAL: 'Mínimos especiales',
-}
+import {
+  colorPdfTipoEvento,
+  estiloTipoEvento,
+  tipoEventoEsFestivo,
+} from '@/lib/tiposEvento'
+import { getTiposEvento } from '@/lib/tiposEventoStore'
+import type { EventoOperativo } from '@/types'
 
 const MAX_EVENTOS_CELDA = 4
 
@@ -38,12 +29,12 @@ export type ExportarCalendarioEventosPdfOpciones = {
 }
 
 function textoEvento(evento: EventoOperativo) {
-  return evento.descripcion || ETIQUETA_EVENTO[evento.tipo]?.texto || 'Evento'
+  return evento.descripcion || etiquetaEvento(evento.tipo).texto || 'Evento'
 }
 
 function chipEvento(evento: EventoOperativo) {
-  const color = COLOR_EVENTO[evento.tipo] ?? COLOR_EVENTO.OPERATIVA_ESPECIAL
-  const emoji = ETIQUETA_EVENTO[evento.tipo]?.emoji
+  const color = colorPdfTipoEvento(evento.tipo, getTiposEvento())
+  const emoji = etiquetaEvento(evento.tipo).emoji
   return `<span class="ev" style="background:${color.fondo};color:${color.texto};border-left-color:${color.borde};">${emoji ? `${emoji} ` : ''}${escapeHtml(textoEvento(evento))}</span>`
 }
 
@@ -84,13 +75,13 @@ export function exportarCalendarioEventosPdf(
     porFecha.set(evento.fecha, lista)
   }
 
-  const conteo: Record<TipoEvento, number> = {
-    FESTIVO: 0,
-    CRUCERO: 0,
-    CONCIERTO: 0,
-    OPERATIVA_ESPECIAL: 0,
+  const tipos = getTiposEvento()
+  const conteo = new Map<string, number>()
+  let festivos = 0
+  for (const evento of delMes) {
+    conteo.set(evento.tipo, (conteo.get(evento.tipo) ?? 0) + 1)
+    if (tipoEventoEsFestivo(evento.tipo, tipos)) festivos += 1
   }
-  for (const evento of delMes) conteo[evento.tipo] = (conteo[evento.tipo] ?? 0) + 1
   const diasConEvento = porFecha.size
   const nDias = diasDelMes(anio, mes)
 
@@ -104,7 +95,7 @@ export function exportarCalendarioEventosPdf(
         if (dia == null) return '<td class="hueco"></td>'
         const fecha = isoFecha(anio, mes, dia)
         const eventosDia = porFecha.get(fecha) ?? []
-        const rojo = esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia)
+        const rojo = diaEsEspecial(anio, mes, dia, eventos)
         const visibles = eventosDia.slice(0, MAX_EVENTOS_CELDA).map(chipEvento).join('')
         const resto = eventosDia.length - MAX_EVENTOS_CELDA
         return `<td class="dia${eventosDia.length ? ' con' : ''}">
@@ -116,11 +107,11 @@ export function exportarCalendarioEventosPdf(
     filas.push(`<tr>${tds}</tr>`)
   }
 
-  const leyenda = (Object.keys(TEXTO_TIPO) as TipoEvento[])
+  const leyenda = tipos
     .map((tipo) => {
-      const color = COLOR_EVENTO[tipo]
-      const emoji = ETIQUETA_EVENTO[tipo]?.emoji
-      return `<span class="chip" style="background:${color.fondo};color:${color.texto};border-left-color:${color.borde};">${emoji ? `${emoji} ` : ''}${TEXTO_TIPO[tipo]}</span>`
+      const color = estiloTipoEvento(tipo.estiloId).pdf
+      const emoji = estiloTipoEvento(tipo.estiloId).emoji
+      return `<span class="chip" style="background:${color.fondo};color:${color.texto};border-left-color:${color.borde};">${emoji ? `${emoji} ` : ''}${escapeHtml(tipo.nombre)}</span>`
     })
     .join('')
 
@@ -128,11 +119,11 @@ export function exportarCalendarioEventosPdf(
     .map((evento) => {
       const [, , d] = evento.fecha.split('-').map(Number)
       const diaSemana = DIAS_SEMANA[(new Date(anio, mes - 1, d).getDay() + 6) % 7]
-      const color = COLOR_EVENTO[evento.tipo] ?? COLOR_EVENTO.OPERATIVA_ESPECIAL
+      const color = colorPdfTipoEvento(evento.tipo, tipos)
       const cambios = cambiosMinimos(evento.fecha, eventos, semana, puestos)
       return `<tr>
         <td class="f"><b>${d}</b> <span class="dow">${diaSemana}</span></td>
-        <td><span class="tipo" style="background:${color.fondo};color:${color.texto};border-left-color:${color.borde};">${TEXTO_TIPO[evento.tipo] ?? evento.tipo}</span></td>
+        <td><span class="tipo" style="background:${color.fondo};color:${color.texto};border-left-color:${color.borde};">${escapeHtml(etiquetaEvento(evento.tipo).texto)}</span></td>
         <td class="desc">${escapeHtml(textoEvento(evento))}</td>
         <td class="mins">${cambios.length ? cambios.join('') : '<span class="muted">Por defecto</span>'}</td>
       </tr>`
@@ -155,10 +146,14 @@ export function exportarCalendarioEventosPdf(
     <div class="kpis">
       <span class="kpi"><b>${delMes.length}</b> eventos</span>
       <span class="kpi"><b>${diasConEvento}</b>/${nDias} días</span>
-      <span class="kpi fest"><b>${conteo.FESTIVO}</b> festivos</span>
-      <span class="kpi cru"><b>${conteo.CRUCERO}</b> cruceros</span>
-      <span class="kpi con"><b>${conteo.CONCIERTO}</b> conciertos</span>
-      ${conteo.OPERATIVA_ESPECIAL ? `<span class="kpi"><b>${conteo.OPERATIVA_ESPECIAL}</b> mín. especiales</span>` : ''}
+      <span class="kpi fest"><b>${festivos}</b> festivos</span>
+      ${[...conteo.entries()]
+        .slice(0, 3)
+        .map(
+          ([codigo, n]) =>
+            `<span class="kpi"><b>${n}</b> ${escapeHtml(etiquetaEvento(codigo).texto)}</span>`,
+        )
+        .join('')}
     </div>
   </header>`
 

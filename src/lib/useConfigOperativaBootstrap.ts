@@ -18,6 +18,7 @@ import {
 } from '@/lib/planAnualStore'
 import { hydratePuestosYMinimos } from '@/lib/puestosStore'
 import { hydrateTiposPermiso } from '@/lib/permisosStore'
+import { hydrateTiposEvento } from '@/lib/tiposEventoStore'
 import { bootstrapDesignPreview } from '@/lib/designPreviewBootstrap'
 import { isDesignPreview } from '@/lib/designPreview'
 import { useAcceso } from '@/contexts/AccesoContext'
@@ -89,6 +90,7 @@ export function useConfigOperativaBootstrap() {
         hydrateEventos(config.eventos)
         hydrateAgentes(agentes)
         hydrateTiposPermiso(config.tiposPermiso)
+        hydrateTiposEvento(config.tiposEvento)
 
         try {
           const planes = await getPlanesAnuales(agentes)

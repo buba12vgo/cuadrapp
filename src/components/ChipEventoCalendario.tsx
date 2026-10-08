@@ -1,4 +1,4 @@
-import { ETIQUETA_EVENTO } from '@/lib/etiquetasEvento'
+import { etiquetaEvento } from '@/lib/etiquetasEvento'
 import type { EventoOperativo } from '@/types'
 
 /** Pastilla de evento, la misma del calendario de eventos. */
@@ -7,7 +7,7 @@ export function ChipEventoCalendario({
 }: {
   evento: Pick<EventoOperativo, 'tipo' | 'descripcion'>
 }) {
-  const etiqueta = ETIQUETA_EVENTO[evento.tipo]
+  const etiqueta = etiquetaEvento(evento.tipo)
   const texto = evento.descripcion || etiqueta?.texto || 'Evento'
   return (
     <span

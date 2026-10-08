@@ -7,10 +7,9 @@ import {
 } from '@/lib/calendarioPuestos'
 import {
   diasOperativosConvenio,
-  esFinDeSemana,
   totalTrabajados,
 } from '@/lib/convenio'
-import { esFestivo } from '@/lib/festivos'
+import { diaEsEspecial } from '@/lib/diaEspecial'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
 import {
   sumatorioFMensual,
@@ -113,8 +112,7 @@ export function exportarCuadranteMensualExcel(
 
   for (const dia of diasVisibles) {
     const weekday = new Date(anio, mes - 1, dia).getDay()
-    const especial =
-      esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia)
+    const especial = diaEsEspecial(anio, mes, dia, eventos)
     const etiquetaDia = `${dia} ${DIA_SEMANA[weekday]}${especial ? ' *' : ''}`
     const fechaDia = isoFecha(anio, mes, dia)
 

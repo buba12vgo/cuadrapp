@@ -10,18 +10,17 @@ import {
   type PuestoConfig,
 } from '@/lib/calendarioPuestos'
 import {
-  esFinDeSemana,
   pesoJornadaJefes,
   totalDiasTrabajadosJefes,
 } from '@/lib/convenio'
-import { esFestivo } from '@/lib/festivos'
+import { diaEsEspecial } from '@/lib/diaEspecial'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
 import {
   abreviaturaDesdePermisos,
   type PermisoConfig,
 } from '@/lib/permisos'
 import { getTiposPermiso } from '@/lib/permisosStore'
-import type { FichaPolicia, Turno } from '@/types'
+import type { EventoOperativo, FichaPolicia, Turno } from '@/types'
 import { MESES, isoFecha } from '@/lib/fechas'
 import { escapeHtml, imprimirHtml } from '@/lib/impresionPdf'
 
@@ -46,7 +45,7 @@ const LEYENDA_TURNOS: Array<{ turno: Turno; label: string }> = [
   { turno: 'M', label: 'Mañana' },
   { turno: 'T', label: 'Tarde' },
   { turno: 'N', label: 'Noche' },
-  { turno: 'MT', label: 'M-T finde' },
+  { turno: 'MT', label: 'M-T finde/festivo' },
   { turno: 'P', label: 'Permiso' },
   { turno: 'D', label: 'Descanso' },
   { turno: 'V', label: 'Vacaciones' },
@@ -117,6 +116,7 @@ export type ExportarCuadranteJefesPdfOpciones = {
   puestos: PuestoConfig[]
   permisos?: PermisoConfig[]
   diasVisibles: number[]
+  eventos?: EventoOperativo[]
 }
 
 export function exportarCuadranteJefesPdf(
@@ -130,6 +130,7 @@ export function exportarCuadranteJefesPdf(
     asignacionesDiarias,
     puestos,
     diasVisibles,
+    eventos = [],
   } = opciones
   const permisos = opciones.permisos ?? getTiposPermiso()
 
@@ -139,7 +140,7 @@ export function exportarCuadranteJefesPdf(
     .map((dia) => {
       const weekday = new Date(anio, mes - 1, dia).getDay()
       const especial =
-        esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia)
+        diaEsEspecial(anio, mes, dia, eventos)
       const fondo = especial ? '#fffbeb' : '#ffffff' // amber-50 / white
       const color = especial ? '#dc2626' : '#0f172a' // red-600 / ink
       const colorDow = especial ? '#dc2626' : '#64748b' // red-600 / slate-500
@@ -166,7 +167,7 @@ export function exportarCuadranteJefesPdf(
             permisos,
           )
           const especial =
-            esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia)
+            diaEsEspecial(anio, mes, dia, eventos)
           const color = COLOR_TURNO[turno] ?? COLOR_TURNO.D
           // Misma lógica que la UI: finde + D/V → amber-50
           const fondo =
@@ -194,7 +195,7 @@ export function exportarCuadranteJefesPdf(
           pesoJornadaJefes((cuadrante[agente.id] ?? [])[dia - 1]) > 0,
       ).length
       const especial =
-        esFinDeSemana(anio, mes, dia) || esFestivo(anio, mes, dia)
+        diaEsEspecial(anio, mes, dia, eventos)
       const fondo = especial ? '#fef3c7' : '#f1f5f9' // amber-100 / slate-100
       return `<td class="pie" style="background:${fondo};">${n}</td>`
     })

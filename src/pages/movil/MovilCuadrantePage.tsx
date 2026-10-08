@@ -1,7 +1,9 @@
+import { useLayoutEffect, useRef } from 'react'
 import { ChipEventoCalendario } from '@/components/ChipEventoCalendario'
 import { detalleDiaCalendarioJefe } from '@/lib/calendarioMes'
 import { diaEsEspecial } from '@/lib/diaEspecial'
 import { eventosEnFecha } from '@/lib/eventosStore'
+import { hoyEnMadrid } from '@/lib/fechas'
 import { useCuadranteJefesMes } from '@/lib/useCuadranteJefesMes'
 import { ROL_LABEL } from '@/lib/rolesCuadrante'
 import type { Turno } from '@/types'
@@ -17,6 +19,24 @@ const FRANJAS: Array<{ turno: Turno; titulo: string; clase: string }> = [
 export function MovilCuadrantePage() {
   const { anio, mes } = useMovilMes()
   const datos = useCuadranteJefesMes(anio, mes)
+  const anclaHoy = useRef<HTMLElement | null>(null)
+  const hoy = hoyEnMadrid()
+  const diaHoy = hoy.anio === anio && hoy.mes === mes ? hoy.dia : null
+
+  useLayoutEffect(() => {
+    const contenedor = document.querySelector('.movil-scroll')
+    if (!(contenedor instanceof HTMLElement)) return
+    const nodo = anclaHoy.current
+    if (!nodo || diaHoy == null || diaHoy > datos.nDias) {
+      contenedor.scrollTop = 0
+      return
+    }
+    const arriba =
+      nodo.getBoundingClientRect().top -
+      contenedor.getBoundingClientRect().top +
+      contenedor.scrollTop
+    contenedor.scrollTop = Math.max(0, arriba - 8)
+  }, [anio, mes, diaHoy, datos.nDias, datos.loading])
 
   return (
     <div className="flex flex-col gap-3">
@@ -55,8 +75,16 @@ export function MovilCuadrantePage() {
           }),
         })).filter((franja) => franja.gente.length > 0)
 
+        const esHoy = dia === diaHoy
         return (
-          <article key={fecha} className="overflow-hidden rounded-3xl bg-white shadow-sm">
+          <article
+            key={fecha}
+            ref={esHoy ? anclaHoy : undefined}
+            data-hoy={esHoy ? 'true' : undefined}
+            className={`overflow-hidden rounded-3xl bg-white shadow-sm ${
+              esHoy ? 'ring-2 ring-slate-950' : ''
+            }`}
+          >
             <header
               className={`flex items-center justify-between gap-3 px-4 py-3 ${
                 especial ? 'bg-rose-50' : 'bg-white'
@@ -69,6 +97,11 @@ export function MovilCuadrantePage() {
                 <p className={`text-[11px] font-bold uppercase tracking-wide ${especial ? 'text-rose-600' : 'text-slate-400'}`}>
                   {corto} · {largo}
                 </p>
+                {esHoy ? (
+                  <span className="rounded-full bg-slate-950 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white">
+                    Hoy
+                  </span>
+                ) : null}
               </div>
               <div className="min-w-0 max-w-[55%]">
                 {eventos.map((evento) => (

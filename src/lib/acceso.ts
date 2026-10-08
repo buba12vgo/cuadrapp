@@ -154,6 +154,23 @@ export type OpcionesAcceso = {
   puedeEditarEventos?: boolean
   /** Consulta vinculada a jefe de servicio o responsable. */
   esJefatura?: boolean
+  email?: string | null
+}
+
+/** Jonathan usa en el móvil la misma consulta que un jefe de servicio. */
+const EMAILS_VISTA_MOVIL_JEFES = ['jonymivi@gmail.com', 'jony.mivi@gmail.com']
+
+export function usaVistaMovilJefes(
+  rol: RolAcceso,
+  opciones?: OpcionesAcceso,
+) {
+  if (rol === 'CONSULTA_JEFES' && opciones?.esJefatura === true) return true
+  const email = opciones?.email?.trim().toLowerCase()
+  return (
+    rol === 'ADMIN' &&
+    email != null &&
+    EMAILS_VISTA_MOVIL_JEFES.includes(email)
+  )
 }
 
 export function puedeVer(
@@ -215,11 +232,11 @@ export function pestanasMovil(
   rol: RolAcceso,
   opciones?: OpcionesAcceso,
 ): PestanaMovil[] {
+  if (usaVistaMovilJefes(rol, opciones)) {
+    return ['cuadrante', 'calendario', 'diario', 'permisos']
+  }
   if (rol === 'SUPERADMIN' || rol === 'ADMIN') {
     return ['solicitudes', 'cuadrante', 'calendario', 'diario']
-  }
-  if (rol === 'CONSULTA_JEFES' && opciones?.esJefatura === true) {
-    return ['cuadrante', 'calendario', 'diario', 'permisos']
   }
   return ['eventos', 'servicio', 'diario', 'solicitudes', 'permisos']
 }
@@ -258,6 +275,7 @@ export function rutaInicio(rol: RolAcceso, opciones?: OpcionesAcceso) {
 }
 
 export function inicioMovil(rol: RolAcceso, opciones?: OpcionesAcceso) {
+  if (usaVistaMovilJefes(rol, opciones)) return '/m/cuadrante'
   if (rol === 'SUPERADMIN' || rol === 'ADMIN') return '/m/solicitudes'
   if (puedeVer(rol, 'cuadrante-jefes', opciones)) return '/m/cuadrante'
   return '/m/servicio'

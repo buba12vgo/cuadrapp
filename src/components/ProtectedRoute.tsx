@@ -27,6 +27,7 @@ export function ProtectedRoute() {
     !puedeVerRuta(acceso.perfil.rol, location.pathname, {
       puedeEditarEventos: acceso.perfil.puedeEditarEventos,
       esJefatura: acceso.esJefatura,
+      email: acceso.perfil.email,
     })
   ) {
     const destino = location.pathname.startsWith('/m')

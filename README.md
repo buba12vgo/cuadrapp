@@ -17,4 +17,4 @@ npm run dev
 - **Consulta jefes**: correo y contraseña que crea el superadmin. Solo ven Cuadrante jefes y Calendario jefes. Cambian la contraseña en Opciones.
 
 En Firebase Authentication hay que tener activos Google y Correo/contraseña.
-Despliega `firestore.rules` para que los usuarios de consulta puedan leer y el admin no escriba el cuadrante operativo.
+El proyecto Firebase es el compartido con NODUS (`cuadrapp-899d5`). La copia que se despliega es `nodus-hub/firebase/firestore.rules`. `firestore.rules` de este repo tiene que ser idéntica: desplegar una versión más corta deja las colecciones de NODUS en denegación.

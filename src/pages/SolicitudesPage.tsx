@@ -378,7 +378,7 @@ export function SolicitudesPage() {
       await alert(
         pideCompanero
           ? 'La solicitud queda pendiente de que el compañero la valide.'
-          : 'La solicitud queda pendiente de que el superadmin la resuelva.',
+          : 'La solicitud queda pendiente de resolución en la bandeja.',
         'Enviada',
       )
     } catch (err) {
@@ -456,8 +456,13 @@ export function SolicitudesPage() {
     }
   }
 
+  function adminPuedeAceptar(solicitud: Solicitud) {
+    return solicitud.tipo !== 'CAMBIO_MES' && solicitud.tipo !== 'VACACIONES'
+  }
+
   async function confirmarAceptar(solicitud: Solicitud) {
-    if (!esSuperadmin) return
+    if (!veBandeja) return
+    if (!esSuperadmin && !adminPuedeAceptar(solicitud)) return
     if (!cambioValidado(solicitud)) {
       setError('El compañero todavía no ha validado el cambio.')
       return
@@ -659,7 +664,7 @@ export function SolicitudesPage() {
 
   async function rechazar(solicitud: Solicitud) {
     const texto = motivo.trim()
-    if (!esSuperadmin || !cambioValidado(solicitud)) return
+    if (!veBandeja || !cambioValidado(solicitud)) return
     if (!texto) {
       setError('Escribe el motivo del rechazo.')
       return
@@ -689,7 +694,7 @@ export function SolicitudesPage() {
     return solicitudes.filter((item) => delAgente(item, agente.id))
   }, [agente, solicitudes, veBandeja])
   const muestraAcciones =
-    esSuperadmin || lista.some((item) => agente?.id === item.companeroId && pendienteDeCompanero(item))
+    veBandeja || lista.some((item) => agente?.id === item.companeroId && pendienteDeCompanero(item))
 
   return (
     <section className={movil ? 'flex flex-col gap-3' : PAGE_SECTION}>
@@ -937,19 +942,21 @@ export function SolicitudesPage() {
                             />
                           ) : null}
                         </div>
-                      ) : esSuperadmin &&
+                      ) : veBandeja &&
                         solicitud.estado === 'PENDIENTE' &&
                         cambioValidado(solicitud) ? (
                         <div className="flex flex-col items-end gap-2">
                           <div className="flex justify-end gap-2">
-                            <button
-                              type="button"
-                              className={BTN_PRIMARY}
-                              disabled={enviando}
-                              onClick={() => void abrirAceptar(solicitud)}
-                            >
-                              Aceptar
-                            </button>
+                            {esSuperadmin || adminPuedeAceptar(solicitud) ? (
+                              <button
+                                type="button"
+                                className={BTN_PRIMARY}
+                                disabled={enviando}
+                                onClick={() => void abrirAceptar(solicitud)}
+                              >
+                                Aceptar
+                              </button>
+                            ) : null}
                             <button
                               type="button"
                               className={BTN_GHOST}

@@ -72,6 +72,12 @@ export function resumenAnioAjustadoAlMes(
       anio.jornadaDisponible -
       mesCargado.jornadaDisponible +
       mesLocal.jornadaDisponible,
+    jornadasTrabajadas:
+      anio.jornadasTrabajadas -
+      mesCargado.jornadasTrabajadas +
+      mesLocal.jornadasTrabajadas,
+    diasPermiso:
+      anio.diasPermiso - mesCargado.diasPermiso + mesLocal.diasPermiso,
   }
 }
 

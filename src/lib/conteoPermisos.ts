@@ -22,16 +22,26 @@ import {
 } from '@/lib/cuposPermiso'
 import type { PermisoConfig } from '@/lib/permisos'
 import { esRolCuadranteJefes } from '@/lib/rolesCuadrante'
+import { acumularComputoTurno } from '@/lib/computoDiasTrabajados'
 import type { FichaPolicia, Turno } from '@/types'
 import { isoFecha } from '@/lib/fechas'
 
 export type ResumenPermisosAgente = {
   porTipo: Record<string, number>
   jornadaDisponible: number
+  /** Jornadas M/T/N (1) y M-T (2) del cuadrante. */
+  jornadasTrabajadas: number
+  /** Días P y L, de cualquier tipo de permiso. */
+  diasPermiso: number
 }
 
 export function resumenPermisosVacio(): ResumenPermisosAgente {
-  return { porTipo: {}, jornadaDisponible: 0 }
+  return {
+    porTipo: {},
+    jornadaDisponible: 0,
+    jornadasTrabajadas: 0,
+    diasPermiso: 0,
+  }
 }
 
 export function diasTipoPermiso(
@@ -68,9 +78,11 @@ export function acumularPermisosMes(
   mes: number,
 ) {
   const nDias = fila.length
+  const parcial = { trabajados: 0, permisos: 0 }
   for (let dia = 1; dia <= nDias; dia++) {
     const turno = fila[dia - 1]
     if (!turno) continue
+    acumularComputoTurno(parcial, turno)
     const fecha = isoFecha(anio, mes, dia)
     const asignable = turno as TurnoAsignable
     const asignado = asignaciones[fecha]?.[asignable]?.[agenteId]
@@ -87,6 +99,8 @@ export function acumularPermisosMes(
       resumen.jornadaDisponible += 1
     }
   }
+  resumen.jornadasTrabajadas += parcial.trabajados
+  resumen.diasPermiso += parcial.permisos
 }
 
 export function acumularPermisosDesdeFirestore(

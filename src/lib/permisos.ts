@@ -24,6 +24,18 @@ export type PermisoConfig = {
    * Si falta, se deduce del cupo: con tope exige saldo.
    */
   requiereSaldo?: boolean
+  /**
+   * true = el día de este permiso suma como jornada en el cómputo anual.
+   * Si falta, suma (comportamiento anterior).
+   */
+  sumaDiaTrabajo?: boolean
+}
+
+/** Sin el campo, el permiso cuenta como día de trabajo. */
+export function permisoSumaDiaTrabajo(
+  permiso: Pick<PermisoConfig, 'sumaDiaTrabajo'> | null | undefined,
+) {
+  return permiso?.sumaDiaTrabajo !== false
 }
 
 /** Con saldo obligatorio, salvo que el catálogo lo marque como sin saldo. */
@@ -97,6 +109,7 @@ export function clonarPermiso(permiso: PermisoConfig): PermisoConfig {
     diasAnuales: permiso.diasAnuales,
     visible: permiso.visible !== false,
     requiereSaldo: permiso.requiereSaldo,
+    sumaDiaTrabajo: permisoSumaDiaTrabajo(permiso),
   }
 }
 

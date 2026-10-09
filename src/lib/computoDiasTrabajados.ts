@@ -33,9 +33,11 @@ export function esPermisoComputable(turno: Turno | undefined) {
 export function acumularComputoTurno(
   parcial: { trabajados: number; permisos: number },
   turno: Turno | undefined,
+  sumaPermiso = true,
 ) {
-  if (esPermisoComputable(turno)) parcial.permisos += 1
-  else parcial.trabajados += jornadasDeTurno(turno)
+  if (esPermisoComputable(turno)) {
+    if (sumaPermiso) parcial.permisos += 1
+  } else parcial.trabajados += jornadasDeTurno(turno)
 }
 
 export function cerrarComputoDias(parcial: {

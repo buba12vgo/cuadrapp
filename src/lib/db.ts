@@ -26,6 +26,7 @@ import {
 import {
   PERMISOS_INICIALES,
   permisoRequiereSaldo,
+  permisoSumaDiaTrabajo,
   type PermisoConfig,
 } from '@/lib/permisos'
 import {
@@ -631,6 +632,8 @@ function permisoDesdeFirestore(
     visible: data.visible !== false,
     requiereSaldo:
       typeof data.requiereSaldo === 'boolean' ? data.requiereSaldo : undefined,
+    sumaDiaTrabajo:
+      typeof data.sumaDiaTrabajo === 'boolean' ? data.sumaDiaTrabajo : undefined,
   }
 }
 
@@ -647,6 +650,7 @@ function permisoParaFirestore(permiso: PermisoConfig): PermisoConfig {
     diasAnuales: normalizarDiasAnuales(permiso.diasAnuales, codigo),
     visible: permiso.visible !== false,
     requiereSaldo: permisoRequiereSaldo(permiso),
+    sumaDiaTrabajo: permisoSumaDiaTrabajo(permiso),
   }
 }
 

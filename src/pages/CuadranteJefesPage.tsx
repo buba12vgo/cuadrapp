@@ -397,7 +397,14 @@ export function CuadranteJefesPage() {
             setCuadrante(cargado)
             setAsignacionesDiarias(asignaciones)
             setResumenesMesCargado(
-              resumenesMesCuadrante(jefes, cargado, asignaciones, anio, mes),
+              resumenesMesCuadrante(
+                jefes,
+                cargado,
+                asignaciones,
+                anio,
+                mes,
+                tiposPermiso,
+              ),
             )
           }
         } else if (jefes.length > 0) {

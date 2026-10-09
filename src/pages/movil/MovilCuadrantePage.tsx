@@ -9,11 +9,12 @@ import { ROL_LABEL } from '@/lib/rolesCuadrante'
 import type { Turno } from '@/types'
 import { etiquetaDia, isoFechaMovil, useMovilMes } from '@/pages/movil/movilMes'
 
+/** En finde y festivo el jefe de M-T va delante del de noche. */
 const FRANJAS: Array<{ turno: Turno; titulo: string; clase: string }> = [
   { turno: 'M', titulo: 'Mañana', clase: 'bg-sky-100 text-sky-950' },
   { turno: 'T', titulo: 'Tarde', clase: 'bg-amber-100 text-amber-950' },
-  { turno: 'N', titulo: 'Noche', clase: 'bg-violet-100 text-violet-950' },
   { turno: 'MT', titulo: 'Mañana y tarde', clase: 'bg-teal-100 text-teal-950' },
+  { turno: 'N', titulo: 'Noche', clase: 'bg-violet-100 text-violet-950' },
 ]
 
 export function MovilCuadrantePage() {

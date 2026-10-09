@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { TablaPermisosAgente } from '@/components/TablaPermisosAgente'
 import { useAcceso } from '@/contexts/AccesoContext'
-import { vePermisosDeTodos } from '@/lib/acceso'
+import { vePermisosDeTodos, veSoloSuFichaJefes } from '@/lib/acceso'
 import { agenteDelPerfil, useSeleccionAgente } from '@/lib/agenteSesion'
 import { saldosPermisoAgente } from '@/lib/cuposPermiso'
 import { resumenPermisosVacio } from '@/lib/conteoPermisos'
@@ -23,8 +23,13 @@ export function MovilPermisosPage() {
     () => agenteDelPerfil(agentesData, perfil),
     [agentesData, perfil],
   )
+  const soloPropio = veSoloSuFichaJefes(perfil?.rol, {
+    esJefatura,
+    email: perfil?.email,
+    movil: true,
+  })
   const veTodos = vePermisosDeTodos(perfil?.rol)
-  const veGrupoJefes = veTodos || esJefatura
+  const veGrupoJefes = !soloPropio && (veTodos || esJefatura)
   const visibles = useMemo(
     () => (veGrupoJefes ? jefes : propio ? [propio] : []),
     [veGrupoJefes, jefes, propio],

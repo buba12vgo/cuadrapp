@@ -173,6 +173,20 @@ export function usaVistaMovilJefes(
   )
 }
 
+/**
+ * En la vista de un jefe de servicio o responsable, el calendario de jefes
+ * y los permisos son solo los suyos. Jonathan entra en esa vista en el
+ * móvil; en el escritorio sigue viendo a todos como admin.
+ */
+export function veSoloSuFichaJefes(
+  rol: RolAcceso | null | undefined,
+  opciones?: OpcionesAcceso & { movil?: boolean },
+) {
+  if (!rol) return false
+  if (rol === 'CONSULTA_JEFES' && opciones?.esJefatura === true) return true
+  return opciones?.movil === true && usaVistaMovilJefes(rol, opciones)
+}
+
 export function puedeVer(
   rol: RolAcceso,
   ambito: Ambito,

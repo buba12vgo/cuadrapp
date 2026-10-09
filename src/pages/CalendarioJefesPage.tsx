@@ -31,6 +31,7 @@ import {
   TITULO_BLOQUE,
 } from '@/lib/uiStyles'
 import { useAcceso } from '@/contexts/AccesoContext'
+import { veSoloSuFichaJefes } from '@/lib/acceso'
 import { agenteDelPerfil, useSeleccionAgente } from '@/lib/agenteSesion'
 import { useAgentesData } from '@/lib/agentesStore'
 import { ChipEventoCalendario } from '@/components/ChipEventoCalendario'
@@ -249,7 +250,7 @@ function BarraCompacta({
 
 export function CalendarioJefesPage() {
   const { alert } = useAppDialog()
-  const { perfil } = useAcceso()
+  const { perfil, esJefatura } = useAcceso()
   const [agentesData, setAgentesData] = useAgentesData()
   const [eventosData] = useEventosData()
   const [puestos] = usePuestosData()
@@ -265,14 +266,25 @@ export function CalendarioJefesPage() {
   const [firebaseOk, setFirebaseOk] = useState(isFirebaseReady())
   const [filtroLeyenda, setFiltroLeyenda] = useState<FiltroLeyenda>('TODOS')
 
-  const jefes = useMemo(() => agentesCuadranteJefes(agentesData), [agentesData])
+  const plantillaJefes = useMemo(
+    () => agentesCuadranteJefes(agentesData),
+    [agentesData],
+  )
+  const soloPropio = veSoloSuFichaJefes(perfil?.rol, {
+    esJefatura,
+    email: perfil?.email,
+  })
+  const propio = useMemo(
+    () => agenteDelPerfil(plantillaJefes, perfil),
+    [plantillaJefes, perfil],
+  )
+  const jefes = useMemo(
+    () => (soloPropio ? (propio ? [propio] : []) : plantillaJefes),
+    [soloPropio, propio, plantillaJefes],
+  )
   const jefesIdsKey = useMemo(
     () => jefes.map((agente) => agente.id).join('\0'),
     [jefes],
-  )
-  const propio = useMemo(
-    () => agenteDelPerfil(jefes, perfil),
-    [jefes, perfil],
   )
   const { agenteId, elegir } = useSeleccionAgente(jefes, propio, agentesCargados)
   const agenteSeleccionado = useMemo(
@@ -535,21 +547,25 @@ export function CalendarioJefesPage() {
                 <ChevronRight className="h-4 w-4" />
               </button>
             </ToolbarSection>
-            <ToolbarDivider />
-            <ToolbarSection label="Agente">
-              <select
-                className={`${SELECT_TOOLBAR} w-[15.5rem] max-w-[40vw]`}
-                value={agenteId}
-                disabled={jefes.length === 0}
-                onChange={(event) => elegir(event.target.value)}
-              >
-                {jefes.map((agente) => (
-                  <option key={agente.id} value={agente.id}>
-                    {agente.numeroPlaca} · {agente.nombre} {agente.apellidos}
-                  </option>
-                ))}
-              </select>
-            </ToolbarSection>
+            {soloPropio ? null : (
+              <>
+                <ToolbarDivider />
+                <ToolbarSection label="Agente">
+                  <select
+                    className={`${SELECT_TOOLBAR} w-[15.5rem] max-w-[40vw]`}
+                    value={agenteId}
+                    disabled={jefes.length === 0}
+                    onChange={(event) => elegir(event.target.value)}
+                  >
+                    {jefes.map((agente) => (
+                      <option key={agente.id} value={agente.id}>
+                        {agente.numeroPlaca} · {agente.nombre} {agente.apellidos}
+                      </option>
+                    ))}
+                  </select>
+                </ToolbarSection>
+              </>
+            )}
           </>
         }
       />
@@ -562,7 +578,9 @@ export function CalendarioJefesPage() {
       ) : null}
       {jefes.length === 0 && !loading ? (
         <p className={ALERT_INFO}>
-          No hay jefes de servicio ni responsables en la plantilla.
+          {soloPropio
+            ? 'No hay una ficha vinculada a tu usuario.'
+            : 'No hay jefes de servicio ni responsables en la plantilla.'}
         </p>
       ) : null}
 

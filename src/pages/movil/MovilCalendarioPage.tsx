@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ChipEventoCalendario } from '@/components/ChipEventoCalendario'
 import { useAcceso } from '@/contexts/AccesoContext'
+import { veSoloSuFichaJefes } from '@/lib/acceso'
 import { agenteDelPerfil, useSeleccionAgente } from '@/lib/agenteSesion'
 import { detalleDiaCalendarioJefe } from '@/lib/calendarioMes'
 import { esDiaTrabajado, totalDiasTrabajadosJefes } from '@/lib/convenio'
@@ -30,13 +31,22 @@ function etiquetaTurnoMovil(turno: Turno) {
 
 export function MovilCalendarioPage() {
   const { anio, mes, nombreMes } = useMovilMes()
-  const { perfil } = useAcceso()
+  const { perfil, esJefatura } = useAcceso()
   const datos = useCuadranteJefesMes(anio, mes)
+  const soloPropio = veSoloSuFichaJefes(perfil?.rol, {
+    esJefatura,
+    email: perfil?.email,
+    movil: true,
+  })
   const propio = useMemo(
     () => agenteDelPerfil(datos.jefes, perfil),
     [datos.jefes, perfil],
   )
-  const { agenteId, elegir } = useSeleccionAgente(datos.jefes, propio)
+  const candidatos = useMemo(
+    () => (soloPropio ? (propio ? [propio] : []) : datos.jefes),
+    [soloPropio, propio, datos.jefes],
+  )
+  const { agenteId, elegir } = useSeleccionAgente(candidatos, propio)
   const [dia, setDia] = useState<number | null>(null)
 
   useEffect(() => {
@@ -45,7 +55,7 @@ export function MovilCalendarioPage() {
     setDia(enEsteMes ? hoy.getDate() : 1)
   }, [anio, mes])
 
-  const agente = datos.jefes.find((item) => item.id === agenteId) ?? null
+  const agente = candidatos.find((item) => item.id === agenteId) ?? null
   const fila = agente ? (datos.cuadrante[agente.id] ?? []) : []
   const dias = Array.from({ length: datos.nDias }, (_, i) => i + 1)
   const trabajados = agente ? totalDiasTrabajadosJefes(fila, dias) : 0
@@ -77,10 +87,13 @@ export function MovilCalendarioPage() {
   return (
     <div className="flex flex-col gap-3">
       <p className="px-1 text-sm text-slate-500">
-        Calendario de jefes. Pulsa un día para ver el turno y los eventos.
+        {soloPropio
+          ? 'Tu calendario. Pulsa un día para ver el turno y los eventos.'
+          : 'Calendario de jefes. Pulsa un día para ver el turno y los eventos.'}
       </p>
+      {candidatos.length > 1 ? (
       <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1">
-        {datos.jefes.map((item) => {
+        {candidatos.map((item) => {
           const activo = item.id === agente?.id
           return (
             <button
@@ -101,6 +114,7 @@ export function MovilCalendarioPage() {
           )
         })}
       </div>
+      ) : null}
       {datos.loading ? <p className="px-1 text-sm text-slate-500">Cargando calendario…</p> : null}
       {datos.error ? (
         <p className="rounded-2xl bg-rose-50 px-3 py-2 text-sm text-rose-800">{datos.error}</p>
@@ -147,7 +161,9 @@ export function MovilCalendarioPage() {
         </>
       ) : !datos.loading ? (
         <p className="rounded-2xl bg-white px-3 py-4 text-sm text-slate-600">
-          No hay jefes ni responsables en la plantilla.
+          {soloPropio
+            ? 'No hay una ficha vinculada a tu usuario.'
+            : 'No hay jefes ni responsables en la plantilla.'}
         </p>
       ) : null}
     </div>

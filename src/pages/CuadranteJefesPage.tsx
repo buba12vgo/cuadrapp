@@ -123,9 +123,9 @@ const CLASE_TURNO: Record<Turno, string> = {
   V: CLASE_TURNO_CELDA.V,
 }
 
-/** Laboral: D → M → T → N → P → V. Finde y festivo (oficial o de calendario): incluye M-T. */
+/** Laboral: D → M → T → N → P → V. Finde y festivo: M → T → M-T → N. */
 const CICLO_SEMANA: Turno[] = ['D', 'M', 'T', 'N', 'P', 'V']
-const CICLO_FINDE: Turno[] = ['D', 'M', 'T', 'N', 'MT', 'P', 'V']
+const CICLO_FINDE: Turno[] = ['D', 'M', 'T', 'MT', 'N', 'P', 'V']
 
 function leerFecha(valor: string) {
   const [anio, mes, dia] = valor.split('-').map(Number)

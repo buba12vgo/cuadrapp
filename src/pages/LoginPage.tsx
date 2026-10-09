@@ -59,7 +59,7 @@ export function LoginPage() {
           <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-600 text-white">
             <CalendarDays className="h-6 w-6" aria-hidden />
           </span>
-          <h1 className={`${PAGE_TITLE} text-center text-lg`}>Cuadrapp</h1>
+          <h1 className={`${PAGE_TITLE} text-center text-lg`}>MoaPP</h1>
           <p className={`${PAGE_SUBTITLE} text-center`}>
             Cuadrantes de la Policía Portuaria
           </p>

@@ -63,13 +63,13 @@ const SCREENS = [
     file: 'login.html',
     title: 'Login',
     prompt:
-      'Desktop login for a restricted internal shift-scheduling tool used by port police administrators. Centered institutional card with app name Cuadrapp, subtitle Cuadrantes de la Policía Portuaria, and a single Continue with Google button. Calm operational atmosphere, no marketing badges.',
+      'Desktop login for a restricted internal shift-scheduling tool used by port police administrators. Centered institutional card with app name MoaPP, subtitle Cuadrantes de la Policía Portuaria, and a single Continue with Google button. Calm operational atmosphere, no marketing badges.',
   },
   {
     file: 'agentes.html',
     title: 'Agentes',
     prompt:
-      'Desktop admin workspace for Cuadrapp. Sticky top bar with app mark, grouped navigation (Plantilla, Operación, Normativa), user chip and Salir. Main view is a dense agents roster table: badge number, name, role, unit. Page header with title Agentes, short subtitle, and primary action to add an agent. Full-height panel, operational density.',
+      'Desktop admin workspace for MoaPP. Sticky top bar with app mark, grouped navigation (Plantilla, Operación, Normativa), user chip and Salir. Main view is a dense agents roster table: badge number, name, role, unit. Page header with title Agentes, short subtitle, and primary action to add an agent. Full-height panel, operational density.',
   },
   {
     file: 'cuadrante-mensual.html',
@@ -81,7 +81,7 @@ const SCREENS = [
     file: 'cuadrante-jefes.html',
     title: 'Cuadrante jefes',
     prompt:
-      'Desktop monthly matrix for service chiefs and responsables. Agents on the left (badge + name), days on top. Weekend-only M-T double shift cells. Sticky totals column where M-T counts as two days. Toolbar with month, PDF export, and a pool of posts to drop onto a badge to assign the post to every working day. Same chrome as the rest of Cuadrapp.',
+      'Desktop monthly matrix for service chiefs and responsables. Agents on the left (badge + name), days on top. Weekend-only M-T double shift cells. Sticky totals column where M-T counts as two days. Toolbar with month, PDF export, and a pool of posts to drop onto a badge to assign the post to every working day. Same chrome as the rest of MoaPP.',
   },
 ]
 
@@ -97,7 +97,7 @@ if (existsSync(metaPath)) {
   console.log(`Proyecto Stitch existente: ${projectName}`)
 } else {
   const project = await stitch.createProject({
-    title: 'Cuadrapp',
+    title: 'MoaPP',
     deviceType: 'DESKTOP',
     projectType: 'TEXT_TO_UI',
     designTheme: theme,
@@ -106,7 +106,7 @@ if (existsSync(metaPath)) {
   writeFileSync(
     metaPath,
     `${JSON.stringify(
-      { name: project.name, title: project.title ?? 'Cuadrapp' },
+      { name: project.name, title: project.title ?? 'MoaPP' },
       null,
       2,
     )}\n`,

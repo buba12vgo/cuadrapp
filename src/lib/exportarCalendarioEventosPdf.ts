@@ -139,7 +139,7 @@ export function exportarCalendarioEventosPdf(
 
   const cabecera = (subtitulo: string) => `<header class="cabecera">
     <div>
-      <p class="marca">Cuadrapp · Policía Portuaria</p>
+      <p class="marca">MoaPP · Policía Portuaria</p>
       <h1 class="titulo">Calendario de eventos · ${escapeHtml(nombreMes)} ${anio}</h1>
       <p class="sub">${escapeHtml(subtitulo)}</p>
     </div>

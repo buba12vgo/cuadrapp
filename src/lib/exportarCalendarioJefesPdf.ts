@@ -6,7 +6,8 @@ import { diasDelMes, esDiaTrabajado, totalDiasTrabajadosJefes } from '@/lib/conv
 import { colorPdfTipoEvento } from '@/lib/tiposEvento'
 import { getTiposEvento } from '@/lib/tiposEventoStore'
 import { eventosEnFecha } from '@/lib/eventosStore'
-import { diaEsEspecial, diaEsFestivoOperativo } from '@/lib/diaEspecial'
+import { diaEsEspecial } from '@/lib/diaEspecial'
+import { contarVariablesCobroAgente, totalFestivos } from '@/lib/variablesCobro'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
 import type { PermisoConfig } from '@/lib/permisos'
 import { getTiposPermiso } from '@/lib/permisosStore'
@@ -73,19 +74,20 @@ export function exportarCalendarioJefesPdf(
   const nombre = `${agente.nombre} ${agente.apellidos}`.trim()
   const rol = ROL_LABEL[agente.rolBase]
   let noches = 0
-  let festivosTrabajados = 0
   let permisosMes = 0
   for (let dia = 1; dia <= nDias; dia++) {
     const turno = (fila[dia - 1] ?? 'D') as Turno
     if (turno === 'N') noches += 1
     if (turno === 'P' || turno === 'L') permisosMes += 1
-    if (
-      esDiaTrabajado(turno) &&
-      diaEsFestivoOperativo(anio, mes, dia, opciones.eventos ?? [])
-    ) {
-      festivosTrabajados += 1
-    }
   }
+  const festivosTrabajados = totalFestivos(
+    contarVariablesCobroAgente(
+      Array.from({ length: nDias }, (_, i) => (fila[i] ?? 'D') as Turno),
+      anio,
+      mes,
+      opciones.eventos ?? [],
+    ),
+  )
 
   const semanas = celdas.length / 7
   const semanasHtml: string[] = []

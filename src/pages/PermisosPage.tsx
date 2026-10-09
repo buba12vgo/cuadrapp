@@ -31,7 +31,11 @@ import {
   esDiasAnoAnterior,
   normalizarDiasAnuales,
 } from '@/lib/cuposPermiso'
-import { permisoRequiereSaldo, type PermisoConfig } from '@/lib/permisos'
+import {
+  permisoRequiereSaldo,
+  permisoSumaDiaTrabajo,
+  type PermisoConfig,
+} from '@/lib/permisos'
 import { useTiposPermiso } from '@/lib/permisosStore'
 import { FileText, Hash } from 'lucide-react'
 
@@ -43,6 +47,7 @@ type Formulario = {
   abreviatura: string
   diasAnuales: string
   requiereSaldo: boolean
+  sumaDiaTrabajo: boolean
 }
 
 function formularioVacio(): Formulario {
@@ -52,6 +57,7 @@ function formularioVacio(): Formulario {
     abreviatura: '',
     diasAnuales: '0',
     requiereSaldo: false,
+    sumaDiaTrabajo: true,
   }
 }
 
@@ -62,6 +68,7 @@ function formularioDesde(permiso: PermisoConfig): Formulario {
     abreviatura: permiso.abreviatura,
     diasAnuales: String(diasAnualesCatalogo(permiso)),
     requiereSaldo: permisoRequiereSaldo(permiso),
+    sumaDiaTrabajo: permisoSumaDiaTrabajo(permiso),
   }
 }
 
@@ -177,6 +184,7 @@ function EditorModal({
             diasAnuales: normalizarDiasAnuales(Number(form.diasAnuales)),
             visible: true,
             requiereSaldo: form.requiereSaldo,
+            sumaDiaTrabajo: form.sumaDiaTrabajo,
           })
         }}
       >
@@ -283,6 +291,26 @@ function EditorModal({
                 </span>
               </span>
             </label>
+            <label className="flex items-start gap-2 text-sm text-slate-800">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 accent-slate-950"
+                checked={form.sumaDiaTrabajo}
+                onChange={(event) =>
+                  setForm((actual) => ({
+                    ...actual,
+                    sumaDiaTrabajo: event.target.checked,
+                  }))
+                }
+              />
+              <span>
+                <span className="font-semibold">Suma como día de trabajo</span>
+                <span className="mt-0.5 block text-slate-500">
+                  Si está marcado, cada día de este permiso entra en el cómputo
+                  anual de jornadas. Si no, el permiso no suma.
+                </span>
+              </span>
+            </label>
           </div>
         </section>
         {error ? (
@@ -336,6 +364,38 @@ export function PermisosPage() {
         err instanceof Error
           ? err.message
           : 'No se pudo guardar el tipo de permiso'
+      setError(mensaje)
+      await showAlert(mensaje, 'Error al guardar')
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  async function cambiarSumaDiaTrabajo(
+    permiso: PermisoConfig,
+    sumaDiaTrabajo: boolean,
+  ) {
+    if (soloLectura) return
+    const siguiente = { ...permiso, sumaDiaTrabajo }
+    setPermisos((actual) =>
+      actual.map((item) => (item.codigo === permiso.codigo ? siguiente : item)),
+    )
+    if (!firebaseOk) return
+    setGuardando(true)
+    setError(null)
+    try {
+      const guardado = await saveTipoPermiso(siguiente)
+      setPermisos((actual) =>
+        actual.map((item) => (item.codigo === guardado.codigo ? guardado : item)),
+      )
+    } catch (err) {
+      setPermisos((actual) =>
+        actual.map((item) => (item.codigo === permiso.codigo ? permiso : item)),
+      )
+      const mensaje =
+        err instanceof Error
+          ? err.message
+          : 'No se pudo cambiar si el permiso suma como día de trabajo'
       setError(mensaje)
       await showAlert(mensaje, 'Error al guardar')
     } finally {
@@ -442,6 +502,9 @@ export function PermisosPage() {
                   <th className={TH}>Abrev.</th>
                   <th className={`${TH} text-right`}>Días/año</th>
                   <th className={TH}>Saldo</th>
+                  <th className={TH} title="Entra en el cómputo anual de jornadas">
+                    Día de trabajo
+                  </th>
                   <th className={TH}>Visible</th>
                   <th className={`${TH} text-right`}>Acciones</th>
                 </tr>
@@ -467,6 +530,18 @@ export function PermisosPage() {
                     </td>
                     <td className={TD}>
                       {permisoRequiereSaldo(permiso) ? 'Con saldo' : 'Sin saldo'}
+                    </td>
+                    <td className={TD}>
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 accent-slate-950"
+                        checked={permisoSumaDiaTrabajo(permiso)}
+                        disabled={soloLectura || guardando}
+                        aria-label={`Suma como día de trabajo: ${permiso.nombre}`}
+                        onChange={(event) =>
+                          void cambiarSumaDiaTrabajo(permiso, event.target.checked)
+                        }
+                      />
                     </td>
                     <td className={TD}>
                       <input
@@ -506,7 +581,7 @@ export function PermisosPage() {
                 {permisos.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={5}
+                      colSpan={8}
                       className={`${TD} py-6 text-center text-slate-500`}
                     >
                       No hay tipos de permiso. Crea Asuntos propios, IT, etc.

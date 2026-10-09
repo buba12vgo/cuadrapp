@@ -190,7 +190,7 @@ export function PermisosAgentesPage() {
         title={vista === 'computo' ? 'Cómputo días trabajados' : 'Permisos'}
         subtitle={
           vista === 'computo'
-            ? `Jornadas trabajadas más todos los permisos de ${anio}. Referencia 186.`
+            ? `Jornadas trabajadas más los permisos que suman como día de trabajo en ${anio}. Referencia 186.`
             : veTodos
               ? 'Totales, disfrutados y pendientes de cada agente'
               : 'Totales, disfrutados y pendientes'

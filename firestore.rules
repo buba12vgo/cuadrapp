@@ -1,3 +1,6 @@
+// Proyecto compartido cuadrapp-899d5.
+// Esta es la copia que se despliega. cuadrapp/firestore.rules tiene que ser idéntica:
+// desplegar la versión corta deja las colecciones de NODUS en denegación.
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -100,9 +103,54 @@ service cloud.firestore {
       allow write: if esSuperAdmin();
     }
 
+    function idMesCuadrante(anio, mes) {
+      return string(anio) + '-' + (mes < 10 ? '0' + string(mes) : string(mes));
+    }
+
+    function cuadranteOperativoForma(docId) {
+      return request.resource.data.keys().hasAll(['anio', 'mes', 'agentes', 'actualizadoEn'])
+        && request.resource.data.anio is int
+        && request.resource.data.anio >= 2020
+        && request.resource.data.anio <= 2040
+        && request.resource.data.mes is int
+        && request.resource.data.mes >= 1
+        && request.resource.data.mes <= 12
+        && docId == idMesCuadrante(request.resource.data.anio, request.resource.data.mes)
+        && request.resource.data.agentes is map
+        && request.resource.data.agentes.size() <= 400
+        && request.resource.data.actualizadoEn is string
+        && request.resource.data.actualizadoEn.size() >= 20
+        && request.resource.data.actualizadoEn.size() <= 40;
+    }
+
+    function cuadranteEsMesActual() {
+      return request.resource.data.anio == request.time.year()
+        && request.resource.data.mes == request.time.month();
+    }
+
+    /** Jefatura solo escribe el cuadrante operativo del mes en curso, y solo sus campos. */
+    function cuadranteJefaturaCreate(docId) {
+      return esJefaturaConsulta()
+        && cuadranteEsMesActual()
+        && cuadranteOperativoForma(docId)
+        && request.resource.data.keys().hasOnly(['anio', 'mes', 'agentes', 'actualizadoEn']);
+    }
+
+    function cuadranteJefaturaUpdate(docId) {
+      return esJefaturaConsulta()
+        && cuadranteEsMesActual()
+        && cuadranteOperativoForma(docId)
+        && request.resource.data.anio == resource.data.anio
+        && request.resource.data.mes == resource.data.mes
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['agentes', 'actualizadoEn']);
+    }
+
     match /cuadrantes/{id} {
       allow read: if leeJefes();
-      allow write: if leeTodo() || esJefaturaConsulta();
+      allow create: if leeTodo() || cuadranteJefaturaCreate(id);
+      allow update: if leeTodo() || cuadranteJefaturaUpdate(id);
+      allow delete: if leeTodo();
     }
 
     match /planesAnuales/{id} {
@@ -120,22 +168,50 @@ service cloud.firestore {
     }
 
     function notaRelevoValida() {
-      return request.resource.data.autorUid == request.auth.uid
+      return request.resource.data.keys().hasOnly([
+          'tipo', 'puestoId', 'puestoNombre', 'fechaInicio', 'fechaFin', 'turnos',
+          'texto', 'autorUid', 'autorNombre', 'autorEmail', 'autorPlaca',
+          'creadoEn', 'actualizadoEn', 'activo',
+          'imagenData', 'imagenNombre',
+          'fechaAsignacion', 'puestoCodigo', 'turnoCuadrante',
+          'estadoValidacion'
+        ])
+        && request.resource.data.autorUid == request.auth.uid
         && request.resource.data.autorNombre is string
         && request.resource.data.autorNombre.size() > 0
+        && request.resource.data.autorNombre.size() <= 120
         && request.resource.data.autorEmail is string
+        && request.resource.data.autorEmail.size() <= 200
+        && (
+          !request.resource.data.keys().hasAny(['autorPlaca'])
+          || request.resource.data.autorPlaca == null
+          || (
+            request.resource.data.autorPlaca is string
+            && request.resource.data.autorPlaca.size() <= 32
+          )
+        )
         && request.resource.data.puestoId is string
         && request.resource.data.puestoId.size() > 0
+        && request.resource.data.puestoId.size() <= 80
         && request.resource.data.puestoNombre is string
+        && request.resource.data.puestoNombre.size() <= 120
         && request.resource.data.fechaInicio is string
+        && request.resource.data.fechaInicio.size() == 10
         && request.resource.data.fechaFin is string
+        && request.resource.data.fechaFin.size() == 10
         && request.resource.data.fechaFin >= request.resource.data.fechaInicio
         && request.resource.data.turnos is list
+        && request.resource.data.turnos.size() <= 3
         && request.resource.data.texto is string
         && request.resource.data.texto.size() > 0
         && request.resource.data.texto.size() <= 4000
         && request.resource.data.activo == true
         && request.resource.data.creadoEn is string
+        && request.resource.data.creadoEn.size() >= 20
+        && request.resource.data.creadoEn.size() <= 40
+        && request.resource.data.actualizadoEn is string
+        && request.resource.data.actualizadoEn.size() >= 20
+        && request.resource.data.actualizadoEn.size() <= 40
         && (
           !request.resource.data.keys().hasAny(['imagenData'])
           || (
@@ -185,6 +261,55 @@ service cloud.firestore {
         );
     }
 
+    function marcaTiempoCorta(valor) {
+      return valor is string && valor.size() >= 20 && valor.size() <= 40;
+    }
+
+    /** El autor o un admin solo pueden archivar la nota. El texto y el tipo no cambian. */
+    function desactivarNotaRelevo() {
+      return esUsuarioNodus()
+        && (resource.data.autorUid == request.auth.uid || leeTodo())
+        && resource.data.activo == true
+        && request.resource.data.activo == false
+        && marcaTiempoCorta(request.resource.data.actualizadoEn)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['activo', 'actualizadoEn']);
+    }
+
+    /** Publicar o rechazar un aviso pendiente, sin tocar el contenido. */
+    function validarAvisoRelevo() {
+      return (leeTodo() || esJefaturaConsulta())
+        && resource.data.tipo == 'AVISO'
+        && resource.data.estadoValidacion == 'PENDIENTE'
+        && request.resource.data.estadoValidacion in ['PUBLICADA', 'RECHAZADA']
+        && request.resource.data.validadoPorUid == request.auth.uid
+        && request.resource.data.validadoPorNombre is string
+        && request.resource.data.validadoPorNombre.size() > 0
+        && request.resource.data.validadoPorNombre.size() <= 120
+        && marcaTiempoCorta(request.resource.data.validadoEn)
+        && marcaTiempoCorta(request.resource.data.actualizadoEn)
+        && request.resource.data.motivoRechazo is string
+        && request.resource.data.motivoRechazo.size() <= 400
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'estadoValidacion',
+          'validadoPorUid',
+          'validadoPorNombre',
+          'validadoEn',
+          'actualizadoEn',
+          'motivoRechazo'
+        ]);
+    }
+
+    /** Archivar una consigna. No permite reescribir texto, puesto ni turnos. */
+    function desactivarNotaFija() {
+      return (leeTodo() || esJefaturaConsulta())
+        && resource.data.activo == true
+        && request.resource.data.activo == false
+        && marcaTiempoCorta(request.resource.data.actualizadoEn)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['activo', 'actualizadoEn']);
+    }
+
     /**
      * Libro digital de relevos (NODUS Hub).
      * RELEVO = entrega al turno siguiente.
@@ -214,26 +339,7 @@ service cloud.firestore {
           )
         );
 
-      allow update: if leeTodo()
-        || (esUsuarioNodus()
-          && resource.data.autorUid == request.auth.uid
-          && request.resource.data.autorUid == resource.data.autorUid
-          && request.resource.data.creadoEn == resource.data.creadoEn
-          && (
-            !resource.data.keys().hasAny(['estadoValidacion'])
-            || request.resource.data.estadoValidacion == resource.data.estadoValidacion
-          ))
-        || (
-          (leeTodo() || esJefaturaConsulta())
-          && resource.data.tipo == 'AVISO'
-          && resource.data.estadoValidacion == 'PENDIENTE'
-          && request.resource.data.tipo == 'AVISO'
-          && request.resource.data.estadoValidacion in ['PUBLICADA', 'RECHAZADA']
-          && request.resource.data.autorUid == resource.data.autorUid
-          && request.resource.data.creadoEn == resource.data.creadoEn
-          && request.resource.data.texto == resource.data.texto
-          && request.resource.data.puestoId == resource.data.puestoId
-        );
+      allow update: if desactivarNotaRelevo() || validarAvisoRelevo();
 
       allow delete: if leeTodo()
         || (esUsuarioNodus() && resource.data.autorUid == request.auth.uid);
@@ -243,18 +349,39 @@ service cloud.firestore {
     match /relevosNotasFijas/{id} {
       allow read: if esUsuarioNodus();
       allow create: if (leeTodo() || esJefaturaConsulta())
+        && request.resource.data.keys().hasOnly([
+          'puestoId', 'puestoNombre', 'turnos', 'texto',
+          'autorUid', 'autorNombre', 'autorEmail', 'autorPlaca',
+          'creadoEn', 'actualizadoEn', 'activo'
+        ])
         && request.resource.data.autorUid == request.auth.uid
         && request.resource.data.puestoId is string
         && request.resource.data.puestoId.size() > 0
+        && request.resource.data.puestoId.size() <= 80
         && request.resource.data.puestoNombre is string
+        && request.resource.data.puestoNombre.size() > 0
+        && request.resource.data.puestoNombre.size() <= 120
         && request.resource.data.turnos is list
+        && request.resource.data.turnos.size() <= 3
         && request.resource.data.texto is string
         && request.resource.data.texto.size() > 0
         && request.resource.data.texto.size() <= 4000
+        && request.resource.data.autorNombre is string
+        && request.resource.data.autorNombre.size() > 0
+        && request.resource.data.autorNombre.size() <= 120
+        && request.resource.data.autorEmail is string
+        && request.resource.data.autorEmail.size() <= 200
+        && (
+          request.resource.data.autorPlaca == null
+          || (
+            request.resource.data.autorPlaca is string
+            && request.resource.data.autorPlaca.size() <= 32
+          )
+        )
+        && marcaTiempoCorta(request.resource.data.creadoEn)
+        && marcaTiempoCorta(request.resource.data.actualizadoEn)
         && request.resource.data.activo == true;
-      allow update: if leeTodo()
-        || (esJefaturaConsulta()
-          && resource.data.autorUid == request.auth.uid);
+      allow update: if desactivarNotaFija();
       allow delete: if leeTodo() || esJefaturaConsulta();
     }
 
@@ -320,6 +447,49 @@ service cloud.firestore {
       allow delete: if esUsuarioNodus() && resource.data.uid == request.auth.uid;
     }
 
+    /**
+     * Aceptar o rechazar desde la bandeja. El admin no reescribe el pedido:
+     * solo pasa de PENDIENTE a ACEPTADA o RECHAZADA, con los campos que escribe el cliente.
+     */
+    function resolucionSolicitudBandeja() {
+      return esAdminJefes()
+        && resource.data.estado == 'PENDIENTE'
+        && request.resource.data.resueltaEn is string
+        && request.resource.data.resueltaEn.size() >= 20
+        && request.resource.data.resueltaEn.size() <= 40
+        && (
+          (
+            request.resource.data.estado == 'ACEPTADA'
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['estado', 'resueltaEn', 'cobertura', 'coberturaNombre'])
+            && (
+              !request.resource.data.diff(resource.data).affectedKeys().hasAny(['cobertura'])
+              || (
+                request.resource.data.cobertura is string
+                && request.resource.data.cobertura.size() > 0
+                && request.resource.data.cobertura.size() <= 80
+              )
+            )
+            && (
+              !request.resource.data.diff(resource.data).affectedKeys().hasAny(['coberturaNombre'])
+              || (
+                request.resource.data.coberturaNombre is string
+                && request.resource.data.coberturaNombre.size() > 0
+                && request.resource.data.coberturaNombre.size() <= 160
+              )
+            )
+          )
+          || (
+            request.resource.data.estado == 'RECHAZADA'
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['estado', 'resueltaEn', 'motivoRechazo'])
+            && request.resource.data.motivoRechazo is string
+            && request.resource.data.motivoRechazo.size() > 0
+            && request.resource.data.motivoRechazo.size() <= 400
+          )
+        );
+    }
+
     function esCompaneroPendiente() {
       return esConsulta()
         && resource.data.tipo in ['CAMBIO_DIA', 'CAMBIO_MES', 'VACACIONES']
@@ -347,6 +517,7 @@ service cloud.firestore {
           || request.resource.data.validacionCompanero == 'PENDIENTE'
         );
       allow update: if esSuperAdmin()
+        || resolucionSolicitudBandeja()
         || (esCompaneroPendiente()
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['validacionCompanero'])
           && request.resource.data.validacionCompanero == 'VALIDADA')
@@ -428,6 +599,91 @@ service cloud.firestore {
         && item.escala <= 3;
     }
 
+    function posicionesListaValida(lista) {
+      return lista.size() > 0
+        && lista.size() <= 80
+        && (lista.size() <= 0 || posicionAtraqueValida(lista[0]))
+        && (lista.size() <= 1 || posicionAtraqueValida(lista[1]))
+        && (lista.size() <= 2 || posicionAtraqueValida(lista[2]))
+        && (lista.size() <= 3 || posicionAtraqueValida(lista[3]))
+        && (lista.size() <= 4 || posicionAtraqueValida(lista[4]))
+        && (lista.size() <= 5 || posicionAtraqueValida(lista[5]))
+        && (lista.size() <= 6 || posicionAtraqueValida(lista[6]))
+        && (lista.size() <= 7 || posicionAtraqueValida(lista[7]))
+        && (lista.size() <= 8 || posicionAtraqueValida(lista[8]))
+        && (lista.size() <= 9 || posicionAtraqueValida(lista[9]))
+        && (lista.size() <= 10 || posicionAtraqueValida(lista[10]))
+        && (lista.size() <= 11 || posicionAtraqueValida(lista[11]))
+        && (lista.size() <= 12 || posicionAtraqueValida(lista[12]))
+        && (lista.size() <= 13 || posicionAtraqueValida(lista[13]))
+        && (lista.size() <= 14 || posicionAtraqueValida(lista[14]))
+        && (lista.size() <= 15 || posicionAtraqueValida(lista[15]))
+        && (lista.size() <= 16 || posicionAtraqueValida(lista[16]))
+        && (lista.size() <= 17 || posicionAtraqueValida(lista[17]))
+        && (lista.size() <= 18 || posicionAtraqueValida(lista[18]))
+        && (lista.size() <= 19 || posicionAtraqueValida(lista[19]))
+        && (lista.size() <= 20 || posicionAtraqueValida(lista[20]))
+        && (lista.size() <= 21 || posicionAtraqueValida(lista[21]))
+        && (lista.size() <= 22 || posicionAtraqueValida(lista[22]))
+        && (lista.size() <= 23 || posicionAtraqueValida(lista[23]))
+        && (lista.size() <= 24 || posicionAtraqueValida(lista[24]))
+        && (lista.size() <= 25 || posicionAtraqueValida(lista[25]))
+        && (lista.size() <= 26 || posicionAtraqueValida(lista[26]))
+        && (lista.size() <= 27 || posicionAtraqueValida(lista[27]))
+        && (lista.size() <= 28 || posicionAtraqueValida(lista[28]))
+        && (lista.size() <= 29 || posicionAtraqueValida(lista[29]))
+        && (lista.size() <= 30 || posicionAtraqueValida(lista[30]))
+        && (lista.size() <= 31 || posicionAtraqueValida(lista[31]))
+        && (lista.size() <= 32 || posicionAtraqueValida(lista[32]))
+        && (lista.size() <= 33 || posicionAtraqueValida(lista[33]))
+        && (lista.size() <= 34 || posicionAtraqueValida(lista[34]))
+        && (lista.size() <= 35 || posicionAtraqueValida(lista[35]))
+        && (lista.size() <= 36 || posicionAtraqueValida(lista[36]))
+        && (lista.size() <= 37 || posicionAtraqueValida(lista[37]))
+        && (lista.size() <= 38 || posicionAtraqueValida(lista[38]))
+        && (lista.size() <= 39 || posicionAtraqueValida(lista[39]))
+        && (lista.size() <= 40 || posicionAtraqueValida(lista[40]))
+        && (lista.size() <= 41 || posicionAtraqueValida(lista[41]))
+        && (lista.size() <= 42 || posicionAtraqueValida(lista[42]))
+        && (lista.size() <= 43 || posicionAtraqueValida(lista[43]))
+        && (lista.size() <= 44 || posicionAtraqueValida(lista[44]))
+        && (lista.size() <= 45 || posicionAtraqueValida(lista[45]))
+        && (lista.size() <= 46 || posicionAtraqueValida(lista[46]))
+        && (lista.size() <= 47 || posicionAtraqueValida(lista[47]))
+        && (lista.size() <= 48 || posicionAtraqueValida(lista[48]))
+        && (lista.size() <= 49 || posicionAtraqueValida(lista[49]))
+        && (lista.size() <= 50 || posicionAtraqueValida(lista[50]))
+        && (lista.size() <= 51 || posicionAtraqueValida(lista[51]))
+        && (lista.size() <= 52 || posicionAtraqueValida(lista[52]))
+        && (lista.size() <= 53 || posicionAtraqueValida(lista[53]))
+        && (lista.size() <= 54 || posicionAtraqueValida(lista[54]))
+        && (lista.size() <= 55 || posicionAtraqueValida(lista[55]))
+        && (lista.size() <= 56 || posicionAtraqueValida(lista[56]))
+        && (lista.size() <= 57 || posicionAtraqueValida(lista[57]))
+        && (lista.size() <= 58 || posicionAtraqueValida(lista[58]))
+        && (lista.size() <= 59 || posicionAtraqueValida(lista[59]))
+        && (lista.size() <= 60 || posicionAtraqueValida(lista[60]))
+        && (lista.size() <= 61 || posicionAtraqueValida(lista[61]))
+        && (lista.size() <= 62 || posicionAtraqueValida(lista[62]))
+        && (lista.size() <= 63 || posicionAtraqueValida(lista[63]))
+        && (lista.size() <= 64 || posicionAtraqueValida(lista[64]))
+        && (lista.size() <= 65 || posicionAtraqueValida(lista[65]))
+        && (lista.size() <= 66 || posicionAtraqueValida(lista[66]))
+        && (lista.size() <= 67 || posicionAtraqueValida(lista[67]))
+        && (lista.size() <= 68 || posicionAtraqueValida(lista[68]))
+        && (lista.size() <= 69 || posicionAtraqueValida(lista[69]))
+        && (lista.size() <= 70 || posicionAtraqueValida(lista[70]))
+        && (lista.size() <= 71 || posicionAtraqueValida(lista[71]))
+        && (lista.size() <= 72 || posicionAtraqueValida(lista[72]))
+        && (lista.size() <= 73 || posicionAtraqueValida(lista[73]))
+        && (lista.size() <= 74 || posicionAtraqueValida(lista[74]))
+        && (lista.size() <= 75 || posicionAtraqueValida(lista[75]))
+        && (lista.size() <= 76 || posicionAtraqueValida(lista[76]))
+        && (lista.size() <= 77 || posicionAtraqueValida(lista[77]))
+        && (lista.size() <= 78 || posicionAtraqueValida(lista[78]))
+        && (lista.size() <= 79 || posicionAtraqueValida(lista[79]));
+    }
+
     /** Plano de muelles y coordenadas de atraque. Solo admin o superadmin escriben. */
     match /graficosConfig/{id} {
       allow read: if esUsuarioNodus();
@@ -440,19 +696,87 @@ service cloud.firestore {
         || (id == 'posiciones'
           && request.resource.data.keys().hasOnly(['posiciones'])
           && request.resource.data.posiciones is list
-          && request.resource.data.posiciones.size() > 0
-          && request.resource.data.posiciones.size() <= 80
-          && posicionAtraqueValida(request.resource.data.posiciones[0])
-          && posicionAtraqueValida(request.resource.data.posiciones[request.resource.data.posiciones.size() - 1]))
+          && posicionesListaValida(request.resource.data.posiciones))
       );
       allow delete: if false;
+    }
+
+    function agenteAsignadoValido(item) {
+      return item is map
+        && item.keys().hasOnly(['agenteId', 'numeroPlaca', 'nombre'])
+        && item.agenteId is string
+        && item.agenteId.size() <= 64
+        && item.numeroPlaca is string
+        && item.numeroPlaca.size() <= 16
+        && item.nombre is string
+        && item.nombre.size() <= 120;
+    }
+
+    function puestoParValido(fila) {
+      return fila is map
+        && fila.keys().hasOnly(['1', '2'])
+        && agenteAsignadoValido(fila['1'])
+        && agenteAsignadoValido(fila['2']);
+    }
+
+    function operadoresValidos(mapa) {
+      return mapa is map
+        && mapa.keys().hasOnly(['noche-1', 'manana', 'tarde', 'noche-2'])
+        && puestoParValido(mapa['noche-1'])
+        && puestoParValido(mapa.manana)
+        && puestoParValido(mapa.tarde)
+        && puestoParValido(mapa['noche-2']);
+    }
+
+    function campoTexto(mapa, clave) {
+      return !mapa.keys().hasAny([clave])
+        || (mapa[clave] is string && mapa[clave].size() > 0 && mapa[clave].size() <= 400);
+    }
+
+    function camposRegistroValidos(mapa) {
+      return mapa is map
+        && mapa.size() > 0
+        && mapa.size() <= 20
+        && mapa.keys().hasOnly([
+          'tipo', 'hora', 'buque', 'muelle', 'atraque', 'numeroEscala', 'grua', 'horaFin',
+          'portalon', 'accion', 'motivo', 'informacion', 'descripcion', 'referencia',
+          'numeroParte', 'estado', 'camara', 'solicitante', 'protocolo', 'llave',
+          'receptor', 'ubicacion', 'recorrido', 'equipo', 'zona', 'autorizacion', 'observaciones'
+        ])
+        && campoTexto(mapa, 'tipo')
+        && campoTexto(mapa, 'hora')
+        && campoTexto(mapa, 'buque')
+        && campoTexto(mapa, 'muelle')
+        && campoTexto(mapa, 'atraque')
+        && campoTexto(mapa, 'numeroEscala')
+        && campoTexto(mapa, 'grua')
+        && campoTexto(mapa, 'horaFin')
+        && campoTexto(mapa, 'portalon')
+        && campoTexto(mapa, 'accion')
+        && campoTexto(mapa, 'motivo')
+        && campoTexto(mapa, 'informacion')
+        && campoTexto(mapa, 'descripcion')
+        && campoTexto(mapa, 'referencia')
+        && campoTexto(mapa, 'numeroParte')
+        && campoTexto(mapa, 'estado')
+        && campoTexto(mapa, 'camara')
+        && campoTexto(mapa, 'solicitante')
+        && campoTexto(mapa, 'protocolo')
+        && campoTexto(mapa, 'llave')
+        && campoTexto(mapa, 'receptor')
+        && campoTexto(mapa, 'ubicacion')
+        && campoTexto(mapa, 'recorrido')
+        && campoTexto(mapa, 'equipo')
+        && campoTexto(mapa, 'zona')
+        && campoTexto(mapa, 'autorizacion')
+        && campoTexto(mapa, 'observaciones');
     }
 
     function diaRegistroValido() {
       return request.resource.data.keys().hasOnly(['fecha', 'operadores', 'actualizadoEn', 'actualizadoPorUid', 'actualizadoPorNombre'])
         && request.resource.data.fecha is string
         && request.resource.data.fecha.size() == 10
-        && request.resource.data.operadores is map
+        && operadoresValidos(request.resource.data.operadores)
         && request.resource.data.actualizadoEn is string
         && request.resource.data.actualizadoPorUid == request.auth.uid
         && request.resource.data.actualizadoPorNombre is string
@@ -468,9 +792,7 @@ service cloud.firestore {
         && request.resource.data.bloque is string
         && request.resource.data.bloque.size() > 0
         && request.resource.data.bloque.size() <= 24
-        && request.resource.data.campos is map
-        && request.resource.data.campos.size() > 0
-        && request.resource.data.campos.size() <= 20
+        && camposRegistroValidos(request.resource.data.campos)
         && request.resource.data.abierto is bool
         && request.resource.data.autorNombre is string
         && request.resource.data.autorNombre.size() > 0
@@ -494,14 +816,17 @@ service cloud.firestore {
     function cierreFilaValido() {
       return resource.data.abierto == true
         && request.resource.data.abierto == false
+        && (resource.data.autorUid == request.auth.uid || leeTodo())
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['abierto', 'fechaCierre', 'horaCierre', 'campos', 'cerradoEn', 'cerradoPorUid', 'cerradoPorNombre'])
         && request.resource.data.fechaCierre is string
         && request.resource.data.fechaCierre.size() == 10
         && request.resource.data.fechaCierre >= resource.data.fecha
         && request.resource.data.horaCierre is string
         && request.resource.data.horaCierre.size() == 5
-        && request.resource.data.campos is map
+        && camposRegistroValidos(request.resource.data.campos)
         && request.resource.data.cerradoEn is string
+        && request.resource.data.cerradoEn.size() >= 20
+        && request.resource.data.cerradoEn.size() <= 40
         && request.resource.data.cerradoPorUid == request.auth.uid
         && request.resource.data.cerradoPorNombre is string
         && request.resource.data.cerradoPorNombre.size() > 0

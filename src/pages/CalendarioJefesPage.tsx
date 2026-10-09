@@ -55,7 +55,8 @@ import {
   detalleDiaCalendarioJefe,
 } from '@/lib/calendarioMes'
 import { exportarCalendarioJefesPdf } from '@/lib/exportarCalendarioJefesPdf'
-import { diaEsEspecial, diaEsFestivoOperativo } from '@/lib/diaEspecial'
+import { diaEsEspecial } from '@/lib/diaEspecial'
+import { contarVariablesCobroAgente, totalFestivos } from '@/lib/variablesCobro'
 import { ensureFirebase, isFirebaseReady } from '@/lib/firebase'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
 import { useTiposPermiso } from '@/lib/permisosStore'
@@ -164,10 +165,12 @@ function desgloseMes(
     }
     if (turno === 'N') c.noches += 1
     const finde = esFinDeSemana(anio, mes, dia)
-    const festivo = diaEsFestivoOperativo(anio, mes, dia, eventos)
-    if (esDiaTrabajado(turno) && festivo) c.festivosTrabajados += 1
     if (esDiaTrabajado(turno) && finde) c.findeTrabajados += 1
   }
+  const filaMes = Array.from({ length: nDias }, (_, i) => (fila[i] ?? 'D') as Turno)
+  c.festivosTrabajados = totalFestivos(
+    contarVariablesCobroAgente(filaMes, anio, mes, eventos),
+  )
   return c
 }
 

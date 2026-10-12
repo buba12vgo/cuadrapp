@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { CalendarioSolicitudPermiso } from '@/components/CalendarioSolicitudPermiso'
 import { ListaCambiosDia } from '@/components/ListaCambiosDia'
 import { SelectorCambioPlan } from '@/components/SelectorCambioPlan'
-import { PageHeader } from '@/components/ui/PageHeader'
+import { PageHeader, ToolbarSection } from '@/components/ui/PageHeader'
 import { useAppDialog } from '@/components/ui/ConfirmDialog'
 import { useAcceso } from '@/contexts/AccesoContext'
 import { agenteDelPerfil } from '@/lib/agenteSesion'
@@ -39,7 +39,9 @@ import {
   contextoCobertura,
   ETIQUETA_TIPO,
   ETIQUETA_TURNO_ANUAL,
+  FILTROS_ESTADO_SOLICITUD,
   etiquetaEstadoSolicitud,
+  filtrarSolicitudesPorEstado,
   etiquetaMesIso,
   etiquetaTurnoServicio,
   esperaValidacionCompanero,
@@ -47,6 +49,7 @@ import {
   ordenarSolicitudes,
   TIPOS_SOLICITUD,
   type CompaneroCobertura,
+  type EstadoSolicitud,
   type Solicitud,
   type TipoSolicitud,
 } from '@/lib/solicitudes'
@@ -108,6 +111,31 @@ function semillaPreview(): Solicitud[] {
       companeroNombre: '1001 Elena Vázquez Souto',
       turno: 'M',
       creadaEn: new Date().toISOString(),
+    },
+    {
+      id: 'sol-preview-aceptada',
+      tipo: 'PERMISO',
+      estado: 'ACEPTADA',
+      agenteId: 'ag-003',
+      placa: '1108',
+      nombreAgente: '1108 Xoán Pérez Otero',
+      fecha: `${anio}-${mes}-04`,
+      permisoCodigo: 'ASUNTOS_PROPIOS',
+      permisoNombre: 'Asuntos propios',
+      creadaEn: new Date().toISOString(),
+      resueltaEn: new Date().toISOString(),
+    },
+    {
+      id: 'sol-preview-rechazada',
+      tipo: 'VACACIONES',
+      estado: 'RECHAZADA',
+      agenteId: 'ag-003',
+      placa: '1108',
+      nombreAgente: '1108 Xoán Pérez Otero',
+      fecha: `${anio}-07-01`,
+      motivoRechazo: 'Ya hay dos cambios ese mes',
+      creadaEn: new Date().toISOString(),
+      resueltaEn: new Date().toISOString(),
     },
   ]
 }
@@ -171,6 +199,7 @@ export function SolicitudesPage() {
   const [agentes] = useAgentesData()
   const [permisos] = useTiposPermiso()
   const [solicitudes, setSolicitudes] = useState<Solicitud[]>([])
+  const [filtroEstado, setFiltroEstado] = useState<EstadoSolicitud>('PENDIENTE')
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [tipo, setTipo] = useState<TipoSolicitud>('PERMISO')
@@ -688,11 +717,24 @@ export function SolicitudesPage() {
     }
   }
 
-  const lista = useMemo(() => {
+  const visibles = useMemo(() => {
     if (veBandeja) return solicitudes
     if (!agente) return []
     return solicitudes.filter((item) => delAgente(item, agente.id))
   }, [agente, solicitudes, veBandeja])
+  const conteoEstado = useMemo(() => {
+    const conteo: Record<EstadoSolicitud, number> = {
+      PENDIENTE: 0,
+      ACEPTADA: 0,
+      RECHAZADA: 0,
+    }
+    for (const item of visibles) conteo[item.estado] += 1
+    return conteo
+  }, [visibles])
+  const lista = useMemo(
+    () => filtrarSolicitudesPorEstado(visibles, filtroEstado),
+    [filtroEstado, visibles],
+  )
   const muestraAcciones =
     veBandeja || lista.some((item) => agente?.id === item.companeroId && pendienteDeCompanero(item))
 
@@ -704,6 +746,28 @@ export function SolicitudesPage() {
           veBandeja
             ? 'Peticiones de la plantilla, por día y por fecha de solicitud'
             : 'Peticiones de permiso, cambios de días, de mes y de vacaciones'
+        }
+        toolbar={
+          <ToolbarSection label="Estado">
+            {FILTROS_ESTADO_SOLICITUD.map((item) => (
+              <button
+                key={item.estado}
+                type="button"
+                className={`h-7 rounded-md px-2.5 text-xs font-semibold ${FOCUS_RING} ${
+                  filtroEstado === item.estado
+                    ? 'bg-brand-600 text-white'
+                    : 'border border-line bg-white text-slate-700 hover:bg-brand-50'
+                }`}
+                aria-pressed={filtroEstado === item.estado}
+                onClick={() => setFiltroEstado(item.estado)}
+              >
+                {item.label}{' '}
+                <span className="tabular-nums opacity-80">
+                  {conteoEstado[item.estado]}
+                </span>
+              </button>
+            ))}
+          </ToolbarSection>
         }
       />
       <div
@@ -868,7 +932,13 @@ export function SolicitudesPage() {
       <div className="shrink-0 overflow-x-auto rounded-xl border border-slate-200 bg-white">
         {cargando ? <p className="px-3 py-4 text-sm text-slate-500">Cargando solicitudes…</p> : null}
         {!cargando && lista.length === 0 ? (
-          <p className="px-3 py-4 text-sm text-slate-500">No hay solicitudes.</p>
+          <p className="px-3 py-4 text-sm text-slate-500">
+            {filtroEstado === 'PENDIENTE'
+              ? 'No hay solicitudes pendientes.'
+              : filtroEstado === 'ACEPTADA'
+                ? 'No hay solicitudes aceptadas.'
+                : 'No hay solicitudes rechazadas.'}
+          </p>
         ) : null}
         {lista.length > 0 ? (
           <table className={TABLE}>

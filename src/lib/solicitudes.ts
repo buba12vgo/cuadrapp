@@ -87,6 +87,22 @@ export const ETIQUETA_ESTADO: Record<EstadoSolicitud, string> = {
   RECHAZADA: 'Rechazada',
 }
 
+export const FILTROS_ESTADO_SOLICITUD: Array<{
+  estado: EstadoSolicitud
+  label: string
+}> = [
+  { estado: 'PENDIENTE', label: 'Pendientes' },
+  { estado: 'ACEPTADA', label: 'Aceptadas' },
+  { estado: 'RECHAZADA', label: 'Rechazadas' },
+]
+
+export function filtrarSolicitudesPorEstado(
+  solicitudes: Solicitud[],
+  estado: EstadoSolicitud,
+) {
+  return solicitudes.filter((item) => item.estado === estado)
+}
+
 /** Junio, julio, agosto y septiembre: el cambio de vacaciones pide un compañero. */
 export function mesVacacionesConCompanero(fecha: string) {
   const mes = Number(fecha.slice(5, 7))

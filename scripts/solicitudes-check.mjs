@@ -21,6 +21,7 @@ const {
   esperaValidacionCompanero,
   mesVacacionesConCompanero,
   turnoMayoritarioMes,
+  filtrarSolicitudesPorEstado,
 } = mod
 const { permisoRequiereSaldo, PERMISOS_INICIALES } = permisos
 
@@ -302,6 +303,28 @@ try {
   intercambioRoto = true
 }
 igual('no intercambia si el plan ya cambió', intercambioRoto, true)
+
+const bandeja = [
+  { estado: 'PENDIENTE' },
+  { estado: 'PENDIENTE' },
+  { estado: 'ACEPTADA' },
+  { estado: 'RECHAZADA' },
+]
+igual(
+  'filtro pendientes por defecto',
+  filtrarSolicitudesPorEstado(bandeja, 'PENDIENTE').map((item) => item.estado),
+  ['PENDIENTE', 'PENDIENTE'],
+)
+igual(
+  'filtro aceptadas',
+  filtrarSolicitudesPorEstado(bandeja, 'ACEPTADA').map((item) => item.estado),
+  ['ACEPTADA'],
+)
+igual(
+  'filtro rechazadas',
+  filtrarSolicitudesPorEstado(bandeja, 'RECHAZADA').map((item) => item.estado),
+  ['RECHAZADA'],
+)
 
 await server.close()
 if (fallos.length) {

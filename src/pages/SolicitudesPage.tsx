@@ -761,8 +761,8 @@ export function SolicitudesPage() {
                 aria-pressed={filtroEstado === item.estado}
                 onClick={() => setFiltroEstado(item.estado)}
               >
-                {item.label}
-                <span className="ml-1 tabular-nums opacity-80">
+                {item.label}{' '}
+                <span className="tabular-nums opacity-80">
                   {conteoEstado[item.estado]}
                 </span>
               </button>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { useAppDialog } from '@/components/ui/ConfirmDialog'
 import { useAcceso } from '@/contexts/AccesoContext'
@@ -31,9 +31,19 @@ import { NOMBRE_JORNADA_DISPONIBLE } from '@/lib/jornadaDisponible'
 import { useTiposPermiso } from '@/lib/permisosStore'
 import { useMinimosSemanaData } from '@/lib/puestosStore'
 import { useCuadranteOperativoMes } from '@/lib/useCuadranteOperativoMes'
-import { ALERT_ERROR, ALERT_INFO, FOCUS_RING } from '@/lib/uiStyles'
+import { ALERT_ERROR, ALERT_INFO, CAMPO, FOCUS_RING } from '@/lib/uiStyles'
 import type { FichaPolicia } from '@/types'
-import { isoFecha } from '@/lib/fechas'
+import {
+  esFechaIso,
+  fechaEnRangoIso,
+  hoyEnMadrid,
+  isoFecha,
+  mesesEnRangoIso,
+  MESES,
+  normalizarRangoIso,
+  primerDiaMesIso,
+  ultimoDiaMesIso,
+} from '@/lib/fechas'
 
 const TURNO_LABEL: Record<TurnoOperativo, string> = {
   M: 'Mañana',
@@ -80,15 +90,129 @@ function opcionesPuesto(agente: FichaPolicia, puestos: PuestoConfig[], actual: s
   return nombres
 }
 
+function FiltroRangoFechas({
+  desde,
+  hasta,
+  onDesde,
+  onHasta,
+}: {
+  desde: string
+  hasta: string
+  onDesde: (valor: string) => void
+  onHasta: (valor: string) => void
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
+      <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+        Desde
+        <input
+          type="date"
+          className={`${CAMPO} h-8`}
+          aria-label="Desde"
+          value={desde}
+          onChange={(event) => {
+            if (esFechaIso(event.target.value)) onDesde(event.target.value)
+          }}
+        />
+      </label>
+      <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+        Hasta
+        <input
+          type="date"
+          className={`${CAMPO} h-8`}
+          aria-label="Hasta"
+          value={hasta}
+          onChange={(event) => {
+            if (esFechaIso(event.target.value)) onHasta(event.target.value)
+          }}
+        />
+      </label>
+    </div>
+  )
+}
+
 export function ListaDiarioAgentes({
   anio,
   mes,
   acordeonTurnos = false,
 }: {
-  anio: number
-  mes: number
+  anio?: number
+  mes?: number
   /** En la consulta móvil: Mañana, Tarde y Noche se abren y se cierran. */
   acordeonTurnos?: boolean
+}) {
+  const hoy = hoyEnMadrid()
+  const anioBase = anio ?? hoy.anio
+  const mesBase = mes ?? hoy.mes
+  const [desde, setDesde] = useState(() => primerDiaMesIso(anioBase, mesBase))
+  const [hasta, setHasta] = useState(() => ultimoDiaMesIso(anioBase, mesBase))
+
+  useEffect(() => {
+    if (anio == null || mes == null) return
+    setDesde(primerDiaMesIso(anio, mes))
+    setHasta(ultimoDiaMesIso(anio, mes))
+  }, [anio, mes])
+
+  const rango = normalizarRangoIso(desde, hasta)
+  const meses = mesesEnRangoIso(rango.desde, rango.hasta)
+
+  return (
+    <div
+      className={
+        acordeonTurnos
+          ? 'flex flex-col gap-2'
+          : 'flex min-h-0 flex-1 flex-col gap-2'
+      }
+    >
+      <div className="sticky top-0 z-10 bg-slate-100/95 pb-1 backdrop-blur-sm">
+        <FiltroRangoFechas
+          desde={rango.desde}
+          hasta={rango.hasta}
+          onDesde={setDesde}
+          onHasta={setHasta}
+        />
+      </div>
+      <div
+        className={
+          acordeonTurnos
+            ? 'flex flex-col gap-2'
+            : 'flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto'
+        }
+      >
+        {meses.length === 0 ? (
+          <p className="text-sm text-slate-500">No hay días en ese rango.</p>
+        ) : (
+          meses.map((item) => (
+            <ListaDiarioMes
+              key={`${item.anio}-${item.mes}`}
+              anio={item.anio}
+              mes={item.mes}
+              acordeonTurnos={acordeonTurnos}
+              fechaDesde={rango.desde}
+              fechaHasta={rango.hasta}
+              mostrarTituloMes={meses.length > 1}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ListaDiarioMes({
+  anio,
+  mes,
+  acordeonTurnos = false,
+  fechaDesde,
+  fechaHasta,
+  mostrarTituloMes = false,
+}: {
+  anio: number
+  mes: number
+  acordeonTurnos?: boolean
+  fechaDesde: string
+  fechaHasta: string
+  mostrarTituloMes?: boolean
 }) {
   const { alert } = useAppDialog()
   const { puedeEscribir } = useAcceso()
@@ -101,30 +225,22 @@ export function ListaDiarioAgentes({
   const [muestraPreview, setMuestraPreview] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [errorGuardado, setErrorGuardado] = useState<string | null>(null)
-  const hoy = useMemo(() => new Date(), [])
+  const hoy = useMemo(() => hoyEnMadrid(), [])
   const claveMes = `${anio}-${mes}`
+  const anclaHoy = useRef<HTMLLIElement | null>(null)
   const [seleccion, setSeleccion] = useState(() => ({
-    clave: `${hoy.getFullYear()}-${hoy.getMonth() + 1}`,
-    dia: hoy.getDate(),
+    clave: `${hoy.anio}-${hoy.mes}`,
+    dia: hoy.dia,
   }))
   const [turnosAbiertos, setTurnosAbiertos] = useState<Set<TurnoOperativo>>(
     () => new Set(),
   )
-  const diaPorDefecto =
-    hoy.getFullYear() === anio && hoy.getMonth() + 1 === mes ? hoy.getDate() : 1
-  const diaAbierto = seleccion.clave === claveMes ? seleccion.dia : diaPorDefecto
-
-  useEffect(() => {
-    setTurnosAbiertos(new Set())
-  }, [diaAbierto, claveMes])
   const nDias = diasDelMes(anio, mes)
 
   useEffect(() => {
     if (datos.loading) return
     const diaMuestra =
-      hoy.getFullYear() === anio && hoy.getMonth() + 1 === mes
-        ? Math.min(hoy.getDate(), nDias)
-        : 1
+      hoy.anio === anio && hoy.mes === mes ? Math.min(hoy.dia, nDias) : 1
     const sembrar =
       isDesignPreview && !datos.firebaseOk && !hayServicio(datos.cuadrante)
     setAsignaciones(datos.asignaciones)
@@ -150,7 +266,32 @@ export function ListaDiarioAgentes({
     () => datos.puestos.filter((puesto) => puesto.ambito === 'OPERATIVO'),
     [datos.puestos],
   )
-  const dias = useMemo(() => Array.from({ length: nDias }, (_, i) => i + 1), [nDias])
+  const dias = useMemo(
+    () =>
+      Array.from({ length: nDias }, (_, i) => i + 1).filter((dia) =>
+        fechaEnRangoIso(isoFecha(anio, mes, dia), fechaDesde, fechaHasta),
+      ),
+    [anio, fechaDesde, fechaHasta, mes, nDias],
+  )
+  const hoyVisible = hoy.anio === anio && hoy.mes === mes && dias.includes(hoy.dia)
+  const diaPorDefecto = hoyVisible ? hoy.dia : 0
+  const diaAbierto = seleccion.clave === claveMes ? seleccion.dia : diaPorDefecto
+
+  useEffect(() => {
+    setTurnosAbiertos(new Set())
+  }, [diaAbierto, claveMes])
+
+  useEffect(() => {
+    setSeleccion({
+      clave: claveMes,
+      dia: hoyVisible ? hoy.dia : 0,
+    })
+  }, [claveMes, fechaDesde, fechaHasta, hoy.dia, hoyVisible])
+
+  useEffect(() => {
+    if (datos.loading || !hoyVisible || diaAbierto !== hoy.dia) return
+    anclaHoy.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  }, [claveMes, datos.loading, diaAbierto, fechaDesde, fechaHasta, hoy.dia, hoyVisible])
   const agentesPorId = useMemo(
     () => new Map(datos.operativos.map((agente) => [agente.id, agente])),
     [datos.operativos],
@@ -235,13 +376,12 @@ export function ListaDiarioAgentes({
   }
 
   return (
-    <div
-      className={
-        acordeonTurnos
-          ? 'flex flex-col gap-2'
-          : 'flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto'
-      }
-    >
+    <div className="flex flex-col gap-2">
+      {mostrarTituloMes ? (
+        <p className="px-1 text-xs font-bold uppercase tracking-wide text-slate-500">
+          {MESES[mes - 1]} {anio}
+        </p>
+      ) : null}
       {datos.loading ? <p className="text-sm text-slate-500">Cargando el mes…</p> : null}
       {datos.error ? <p className={ALERT_ERROR}>{datos.error}</p> : null}
       {errorGuardado ? <p className={ALERT_ERROR}>{errorGuardado}</p> : null}
@@ -262,7 +402,12 @@ export function ListaDiarioAgentes({
           const especial = diaEsEspecial(anio, mes, dia, datos.eventos)
           const fecha = isoFecha(anio, mes, dia)
           return (
-            <li key={dia} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <li
+              key={dia}
+              ref={hoyVisible && dia === hoy.dia ? anclaHoy : undefined}
+              id={`diario-dia-${fecha}`}
+              className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+            >
               <button
                 type="button"
                 className={`flex w-full items-center gap-3 px-3 py-2 text-left ${FOCUS_RING}`}

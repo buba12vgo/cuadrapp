@@ -8,9 +8,17 @@ const server = await createServer({
 const puestosMod = await server.ssrLoadModule('/src/lib/asignacionPuestos.ts')
 const coberturaMod = await server.ssrLoadModule('/src/lib/coberturaDia.ts')
 const accesoMod = await server.ssrLoadModule('/src/lib/acceso.ts')
+const fechasMod = await server.ssrLoadModule('/src/lib/fechas.ts')
 const { asignarPuestoEnCelda, puestoEnCelda, puestosPermitidosParaAgente } = puestosMod
 const { resumenDiaServicio } = coberturaMod
 const { puedeVer, puedeEscribir, pestanasMovil, inicioMovil, puedeVerRuta } = accesoMod
+const {
+  fechaEnRangoIso,
+  mesesEnRangoIso,
+  normalizarRangoIso,
+  primerDiaMesIso,
+  ultimoDiaMesIso,
+} = fechasMod
 
 const fallos = []
 const puestos = [
@@ -138,6 +146,22 @@ if (puedeVerRuta('ADMIN', '/m/permisos')) fallos.push('admin entra en permisos')
 if (!puedeVerRuta('ADMIN', '/m/solicitudes')) fallos.push('admin entra en solicitudes')
 if (puedeVerRuta('ADMIN', '/m/servicio')) fallos.push('admin entra en agente')
 if (!puedeVerRuta('CONSULTA_JEFES', '/m/servicio')) fallos.push('agente entra en servicio')
+
+if (primerDiaMesIso(2026, 10) !== '2026-10-01') fallos.push('primer dia mes')
+if (ultimoDiaMesIso(2026, 2) !== '2026-02-28') fallos.push('ultimo dia febrero 2026')
+if (JSON.stringify(normalizarRangoIso('2026-10-12', '2026-10-01')) !== JSON.stringify({ desde: '2026-10-01', hasta: '2026-10-12' })) {
+  fallos.push('normaliza rango invertido')
+}
+if (!fechaEnRangoIso('2026-10-12', '2026-10-01', '2026-10-31')) {
+  fallos.push('hoy entra en el mes')
+}
+if (fechaEnRangoIso('2026-09-30', '2026-10-01', '2026-10-31')) {
+  fallos.push('septiembre no entra en octubre')
+}
+const meses = mesesEnRangoIso('2026-09-28', '2026-10-12')
+if (meses.length !== 2 || meses[0].mes !== 9 || meses[1].mes !== 10) {
+  fallos.push(`meses rango ${JSON.stringify(meses)}`)
+}
 
 await server.close()
 if (fallos.length) {

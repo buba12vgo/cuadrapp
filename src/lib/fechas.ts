@@ -26,6 +26,56 @@ export function isoFecha(anio: number, mes: number, dia: number) {
   return `${anio}-${pad2(mes)}-${pad2(dia)}`
 }
 
+export function isoHoyMadrid(ahora = new Date()) {
+  const { anio, mes, dia } = hoyEnMadrid(ahora)
+  return isoFecha(anio, mes, dia)
+}
+
+export function primerDiaMesIso(anio: number, mes: number) {
+  return isoFecha(anio, mes, 1)
+}
+
+export function ultimoDiaMesIso(anio: number, mes: number) {
+  return isoFecha(anio, mes, new Date(anio, mes, 0).getDate())
+}
+
+export function partesFechaIso(iso: string) {
+  const [anio, mes, dia] = iso.split('-').map(Number)
+  return { anio, mes, dia }
+}
+
+export function normalizarRangoIso(desde: string, hasta: string) {
+  if (!esFechaIso(desde) || !esFechaIso(hasta)) {
+    return { desde, hasta }
+  }
+  return desde <= hasta ? { desde, hasta } : { desde: hasta, hasta: desde }
+}
+
+export function mesesEnRangoIso(desde: string, hasta: string) {
+  const rango = normalizarRangoIso(desde, hasta)
+  if (!esFechaIso(rango.desde) || !esFechaIso(rango.hasta)) return []
+  const inicio = partesFechaIso(rango.desde)
+  const fin = partesFechaIso(rango.hasta)
+  const meses: Array<{ anio: number; mes: number }> = []
+  let anio = inicio.anio
+  let mes = inicio.mes
+  while (anio < fin.anio || (anio === fin.anio && mes <= fin.mes)) {
+    meses.push({ anio, mes })
+    mes += 1
+    if (mes > 12) {
+      mes = 1
+      anio += 1
+    }
+    if (meses.length > 12) break
+  }
+  return meses
+}
+
+export function fechaEnRangoIso(fecha: string, desde: string, hasta: string) {
+  const rango = normalizarRangoIso(desde, hasta)
+  return fecha >= rango.desde && fecha <= rango.hasta
+}
+
 /** Día natural en hora de Madrid. */
 export function hoyEnMadrid(ahora = new Date()) {
   const parts = new Intl.DateTimeFormat('en-GB', {

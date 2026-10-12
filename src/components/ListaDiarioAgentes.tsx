@@ -164,12 +164,14 @@ export function ListaDiarioAgentes({
           : 'flex min-h-0 flex-1 flex-col gap-2'
       }
     >
-      <FiltroRangoFechas
-        desde={rango.desde}
-        hasta={rango.hasta}
-        onDesde={setDesde}
-        onHasta={setHasta}
-      />
+      <div className="sticky top-0 z-10 bg-slate-100/95 pb-1 backdrop-blur-sm">
+        <FiltroRangoFechas
+          desde={rango.desde}
+          hasta={rango.hasta}
+          onDesde={setDesde}
+          onHasta={setHasta}
+        />
+      </div>
       <div
         className={
           acordeonTurnos

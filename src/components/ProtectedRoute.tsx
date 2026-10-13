@@ -1,3 +1,4 @@
+import { CalendarDays } from 'lucide-react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAcceso } from '@/contexts/AccesoContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -10,7 +11,10 @@ export function ProtectedRoute() {
 
   if (loading || acceso.loading) {
     return (
-      <div className="flex h-svh flex-col items-center justify-center gap-2 bg-canvas">
+      <div className="flex h-svh flex-col items-center justify-center gap-3 bg-canvas">
+        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-600 text-white">
+          <CalendarDays className="h-6 w-6" aria-hidden />
+        </span>
         <p className="text-sm font-semibold text-ink">Comprobando sesión…</p>
         <p className="text-sm text-muted">
           Si tarda demasiado, serás enviado al login.

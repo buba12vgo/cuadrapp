@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAcceso } from '@/contexts/AccesoContext'
 import { importarModulo } from '@/lib/cargaDiferida'
 import { AccesoShell } from '@/components/AccesoShell'
+import { EntradaMoapp } from '@/components/EntradaMoapp'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { LoginPage } from '@/pages/LoginPage'
 import { InicioAcceso } from '@/components/InicioAcceso'
@@ -48,7 +49,9 @@ function InicioMovil() {
 
 export default function App() {
   return (
-    <Routes>
+    <>
+      <EntradaMoapp />
+      <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AccesoShell />}>
@@ -91,6 +94,7 @@ export default function App() {
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/login" replace />} />
-    </Routes>
+      </Routes>
+    </>
   )
 }

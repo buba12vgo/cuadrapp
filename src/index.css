@@ -130,3 +130,336 @@ html:has(.movil-shell) #root {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
 }
+
+.moapp-entrada {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  color: #fff;
+  font-family: 'Plus Jakarta Sans', 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  background-color: #041821;
+  background-image:
+    radial-gradient(ellipse 42% 36% at 24% -8%, rgba(61, 142, 175, 0.38), transparent 62%),
+    radial-gradient(ellipse 40% 42% at 110% 28%, rgba(11, 79, 108, 0.9), transparent 58%),
+    radial-gradient(ellipse 48% 40% at 0% 112%, rgba(26, 117, 148, 0.32), transparent 62%),
+    linear-gradient(180deg, #041821 0%, #083d54 48%, #0b4f6c 100%);
+}
+
+.moapp-entrada::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(232, 241, 246, 0.16) 1px, transparent 1px);
+  background-size: 24px 24px;
+  opacity: 0.4;
+  animation: moapp-puntos 14s linear infinite;
+}
+
+.moapp-entrada-escena {
+  position: relative;
+  display: flex;
+  width: min(36rem, 100%);
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.moapp-entrada-marca {
+  position: relative;
+  display: grid;
+  width: 7.5rem;
+  height: 7.5rem;
+  place-items: center;
+}
+
+.moapp-entrada-halo,
+.moapp-entrada-aliento,
+.moapp-entrada-cometa {
+  position: absolute;
+  pointer-events: none;
+}
+
+.moapp-entrada-halo {
+  inset: -1.15rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(126, 200, 222, 0.55), transparent 68%);
+  opacity: 0;
+  animation: moapp-halo 1.7s ease-out both;
+}
+
+.moapp-entrada-halo.is-tarde {
+  animation-delay: 0.7s;
+}
+
+.moapp-entrada-aliento {
+  inset: -0.2rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(61, 142, 175, 0.55), transparent 70%);
+  opacity: 0;
+  animation: moapp-aliento 2.6s ease-in-out 1.15s infinite;
+}
+
+.moapp-entrada-cometa {
+  inset: -0.9rem;
+  width: calc(100% + 1.8rem);
+  height: calc(100% + 1.8rem);
+  overflow: visible;
+  fill: none;
+  stroke: #a8c9d8;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-dasharray: 0.18 0.82;
+  opacity: 0;
+  animation:
+    moapp-cometa-aparece 0.35s ease 0.9s forwards,
+    moapp-giro 4.8s linear 0.9s infinite;
+}
+
+.moapp-entrada-logo {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  width: 7.5rem;
+  height: 7.5rem;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 1.6rem;
+  background: transparent;
+  box-shadow: 0 18px 40px rgba(4, 24, 33, 0.35);
+  cursor: pointer;
+  animation:
+    moapp-logo 1.05s cubic-bezier(0.16, 1, 0.3, 1) both,
+    moapp-logo-vive 2.8s ease-in-out 1.15s infinite;
+}
+
+.moapp-entrada-logo svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.moapp-placa {
+  fill: #0b4f6c;
+}
+
+.moapp-rejilla path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: moapp-trazo 0.55s ease forwards;
+}
+
+.moapp-celda {
+  fill: #e8f1f6;
+  opacity: 0;
+  animation: moapp-celda 1.6s ease-in-out 1.35s infinite;
+}
+
+.moapp-entrada-logo:hover,
+.moapp-entrada-logo:focus-visible {
+  box-shadow:
+    0 18px 40px rgba(4, 24, 33, 0.35),
+    0 0 0 3px rgba(168, 201, 216, 0.95);
+  outline: none;
+}
+
+.moapp-entrada-nombre {
+  margin: 1.15rem 0 0;
+  font-size: clamp(3rem, 8vw, 4.6rem);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.045em;
+}
+
+.moapp-entrada-letra {
+  display: inline-block;
+  animation: moapp-letra 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.moapp-entrada-linea {
+  width: 7.5rem;
+  height: 2px;
+  margin-top: 0.85rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, #3d8eaf 35%, #e8f1f6 70%, transparent);
+  transform-origin: center;
+  animation: moapp-linea 0.7s ease 1.7s both;
+}
+
+.moapp-entrada-frase {
+  margin: 0.85rem 0 0;
+  max-width: 26rem;
+  font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.45;
+  letter-spacing: 0.02em;
+  color: rgba(232, 241, 246, 0.88);
+}
+
+.moapp-entrada-palabra {
+  display: inline-block;
+  animation: moapp-frase 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.moapp-entrada.is-salida {
+  animation: moapp-salida 0.55s ease forwards;
+  pointer-events: none;
+}
+
+@keyframes moapp-logo {
+  0% {
+    opacity: 0;
+    transform: scale(0.62) translateY(0.8rem);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.05) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes moapp-logo-vive {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-0.18rem) scale(1.03);
+  }
+}
+
+@keyframes moapp-trazo {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes moapp-celda {
+  0%,
+  100% {
+    opacity: 0.12;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@keyframes moapp-halo {
+  from {
+    opacity: 0.75;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.65);
+  }
+}
+
+@keyframes moapp-aliento {
+  0%,
+  100% {
+    opacity: 0.28;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes moapp-cometa-aparece {
+  to {
+    opacity: 0.95;
+  }
+}
+
+@keyframes moapp-giro {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes moapp-puntos {
+  to {
+    background-position: 24px 72px;
+  }
+}
+
+@keyframes moapp-letra {
+  from {
+    opacity: 0;
+    transform: translateY(0.55em);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+@keyframes moapp-linea {
+  from {
+    opacity: 0;
+    transform: scaleX(0.15);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes moapp-frase {
+  from {
+    opacity: 0;
+    transform: translateY(0.6rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes moapp-salida {
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .moapp-entrada::before,
+  .moapp-entrada-halo,
+  .moapp-entrada-aliento,
+  .moapp-entrada-cometa,
+  .moapp-entrada-logo,
+  .moapp-entrada-letra,
+  .moapp-entrada-linea,
+  .moapp-entrada-palabra,
+  .moapp-rejilla path,
+  .moapp-celda {
+    animation: none;
+  }
+
+  .moapp-entrada-cometa,
+  .moapp-entrada-aliento,
+  .moapp-entrada-halo,
+  .moapp-celda {
+    opacity: 0;
+  }
+
+  .moapp-rejilla path {
+    stroke-dashoffset: 0;
+  }
+}

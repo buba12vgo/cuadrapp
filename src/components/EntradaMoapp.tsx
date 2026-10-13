@@ -81,7 +81,7 @@ export function EntradaMoapp() {
         <p className="moapp-entrada-frase">
           {frase.map((trozo, indice) => (
             <span key={trozo} className="moapp-entrada-palabra" style={{ animationDelay: `${1.95 + indice * 0.06}s` }}>
-              {trozo}{' '}
+              {trozo}
             </span>
           ))}
         </p>

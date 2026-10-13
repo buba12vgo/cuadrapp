@@ -295,8 +295,13 @@ html:has(.movil-shell) #root {
 }
 
 .moapp-entrada-frase {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  column-gap: 0.35em;
+  row-gap: 0.12em;
   margin: 0.85rem 0 0;
-  max-width: 26rem;
+  max-width: min(24rem, 100%);
   font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
   font-size: 1rem;
   font-weight: 500;

@@ -1,4 +1,4 @@
-/ Proyecto compartido cuadrapp-899d5.
+// Proyecto compartido cuadrapp-899d5.
 // Esta es la copia que se despliega. cuadrapp/firestore.rules tiene que ser idéntica:
 // desplegar la versión corta deja las colecciones de NODUS en denegación.
 rules_version = '2';

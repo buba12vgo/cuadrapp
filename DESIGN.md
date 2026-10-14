@@ -1,4 +1,4 @@
-# Cuadrapp — sistema de diseño Puerto
+# MoaPP — sistema de diseño Puerto
 
 Fuente de verdad visual para la app y para Google Stitch (`styleGuidelines`).
 Producto: cuadrantes de turnos de la Policía Portuaria. Escritorio primero, densidad operativa, no marketing SaaS.

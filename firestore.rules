@@ -9,39 +9,50 @@ service cloud.firestore {
     }
 
     function email() {
-      return request.auth.token.email;
+      return request.auth.token.email is string ? request.auth.token.email.lower() : '';
     }
 
+    /** Sin esto, una cuenta de correo/contraseña sin verificar con uno de estos emails sería admin. */
     function verificado() {
       return request.auth.token.email_verified == true;
     }
 
     function esSuperAdmin() {
-      return sesion()
-        && verificado()
-        && email() == 'buba12@gmail.com';
+      return sesion() && verificado() && email() == 'buba12@gmail.com';
     }
 
     function esAdminJefes() {
-      return sesion()
-        && verificado()
-        && email() in ['jonymivi@gmail.com', 'jony.mivi@gmail.com'];
+      return sesion() && verificado() && email() in ['jonymivi@gmail.com', 'jony.mivi@gmail.com'];
     }
 
     function perfilConsulta() {
       return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
     }
 
-    function esConsulta() {
+    /** El perfil entra como argumento para leerlo una vez: cada get() cuenta contra el límite de 1000 expresiones. */
+    function perfilConRol(perfil, roles) {
+      return perfil.activo == true
+        && perfil.rolAcceso in roles
+        && perfil.email is string
+        && perfil.email.lower() == email();
+    }
+
+    function tienePerfilConRol(roles) {
       return sesion()
         && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
-        && perfilConsulta().activo == true
-        && perfilConsulta().rolAcceso == 'CONSULTA_JEFES'
-        && perfilConsulta().email == email();
+        && perfilConRol(perfilConsulta(), roles);
+    }
+
+    function esConsulta() {
+      return tienePerfilConRol(['CONSULTA_JEFES']);
+    }
+
+    function esAdminNominado() {
+      return tienePerfilConRol(['ADMIN', 'SUPERADMIN']);
     }
 
     function leeTodo() {
-      return esSuperAdmin() || esAdminJefes();
+      return esSuperAdmin() || esAdminJefes() || esAdminNominado();
     }
 
     function leeJefes() {
@@ -55,6 +66,33 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/agentes/$(perfilConsulta().agenteId))
         && get(/databases/$(database)/documents/agentes/$(perfilConsulta().agenteId)).data.rolBase
           in ['JEFE_SERVICIO', 'RESPONSABLE'];
+    }
+
+    /*
+     * Firmas. Admin firma libre; un agente de consulta firma con la placa y el
+     * nombre de su documento usuarios/{uid}. Quien llama ya ha comprobado
+     * esUsuarioNodus().
+     * Firestore corta en 1000 expresiones por escritura y el registro diario
+     * va al límite: la firma de consulta va antes que leeTodo() para no
+     * repetirlo. Sin documento usuarios (cuentas fijas) la firma da error, y
+     * error || true sigue siendo true.
+     */
+    function placaDeConsulta(placa) {
+      let suya = perfilConsulta().get('numeroPlaca', '');
+      return suya is string && suya.trim().size() > 0 && placa == suya.trim();
+    }
+
+    function nombreDeConsulta(nombre) {
+      let suyo = perfilConsulta().get('nombre', '');
+      return suyo is string && nombre == suyo.trim();
+    }
+
+    function nombrePropio(nombre) {
+      return nombreDeConsulta(nombre) || leeTodo();
+    }
+
+    function firmaPropia(nombre, placa) {
+      return (placaDeConsulta(placa) && nombreDeConsulta(nombre)) || leeTodo();
     }
 
     match /usuarios/{uid} {
@@ -91,11 +129,35 @@ service cloud.firestore {
       allow write: if esSuperAdmin() || esAdminJefes();
     }
 
-    match /eventos/{id} {
-      allow read: if leeJefes();
-      allow write: if esSuperAdmin()
+    function editaEventos() {
+      return esSuperAdmin()
         || esAdminJefes()
         || (esConsulta() && perfilConsulta().puedeEditarEventos == true);
+    }
+
+    /** Forma que escribe Cuadrapp (saveEvento, con merge). */
+    function eventoValido(docId) {
+      return request.resource.data.id == docId
+        && request.resource.data.fecha is string
+        && request.resource.data.fecha.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && request.resource.data.tipo is string
+        && request.resource.data.tipo.matches('^[A-Z][A-Z0-9_]{0,39}$')
+        && request.resource.data.descripcion is string
+        && request.resource.data.descripcion.size() <= 2000
+        && request.resource.data.modificadoresMinimos is map
+        && request.resource.data.modificadoresMinimos.size() <= 80;
+    }
+
+    match /eventos/{id} {
+      allow read: if leeJefes();
+      allow create: if editaEventos()
+        && eventoValido(id)
+        && request.resource.data.keys().hasOnly(['id', 'fecha', 'tipo', 'descripcion', 'modificadoresMinimos']);
+      allow update: if editaEventos()
+        && eventoValido(id)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['id', 'fecha', 'tipo', 'descripcion', 'modificadoresMinimos']);
+      allow delete: if editaEventos();
     }
 
     match /config/{id} {
@@ -265,6 +327,18 @@ service cloud.firestore {
       return valor is string && valor.size() >= 20 && valor.size() <= 40;
     }
 
+    /** Pasa un relevo apuntado a visible para el turno siguiente, sin tocar el texto. */
+    function publicarBorradorRelevo() {
+      return esUsuarioNodus()
+        && resource.data.tipo == 'RELEVO'
+        && resource.data.activo == true
+        && resource.data.estadoValidacion == 'PENDIENTE'
+        && request.resource.data.estadoValidacion == 'PUBLICADA'
+        && marcaTiempoCorta(request.resource.data.actualizadoEn)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['estadoValidacion', 'actualizadoEn']);
+    }
+
     /** El autor o un admin solo pueden archivar la nota. El texto y el tipo no cambian. */
     function desactivarNotaRelevo() {
       return esUsuarioNodus()
@@ -286,6 +360,7 @@ service cloud.firestore {
         && request.resource.data.validadoPorNombre is string
         && request.resource.data.validadoPorNombre.size() > 0
         && request.resource.data.validadoPorNombre.size() <= 120
+        && nombrePropio(request.resource.data.validadoPorNombre)
         && marcaTiempoCorta(request.resource.data.validadoEn)
         && marcaTiempoCorta(request.resource.data.actualizadoEn)
         && request.resource.data.motivoRechazo is string
@@ -321,10 +396,15 @@ service cloud.firestore {
 
       allow create: if esUsuarioNodus()
         && notaRelevoValida()
+        && firmaPropia(request.resource.data.autorNombre, request.resource.data.autorPlaca)
         && (
           (
             request.resource.data.tipo == 'RELEVO'
             && request.resource.data.puestoId != 'CECOP'
+            && (
+              !request.resource.data.keys().hasAny(['estadoValidacion'])
+              || request.resource.data.estadoValidacion == 'PENDIENTE'
+            )
           )
           || (
             request.resource.data.tipo == 'DIA'
@@ -339,10 +419,10 @@ service cloud.firestore {
           )
         );
 
-      allow update: if desactivarNotaRelevo() || validarAvisoRelevo();
+      allow update: if desactivarNotaRelevo() || validarAvisoRelevo() || publicarBorradorRelevo();
 
-      allow delete: if leeTodo()
-        || (esUsuarioNodus() && resource.data.autorUid == request.auth.uid);
+      /** El autor archiva (activo = false); borrar del libro queda para admin. */
+      allow delete: if leeTodo();
     }
 
     /** Notas fijas por puesto: jefatura, admin y superadmin. */
@@ -380,7 +460,8 @@ service cloud.firestore {
         )
         && marcaTiempoCorta(request.resource.data.creadoEn)
         && marcaTiempoCorta(request.resource.data.actualizadoEn)
-        && request.resource.data.activo == true;
+        && request.resource.data.activo == true
+        && firmaPropia(request.resource.data.autorNombre, request.resource.data.autorPlaca);
       allow update: if desactivarNotaFija();
       allow delete: if leeTodo() || esJefaturaConsulta();
     }
@@ -430,7 +511,19 @@ service cloud.firestore {
         && request.resource.data.puestoLectorNombre.size() <= 120
         && request.resource.data.leidoEn is string
         && request.resource.data.leidoEn.size() >= 20
-        && request.resource.data.leidoEn.size() <= 40;
+        && request.resource.data.leidoEn.size() <= 40
+        && (enteradoDeConsulta() || leeTodo());
+    }
+
+    /** El cliente pone 'Agente' cuando el perfil no tiene nombre. */
+    function enteradoDeConsulta() {
+      let perfil = perfilConsulta();
+      let suPlaca = perfil.get('numeroPlaca', '');
+      let suNombre = perfil.get('nombre', '');
+      return suPlaca is string
+        && suNombre is string
+        && request.resource.data.placa == suPlaca.trim()
+        && request.resource.data.nombre == (suNombre.trim() == '' ? 'Agente' : suNombre.trim());
     }
 
     /** Enterado de una nota de servicio, por agente y turno. */
@@ -506,6 +599,19 @@ service cloud.firestore {
           || resource.data.companeroId == perfilConsulta().agenteId
         ));
       allow create: if esConsulta()
+        && request.resource.data.keys().hasOnly([
+          'id', 'tipo', 'estado', 'agenteId', 'placa', 'nombreAgente', 'fecha', 'creadaEn',
+          'fechaFin', 'mesDestino', 'detalle', 'permisoCodigo', 'permisoNombre', 'resueltaEn',
+          'cobertura', 'coberturaNombre', 'companeroId', 'companeroNombre', 'turno', 'turnoDestino',
+          'motivoRechazo', 'validacionCompanero'
+        ])
+        && request.resource.data.id == id
+        && request.resource.data.fecha is string
+        && request.resource.data.fecha.size() == 10
+        && request.resource.data.creadaEn is string
+        && request.resource.data.creadaEn.size() <= 40
+        && request.resource.data.get('detalle', '') is string
+        && request.resource.data.get('detalle', '').size() <= 2000
         && request.resource.data.agenteId == perfilConsulta().agenteId
         && request.resource.data.estado == 'PENDIENTE'
         && request.resource.data.tipo in ['PERMISO', 'CAMBIO_DIA', 'CAMBIO_MES', 'VACACIONES']
@@ -580,108 +686,310 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    function posicionAtraqueValida(item) {
-      return item.keys().hasOnly(['id', 'lat', 'lng', 'rumbo', 'escala'])
-        && item.id is string
-        && item.id.size() > 0
-        && item.id.size() <= 16
-        && item.lat is number
-        && item.lat >= 42.16
-        && item.lat <= 42.32
-        && item.lng is number
-        && item.lng >= -8.97
-        && item.lng <= -8.61
-        && item.rumbo is number
-        && item.rumbo >= 0
-        && item.rumbo < 360
-        && item.escala is number
-        && item.escala >= 0.5
-        && item.escala <= 3;
+    /**
+     * Posiciones de atraque. No se comprueba cada punto: Firestore evalúa
+     * como máximo 1000 expresiones y un bucle desenrollado por índice
+     * deniega el guardado en cuanto hay unas cuarenta posiciones válidas.
+     * Quien escribe este documento ya es admin (leeTodo).
+     */
+    function posicionesListaValida(lista) {
+      return lista is list
+        && lista.size() > 0
+        && lista.size() <= 120;
     }
 
-    function posicionesListaValida(lista) {
-      return lista.size() > 0
-        && lista.size() <= 80
-        && (lista.size() <= 0 || posicionAtraqueValida(lista[0]))
-        && (lista.size() <= 1 || posicionAtraqueValida(lista[1]))
-        && (lista.size() <= 2 || posicionAtraqueValida(lista[2]))
-        && (lista.size() <= 3 || posicionAtraqueValida(lista[3]))
-        && (lista.size() <= 4 || posicionAtraqueValida(lista[4]))
-        && (lista.size() <= 5 || posicionAtraqueValida(lista[5]))
-        && (lista.size() <= 6 || posicionAtraqueValida(lista[6]))
-        && (lista.size() <= 7 || posicionAtraqueValida(lista[7]))
-        && (lista.size() <= 8 || posicionAtraqueValida(lista[8]))
-        && (lista.size() <= 9 || posicionAtraqueValida(lista[9]))
-        && (lista.size() <= 10 || posicionAtraqueValida(lista[10]))
-        && (lista.size() <= 11 || posicionAtraqueValida(lista[11]))
-        && (lista.size() <= 12 || posicionAtraqueValida(lista[12]))
-        && (lista.size() <= 13 || posicionAtraqueValida(lista[13]))
-        && (lista.size() <= 14 || posicionAtraqueValida(lista[14]))
-        && (lista.size() <= 15 || posicionAtraqueValida(lista[15]))
-        && (lista.size() <= 16 || posicionAtraqueValida(lista[16]))
-        && (lista.size() <= 17 || posicionAtraqueValida(lista[17]))
-        && (lista.size() <= 18 || posicionAtraqueValida(lista[18]))
-        && (lista.size() <= 19 || posicionAtraqueValida(lista[19]))
-        && (lista.size() <= 20 || posicionAtraqueValida(lista[20]))
-        && (lista.size() <= 21 || posicionAtraqueValida(lista[21]))
-        && (lista.size() <= 22 || posicionAtraqueValida(lista[22]))
-        && (lista.size() <= 23 || posicionAtraqueValida(lista[23]))
-        && (lista.size() <= 24 || posicionAtraqueValida(lista[24]))
-        && (lista.size() <= 25 || posicionAtraqueValida(lista[25]))
-        && (lista.size() <= 26 || posicionAtraqueValida(lista[26]))
-        && (lista.size() <= 27 || posicionAtraqueValida(lista[27]))
-        && (lista.size() <= 28 || posicionAtraqueValida(lista[28]))
-        && (lista.size() <= 29 || posicionAtraqueValida(lista[29]))
-        && (lista.size() <= 30 || posicionAtraqueValida(lista[30]))
-        && (lista.size() <= 31 || posicionAtraqueValida(lista[31]))
-        && (lista.size() <= 32 || posicionAtraqueValida(lista[32]))
-        && (lista.size() <= 33 || posicionAtraqueValida(lista[33]))
-        && (lista.size() <= 34 || posicionAtraqueValida(lista[34]))
-        && (lista.size() <= 35 || posicionAtraqueValida(lista[35]))
-        && (lista.size() <= 36 || posicionAtraqueValida(lista[36]))
-        && (lista.size() <= 37 || posicionAtraqueValida(lista[37]))
-        && (lista.size() <= 38 || posicionAtraqueValida(lista[38]))
-        && (lista.size() <= 39 || posicionAtraqueValida(lista[39]))
-        && (lista.size() <= 40 || posicionAtraqueValida(lista[40]))
-        && (lista.size() <= 41 || posicionAtraqueValida(lista[41]))
-        && (lista.size() <= 42 || posicionAtraqueValida(lista[42]))
-        && (lista.size() <= 43 || posicionAtraqueValida(lista[43]))
-        && (lista.size() <= 44 || posicionAtraqueValida(lista[44]))
-        && (lista.size() <= 45 || posicionAtraqueValida(lista[45]))
-        && (lista.size() <= 46 || posicionAtraqueValida(lista[46]))
-        && (lista.size() <= 47 || posicionAtraqueValida(lista[47]))
-        && (lista.size() <= 48 || posicionAtraqueValida(lista[48]))
-        && (lista.size() <= 49 || posicionAtraqueValida(lista[49]))
-        && (lista.size() <= 50 || posicionAtraqueValida(lista[50]))
-        && (lista.size() <= 51 || posicionAtraqueValida(lista[51]))
-        && (lista.size() <= 52 || posicionAtraqueValida(lista[52]))
-        && (lista.size() <= 53 || posicionAtraqueValida(lista[53]))
-        && (lista.size() <= 54 || posicionAtraqueValida(lista[54]))
-        && (lista.size() <= 55 || posicionAtraqueValida(lista[55]))
-        && (lista.size() <= 56 || posicionAtraqueValida(lista[56]))
-        && (lista.size() <= 57 || posicionAtraqueValida(lista[57]))
-        && (lista.size() <= 58 || posicionAtraqueValida(lista[58]))
-        && (lista.size() <= 59 || posicionAtraqueValida(lista[59]))
-        && (lista.size() <= 60 || posicionAtraqueValida(lista[60]))
-        && (lista.size() <= 61 || posicionAtraqueValida(lista[61]))
-        && (lista.size() <= 62 || posicionAtraqueValida(lista[62]))
-        && (lista.size() <= 63 || posicionAtraqueValida(lista[63]))
-        && (lista.size() <= 64 || posicionAtraqueValida(lista[64]))
-        && (lista.size() <= 65 || posicionAtraqueValida(lista[65]))
-        && (lista.size() <= 66 || posicionAtraqueValida(lista[66]))
-        && (lista.size() <= 67 || posicionAtraqueValida(lista[67]))
-        && (lista.size() <= 68 || posicionAtraqueValida(lista[68]))
-        && (lista.size() <= 69 || posicionAtraqueValida(lista[69]))
-        && (lista.size() <= 70 || posicionAtraqueValida(lista[70]))
-        && (lista.size() <= 71 || posicionAtraqueValida(lista[71]))
-        && (lista.size() <= 72 || posicionAtraqueValida(lista[72]))
-        && (lista.size() <= 73 || posicionAtraqueValida(lista[73]))
-        && (lista.size() <= 74 || posicionAtraqueValida(lista[74]))
-        && (lista.size() <= 75 || posicionAtraqueValida(lista[75]))
-        && (lista.size() <= 76 || posicionAtraqueValida(lista[76]))
-        && (lista.size() <= 77 || posicionAtraqueValida(lista[77]))
-        && (lista.size() <= 78 || posicionAtraqueValida(lista[78]))
-        && (lista.size() <= 79 || posicionAtraqueValida(lista[79]));
+    function zonaGruaValida(item) {
+      return item is map
+        && item.keys().hasOnly(['muelleId', 'todos', 'atraques'])
+        && item.muelleId is string
+        && item.muelleId.size() > 0
+        && item.muelleId.size() <= 40
+        && item.todos is bool
+        && item.atraques is list
+        && item.atraques.size() <= 40
+        && (item.todos == true || item.atraques.size() > 0);
+    }
+
+    function gruaValida() {
+      return request.resource.data.keys().hasOnly(['nombre', 'zonas', 'activo', 'creadoEn', 'actualizadoEn'])
+        && request.resource.data.nombre is string
+        && request.resource.data.nombre.size() > 0
+        && request.resource.data.nombre.size() <= 80
+        && request.resource.data.activo == true
+        && request.resource.data.actualizadoEn is string
+        && request.resource.data.actualizadoEn.size() >= 20
+        && request.resource.data.actualizadoEn.size() <= 40
+        && request.resource.data.zonas is list
+        && request.resource.data.zonas.size() > 0
+        && request.resource.data.zonas.size() <= 12
+        && zonaGruaValida(request.resource.data.zonas[0])
+        && (request.resource.data.zonas.size() < 2 || zonaGruaValida(request.resource.data.zonas[1]))
+        && (request.resource.data.zonas.size() < 3 || zonaGruaValida(request.resource.data.zonas[2]))
+        && (request.resource.data.zonas.size() < 4 || zonaGruaValida(request.resource.data.zonas[3]))
+        && (request.resource.data.zonas.size() < 5 || zonaGruaValida(request.resource.data.zonas[4]))
+        && (request.resource.data.zonas.size() < 6 || zonaGruaValida(request.resource.data.zonas[5]))
+        && (request.resource.data.zonas.size() < 7 || zonaGruaValida(request.resource.data.zonas[6]))
+        && (request.resource.data.zonas.size() < 8 || zonaGruaValida(request.resource.data.zonas[7]))
+        && (request.resource.data.zonas.size() < 9 || zonaGruaValida(request.resource.data.zonas[8]))
+        && (request.resource.data.zonas.size() < 10 || zonaGruaValida(request.resource.data.zonas[9]))
+        && (request.resource.data.zonas.size() < 11 || zonaGruaValida(request.resource.data.zonas[10]))
+        && (request.resource.data.zonas.size() < 12 || zonaGruaValida(request.resource.data.zonas[11]));
+    }
+
+    function zonaLlavesValida() {
+      return request.resource.data.keys().hasOnly(['nombre', 'codigo', 'color', 'orden', 'creadoEn'])
+        && request.resource.data.nombre is string
+        && request.resource.data.nombre.size() > 0
+        && request.resource.data.nombre.size() <= 80
+        && request.resource.data.codigo is string
+        && request.resource.data.codigo.size() <= 16
+        && request.resource.data.color in ['rojo', 'azul', 'verde', 'ambar', 'violeta', 'teal']
+        && request.resource.data.orden is int
+        && request.resource.data.orden >= 0
+        && request.resource.data.orden <= 9999
+        && request.resource.data.creadoEn is string
+        && request.resource.data.creadoEn.size() >= 20
+        && request.resource.data.creadoEn.size() <= 40;
+    }
+
+    function llavePuntoValido() {
+      return !request.resource.data.keys().hasAny(['lat', 'lng', 'rumbo', 'escala'])
+        || (
+          request.resource.data.keys().hasAll(['lat', 'lng', 'rumbo', 'escala'])
+          && request.resource.data.lat is number
+          && request.resource.data.lat >= 42.1
+          && request.resource.data.lat <= 42.35
+          && request.resource.data.lng is number
+          && request.resource.data.lng >= -9
+          && request.resource.data.lng <= -8.55
+          && request.resource.data.rumbo is number
+          && request.resource.data.rumbo >= 0
+          && request.resource.data.rumbo < 360
+          && request.resource.data.escala is number
+          && request.resource.data.escala >= 0.6
+          && request.resource.data.escala <= 2.4
+        );
+    }
+
+    function llaveCatalogoValida() {
+      return request.resource.data.keys().hasOnly(['zonaId', 'numero', 'nombre', 'orden', 'creadoEn', 'lat', 'lng', 'rumbo', 'escala'])
+        && request.resource.data.zonaId is string
+        && request.resource.data.zonaId.size() > 0
+        && request.resource.data.zonaId.size() <= 80
+        && request.resource.data.numero is string
+        && request.resource.data.numero.size() > 0
+        && request.resource.data.numero.size() <= 16
+        && request.resource.data.nombre is string
+        && request.resource.data.nombre.size() > 0
+        && request.resource.data.nombre.size() <= 120
+        && request.resource.data.orden is int
+        && request.resource.data.orden >= 0
+        && request.resource.data.orden <= 9999
+        && request.resource.data.creadoEn is string
+        && request.resource.data.creadoEn.size() >= 20
+        && request.resource.data.creadoEn.size() <= 40
+        && llavePuntoValido();
+    }
+
+    /** Catálogo de zonas y llaves. Lo lee el centro de control; solo admin lo escribe. */
+    match /llavesZonas/{id} {
+      allow read: if esUsuarioNodus();
+      allow create, update: if leeTodo() && zonaLlavesValida();
+      allow delete: if leeTodo();
+    }
+
+    match /llaves/{id} {
+      allow read: if esUsuarioNodus();
+      allow create, update: if leeTodo() && llaveCatalogoValida();
+      allow delete: if leeTodo();
+    }
+
+    /** Grúas del trabajo de buques. Las lee el centro de control; solo admin las escribe. */
+    match /gruas/{id} {
+      allow read: if esUsuarioNodus();
+      allow create: if leeTodo() && gruaValida() && request.resource.data.keys().hasAll(['creadoEn']);
+      allow update: if leeTodo() && gruaValida();
+      allow delete: if leeTodo();
+    }
+
+    function parCalibracionValido(item) {
+      return item is map
+        && item.keys().hasOnly(['id', 'x', 'y', 'lat', 'lng', 'etiqueta'])
+        && item.id is string
+        && item.id.size() > 0
+        && item.id.size() <= 40
+        && item.etiqueta is string
+        && item.etiqueta.size() <= 80
+        && item.x is number
+        && item.x >= 0
+        && item.x <= 100
+        && item.y is number
+        && item.y >= 0
+        && item.y <= 100
+        && item.lat is number
+        && item.lat >= 41.8
+        && item.lat <= 43.3
+        && item.lng is number
+        && item.lng >= -9.5
+        && item.lng <= -8.2;
+    }
+
+    function listaParesValida(lista) {
+      return lista is list
+        && lista.size() <= 12
+        && (lista.size() < 1 || parCalibracionValido(lista[0]))
+        && (lista.size() < 2 || parCalibracionValido(lista[1]))
+        && (lista.size() < 3 || parCalibracionValido(lista[2]))
+        && (lista.size() < 4 || parCalibracionValido(lista[3]))
+        && (lista.size() < 5 || parCalibracionValido(lista[4]))
+        && (lista.size() < 6 || parCalibracionValido(lista[5]))
+        && (lista.size() < 7 || parCalibracionValido(lista[6]))
+        && (lista.size() < 8 || parCalibracionValido(lista[7]))
+        && (lista.size() < 9 || parCalibracionValido(lista[8]))
+        && (lista.size() < 10 || parCalibracionValido(lista[9]))
+        && (lista.size() < 11 || parCalibracionValido(lista[10]))
+        && (lista.size() < 12 || parCalibracionValido(lista[11]));
+    }
+
+    function planoCalibradoValido(item) {
+      return item is map
+        && item.keys().hasOnly(['referencias', 'verificacion', 'revisada', 'opacidad'])
+        && listaParesValida(item.referencias)
+        && listaParesValida(item.verificacion)
+        && item.revisada is bool
+        && item.opacidad is number
+        && item.opacidad >= 0
+        && item.opacidad <= 1;
+    }
+
+    function zonaDispositivoValida(item) {
+      return item is map
+        && item.keys().hasOnly(['codigo', 'nombre'])
+        && item.codigo is number
+        && item.codigo >= 0
+        && item.codigo <= 30
+        && item.codigo == int(item.codigo)
+        && item.nombre is string
+        && item.nombre.size() > 0
+        && item.nombre.size() <= 80;
+    }
+
+    function subelementoDispositivoValido(item) {
+      return item is map
+        && item.keys().hasOnly(['nombre', 'estado'])
+        && item.nombre is string
+        && item.nombre.size() > 0
+        && item.nombre.size() <= 80
+        && item.estado is string
+        && item.estado.size() > 0
+        && item.estado.size() <= 40;
+    }
+
+    function incidenciaDispositivoValida(item) {
+      return item is map
+        && item.keys().hasOnly(['id', 'fecha', 'texto', 'estado'])
+        && item.id is string
+        && item.id.size() > 0
+        && item.id.size() <= 80
+        && item.fecha is string
+        && item.fecha.size() <= 40
+        && item.texto is string
+        && item.texto.size() > 0
+        && item.texto.size() <= 500
+        && item.estado is string
+        && item.estado.size() <= 40;
+    }
+
+    function puntoDispositivoValido(item) {
+      return item is map
+        && item.keys().hasOnly(['mapa', 'x', 'y'])
+        && item.mapa in ['general', 'berbes_interiores', 'lonjas_interiores']
+        && item.x is number
+        && item.x >= 0
+        && item.x <= 100
+        && item.y is number
+        && item.y >= 0
+        && item.y <= 100;
+    }
+
+    function dispositivoValido() {
+      return request.resource.data.keys().hasOnly([
+          'tipo', 'numero', 'nombre', 'zonas', 'estado', 'subelementos', 'incidencias',
+          'oculto', 'ocultoMotivo', 'fueraPlano', 'puntos', 'geoManual', 'ausente', 'actualizadoEn'
+        ])
+        && request.resource.data.tipo in ['CAMARA', 'BARRERA', 'PORTALON', 'TORNO']
+        && request.resource.data.numero is string
+        && request.resource.data.numero.size() <= 8
+        && request.resource.data.nombre is string
+        && request.resource.data.nombre.size() > 0
+        && request.resource.data.nombre.size() <= 80
+        && request.resource.data.zonas is list
+        && request.resource.data.zonas.size() > 0
+        && request.resource.data.zonas.size() <= 6
+        && request.resource.data.zonas[0] is int
+        && (request.resource.data.zonas.size() < 2 || request.resource.data.zonas[1] is int)
+        && (request.resource.data.zonas.size() < 3 || request.resource.data.zonas[2] is int)
+        && (request.resource.data.zonas.size() < 4 || request.resource.data.zonas[3] is int)
+        && (request.resource.data.zonas.size() < 5 || request.resource.data.zonas[4] is int)
+        && (request.resource.data.zonas.size() < 6 || request.resource.data.zonas[5] is int)
+        && request.resource.data.estado is string
+        && request.resource.data.estado.size() > 0
+        && request.resource.data.estado.size() <= 40
+        && request.resource.data.subelementos is list
+        && request.resource.data.subelementos.size() <= 8
+        && (request.resource.data.subelementos.size() < 1 || subelementoDispositivoValido(request.resource.data.subelementos[0]))
+        && (request.resource.data.subelementos.size() < 2 || subelementoDispositivoValido(request.resource.data.subelementos[1]))
+        && (request.resource.data.subelementos.size() < 3 || subelementoDispositivoValido(request.resource.data.subelementos[2]))
+        && (request.resource.data.subelementos.size() < 4 || subelementoDispositivoValido(request.resource.data.subelementos[3]))
+        && (request.resource.data.subelementos.size() < 5 || subelementoDispositivoValido(request.resource.data.subelementos[4]))
+        && (request.resource.data.subelementos.size() < 6 || subelementoDispositivoValido(request.resource.data.subelementos[5]))
+        && (request.resource.data.subelementos.size() < 7 || subelementoDispositivoValido(request.resource.data.subelementos[6]))
+        && (request.resource.data.subelementos.size() < 8 || subelementoDispositivoValido(request.resource.data.subelementos[7]))
+        && request.resource.data.incidencias is list
+        && request.resource.data.incidencias.size() <= 12
+        && (request.resource.data.incidencias.size() < 1 || incidenciaDispositivoValida(request.resource.data.incidencias[0]))
+        && (request.resource.data.incidencias.size() < 2 || incidenciaDispositivoValida(request.resource.data.incidencias[1]))
+        && (request.resource.data.incidencias.size() < 3 || incidenciaDispositivoValida(request.resource.data.incidencias[2]))
+        && (request.resource.data.incidencias.size() < 4 || incidenciaDispositivoValida(request.resource.data.incidencias[3]))
+        && (request.resource.data.incidencias.size() < 5 || incidenciaDispositivoValida(request.resource.data.incidencias[4]))
+        && (request.resource.data.incidencias.size() < 6 || incidenciaDispositivoValida(request.resource.data.incidencias[5]))
+        && (request.resource.data.incidencias.size() < 7 || incidenciaDispositivoValida(request.resource.data.incidencias[6]))
+        && (request.resource.data.incidencias.size() < 8 || incidenciaDispositivoValida(request.resource.data.incidencias[7]))
+        && (request.resource.data.incidencias.size() < 9 || incidenciaDispositivoValida(request.resource.data.incidencias[8]))
+        && (request.resource.data.incidencias.size() < 10 || incidenciaDispositivoValida(request.resource.data.incidencias[9]))
+        && (request.resource.data.incidencias.size() < 11 || incidenciaDispositivoValida(request.resource.data.incidencias[10]))
+        && (request.resource.data.incidencias.size() < 12 || incidenciaDispositivoValida(request.resource.data.incidencias[11]))
+        && request.resource.data.oculto is bool
+        && request.resource.data.ocultoMotivo is string
+        && request.resource.data.ocultoMotivo.size() <= 200
+        && request.resource.data.fueraPlano is bool
+        && request.resource.data.puntos is list
+        && request.resource.data.puntos.size() <= 3
+        && (request.resource.data.puntos.size() < 1 || puntoDispositivoValido(request.resource.data.puntos[0]))
+        && (request.resource.data.puntos.size() < 2 || puntoDispositivoValido(request.resource.data.puntos[1]))
+        && (request.resource.data.puntos.size() < 3 || puntoDispositivoValido(request.resource.data.puntos[2]))
+        && (!request.resource.data.keys().hasAny(['geoManual'])
+          || (request.resource.data.geoManual is map
+            && request.resource.data.geoManual.keys().hasOnly(['lat', 'lng'])
+            && request.resource.data.geoManual.lat is number
+            && request.resource.data.geoManual.lng is number))
+        && request.resource.data.ausente is bool
+        && request.resource.data.actualizadoEn is string
+        && request.resource.data.actualizadoEn.size() >= 20
+        && request.resource.data.actualizadoEn.size() <= 40;
+    }
+
+    /** Cámaras, barreras, tornos y portalones. El centro de control solo cambia estado e incidencias. */
+    match /dispositivos/{id} {
+      allow read: if esUsuarioNodus();
+      allow create: if leeTodo() && dispositivoValido();
+      allow update: if dispositivoValido() && (
+        leeTodo()
+        || (esUsuarioNodus()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'incidencias', 'actualizadoEn'])
+          && request.resource.data.estado in ['OPERATIVA', 'NO OPERATIVA'])
+      );
+      allow delete: if leeTodo();
     }
 
     /** Plano de muelles y coordenadas de atraque. Solo admin o superadmin escriben. */
@@ -697,6 +1005,13 @@ service cloud.firestore {
           && request.resource.data.keys().hasOnly(['posiciones'])
           && request.resource.data.posiciones is list
           && posicionesListaValida(request.resource.data.posiciones))
+        || (id == 'dispositivosCalibracion'
+          && request.resource.data.keys().hasOnly(['general', 'berbes_interiores', 'lonjas_interiores', 'zonas'])
+          && request.resource.data.general is map
+          && request.resource.data.berbes_interiores is map
+          && request.resource.data.lonjas_interiores is map
+          && request.resource.data.zonas is list
+          && request.resource.data.zonas.size() <= 20)
       );
       allow delete: if false;
     }
@@ -729,7 +1044,7 @@ service cloud.firestore {
     }
 
     function campoTexto(mapa, clave) {
-      return !mapa.keys().hasAny([clave])
+      return !(clave in mapa)
         || (mapa[clave] is string && mapa[clave].size() > 0 && mapa[clave].size() <= 400);
     }
 
@@ -738,9 +1053,12 @@ service cloud.firestore {
         && mapa.size() > 0
         && mapa.size() <= 20
         && mapa.keys().hasOnly([
-          'tipo', 'hora', 'buque', 'muelle', 'atraque', 'numeroEscala', 'grua', 'horaFin',
+          'tipo', 'hora', 'buque', 'muelle', 'atraque', 'numeroEscala', 'grua', 'estibadores', 'horaFin',
           'portalon', 'accion', 'motivo', 'informacion', 'descripcion', 'referencia',
-          'numeroParte', 'estado', 'camara', 'solicitante', 'protocolo', 'llave',
+          'numeroParte', 'estado', 'estadoCierra', 'camara', 'acta', 'extraccion', 'solicitante', 'protocolo', 'llave', 'llaveId',
+          'equipos', 'equiposTexto',
+          'nombre', 'empresa', 'gestion',
+          'piezas', 'desde', 'hasta', 'incidencias',
           'receptor', 'ubicacion', 'recorrido', 'equipo', 'zona', 'autorizacion', 'observaciones'
         ])
         && campoTexto(mapa, 'tipo')
@@ -750,6 +1068,7 @@ service cloud.firestore {
         && campoTexto(mapa, 'atraque')
         && campoTexto(mapa, 'numeroEscala')
         && campoTexto(mapa, 'grua')
+        && campoTexto(mapa, 'estibadores')
         && campoTexto(mapa, 'horaFin')
         && campoTexto(mapa, 'portalon')
         && campoTexto(mapa, 'accion')
@@ -759,17 +1078,30 @@ service cloud.firestore {
         && campoTexto(mapa, 'referencia')
         && campoTexto(mapa, 'numeroParte')
         && campoTexto(mapa, 'estado')
+        && campoTexto(mapa, 'estadoCierra')
         && campoTexto(mapa, 'camara')
+        && campoTexto(mapa, 'acta')
+        && campoTexto(mapa, 'extraccion')
+        && campoTexto(mapa, 'nombre')
+        && campoTexto(mapa, 'empresa')
+        && campoTexto(mapa, 'gestion')
+        && campoTexto(mapa, 'piezas')
+        && campoTexto(mapa, 'desde')
+        && campoTexto(mapa, 'hasta')
+        && campoTexto(mapa, 'incidencias')
         && campoTexto(mapa, 'solicitante')
         && campoTexto(mapa, 'protocolo')
         && campoTexto(mapa, 'llave')
+        && campoTexto(mapa, 'llaveId')
         && campoTexto(mapa, 'receptor')
         && campoTexto(mapa, 'ubicacion')
         && campoTexto(mapa, 'recorrido')
         && campoTexto(mapa, 'equipo')
         && campoTexto(mapa, 'zona')
         && campoTexto(mapa, 'autorizacion')
-        && campoTexto(mapa, 'observaciones');
+        && campoTexto(mapa, 'observaciones')
+        && campoTexto(mapa, 'equipos')
+        && campoTexto(mapa, 'equiposTexto');
     }
 
     function diaRegistroValido() {
@@ -782,6 +1114,20 @@ service cloud.firestore {
         && request.resource.data.actualizadoPorNombre is string
         && request.resource.data.actualizadoPorNombre.size() > 0
         && request.resource.data.actualizadoPorNombre.size() <= 120;
+    }
+
+    function isoDia(t) {
+      return string(t.year()) + '-' + pad2(t.month()) + '-' + pad2(t.day());
+    }
+
+    /**
+     * Ayer, hoy o mañana en UTC. Cubre la fecha local de España y el turno
+     * de noche; los días anteriores ya no los reescribe un agente.
+     */
+    function fechaDeServicio(fecha) {
+      return fecha == isoDia(request.time)
+        || fecha == isoDia(request.time - duration.value(1, 'd'))
+        || fecha == isoDia(request.time + duration.value(1, 'd'));
     }
 
     function filaRegistroValida() {
@@ -799,6 +1145,7 @@ service cloud.firestore {
         && request.resource.data.autorNombre.size() <= 120
         && request.resource.data.autorPlaca is string
         && request.resource.data.autorPlaca.size() <= 16
+        && firmaPropia(request.resource.data.autorNombre, request.resource.data.autorPlaca)
         && request.resource.data.creadoEn is string
         && request.resource.data.creadoEn.size() >= 20
         && request.resource.data.creadoEn.size() <= 40
@@ -813,37 +1160,317 @@ service cloud.firestore {
         );
     }
 
+    /**
+     * Las claves que no cambian ya se validaron al crear la fila; revisar las
+     * 40 en cada actualización agota el límite de 1000 expresiones.
+     */
+    function camposCambianSolo(claves) {
+      let nuevos = request.resource.data.campos;
+      return nuevos is map
+        && nuevos.size() > 0
+        && nuevos.size() <= 20
+        && nuevos.diff(resource.data.campos).affectedKeys().hasOnly(claves)
+        && campoTexto(nuevos, 'horaFin')
+        && campoTexto(nuevos, 'estado')
+        && campoTexto(nuevos, 'estadoCierra')
+        && campoTexto(nuevos, 'numeroParte')
+        && campoTexto(nuevos, 'incidencias');
+    }
+
     function cierreFilaValido() {
       return resource.data.abierto == true
         && request.resource.data.abierto == false
-        && (resource.data.autorUid == request.auth.uid || leeTodo())
+        && (resource.data.autorUid == request.auth.uid || leeTodo() || resource.data.bloque in ['llaves', 'protocolos', 'transportes', 'varios'])
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['abierto', 'fechaCierre', 'horaCierre', 'campos', 'cerradoEn', 'cerradoPorUid', 'cerradoPorNombre'])
         && request.resource.data.fechaCierre is string
         && request.resource.data.fechaCierre.size() == 10
         && request.resource.data.fechaCierre >= resource.data.fecha
         && request.resource.data.horaCierre is string
         && request.resource.data.horaCierre.size() == 5
-        && camposRegistroValidos(request.resource.data.campos)
+        && camposCambianSolo(['horaFin', 'estado', 'estadoCierra', 'numeroParte', 'incidencias'])
         && request.resource.data.cerradoEn is string
         && request.resource.data.cerradoEn.size() >= 20
         && request.resource.data.cerradoEn.size() <= 40
         && request.resource.data.cerradoPorUid == request.auth.uid
         && request.resource.data.cerradoPorNombre is string
         && request.resource.data.cerradoPorNombre.size() > 0
-        && request.resource.data.cerradoPorNombre.size() <= 120;
+        && request.resource.data.cerradoPorNombre.size() <= 120
+        && nombrePropio(request.resource.data.cerradoPorNombre);
+    }
+
+    /**
+     * Actualiza un registro que sigue abierto, sin cerrarlo: número de parte
+     * del protocolo, incidencias del transporte o estado de varios.
+     */
+    function anotacionFilaValida() {
+      return resource.data.abierto == true
+        && request.resource.data.abierto == true
+        && resource.data.bloque in ['protocolos', 'transportes', 'varios']
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['campos'])
+        && camposCambianSolo(['numeroParte', 'incidencias', 'estado', 'estadoCierra']);
+    }
+
+    /** Corrige las incidencias de un transporte ya cerrado. El resto de la fila no cambia. */
+    function correccionFilaValida() {
+      return resource.data.abierto == false
+        && request.resource.data.abierto == false
+        && resource.data.bloque == 'transportes'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['campos'])
+        && camposCambianSolo(['incidencias']);
+    }
+
+    function catalogoOperativoValido() {
+      return request.resource.data.keys().hasOnly(['tipo', 'nombre', 'sigue', 'creadoEn', 'actualizadoEn'])
+        && request.resource.data.tipo in ['empresa', 'desde', 'hasta', 'estado']
+        && request.resource.data.nombre is string
+        && request.resource.data.nombre.size() > 0
+        && request.resource.data.nombre.size() <= 80
+        && request.resource.data.sigue is bool
+        && request.resource.data.creadoEn is string
+        && request.resource.data.creadoEn.size() >= 20
+        && request.resource.data.creadoEn.size() <= 40
+        && request.resource.data.actualizadoEn is string
+        && request.resource.data.actualizadoEn.size() >= 20
+        && request.resource.data.actualizadoEn.size() <= 40;
+    }
+
+    /** Empresas, orígenes, destinos y estados que usa el registro diario. */
+    match /catalogoOperativo/{id} {
+      allow read: if esUsuarioNodus();
+      allow create, update: if leeTodo() && catalogoOperativoValido();
+      allow delete: if leeTodo();
     }
 
     match /registroControlDias/{fecha} {
       allow read: if esUsuarioNodus();
-      allow create, update: if esUsuarioNodus() && diaRegistroValido() && request.resource.data.fecha == fecha;
+      allow create, update: if diaRegistroValido()
+        && request.resource.data.fecha == fecha
+        && (
+          leeTodo()
+          || (
+            esConsulta()
+            && fechaDeServicio(fecha)
+            && nombreDeConsulta(request.resource.data.actualizadoPorNombre)
+          )
+        );
       allow delete: if leeTodo();
     }
 
     match /registroControlFilas/{id} {
       allow read: if esUsuarioNodus();
       allow create: if esUsuarioNodus() && filaRegistroValida();
-      allow update: if esUsuarioNodus() && cierreFilaValido();
+      allow update: if esUsuarioNodus() && (cierreFilaValido() || anotacionFilaValida() || correccionFilaValida());
       allow delete: if esUsuarioNodus() && (leeTodo() || resource.data.autorUid == request.auth.uid);
+    }
+
+    function ajustesAccesosValidos() {
+      return request.resource.data.keys().hasOnly(['puestosToma', 'puestoControlId', 'actualizadoEn'])
+        && request.resource.data.puestosToma is list
+        && request.resource.data.puestosToma.size() <= 40
+        && request.resource.data.puestoControlId is string
+        && request.resource.data.puestoControlId.size() <= 64
+        && request.resource.data.actualizadoEn is string
+        && request.resource.data.actualizadoEn.size() >= 20
+        && request.resource.data.actualizadoEn.size() <= 40;
+    }
+
+    function pasoAccesoValido() {
+      return request.resource.data.keys().hasOnly([
+          'fecha', 'turno', 'puestoId', 'puestoNombre', 'matricula', 'tipoVehiculo',
+          'empresaPertenece', 'empresaDestino', 'autorUid', 'autorNombre', 'autorPlaca', 'creadoEn',
+          'creadoServidor'
+        ])
+        && (
+          !request.resource.data.keys().hasAny(['creadoServidor'])
+          || request.resource.data.creadoServidor == request.time
+        )
+        && request.resource.data.fecha is string
+        && request.resource.data.fecha.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && request.resource.data.turno in ['Mañana', 'Tarde', 'Noche']
+        && request.resource.data.puestoId is string
+        && request.resource.data.puestoId.size() > 0
+        && request.resource.data.puestoId.size() <= 64
+        && request.resource.data.puestoNombre is string
+        && request.resource.data.puestoNombre.size() > 0
+        && request.resource.data.puestoNombre.size() <= 80
+        && request.resource.data.matricula is string
+        && request.resource.data.matricula.matches('^[A-Z0-9]{4,12}$')
+        && request.resource.data.tipoVehiculo in ['Turismo', 'Furgoneta', 'Camión', 'Cabeza tractora', 'Autobús', 'Motocicleta', 'Maquinaria', 'Otro']
+        && request.resource.data.empresaPertenece is string
+        && request.resource.data.empresaPertenece.size() > 0
+        && request.resource.data.empresaPertenece.size() <= 80
+        && request.resource.data.empresaDestino is string
+        && request.resource.data.empresaDestino.size() > 0
+        && request.resource.data.empresaDestino.size() <= 80
+        && request.resource.data.autorUid == request.auth.uid
+        && request.resource.data.autorNombre is string
+        && request.resource.data.autorNombre.size() > 0
+        && request.resource.data.autorNombre.size() <= 120
+        && request.resource.data.autorPlaca is string
+        && request.resource.data.autorPlaca.size() <= 16
+        && firmaPropia(request.resource.data.autorNombre, request.resource.data.autorPlaca)
+        && request.resource.data.creadoEn is string
+        && request.resource.data.creadoEn.size() >= 20
+        && request.resource.data.creadoEn.size() <= 40;
+    }
+
+    /** El autor puede retirar un paso mal anotado durante 15 minutos (hora del servidor). */
+    function pasoRetirablePorAutor() {
+      return resource.data.autorUid == request.auth.uid
+        && resource.data.get('creadoServidor', null) is timestamp
+        && request.time < resource.data.creadoServidor + duration.value(15, 'm');
+    }
+
+    /** Puestos que toman datos y el puesto de Control de Accesos. */
+    match /accesosAjustes/{id} {
+      allow read: if esUsuarioNodus();
+      allow create, update: if leeTodo() && ajustesAccesosValidos();
+      allow delete: if leeTodo();
+    }
+
+    /** Pasos de matrícula anotados en los puestos de acceso. */
+    match /accesosPasos/{id} {
+      allow read: if esUsuarioNodus();
+      allow create: if esUsuarioNodus() && pasoAccesoValido();
+      allow delete: if esUsuarioNodus() && (leeTodo() || pasoRetirablePorAutor());
+    }
+
+    function vehiculoFlotaValido() {
+      return request.resource.data.keys().hasOnly(['code', 'label', 'plate', 'active'])
+        && request.resource.data.code is string
+        && request.resource.data.code.size() > 0
+        && request.resource.data.code.size() <= 16
+        && request.resource.data.plate is string
+        && request.resource.data.plate.size() > 0
+        && request.resource.data.plate.size() <= 24
+        && request.resource.data.label is string
+        && request.resource.data.label.size() > 0
+        && request.resource.data.label.size() <= 64
+        && request.resource.data.active is bool;
+    }
+
+    /** Alta inicial V01–V07. Cualquier usuario de NODUS puede crearla si aún no existe. */
+    function esSemillaFlota(codigo) {
+      return request.resource.data.active == true
+        && (
+          (codigo == 'V01' && request.resource.data.code == 'V01' && request.resource.data.plate == '0964 MVM' && request.resource.data.label == 'V01 - 0964 MVM')
+          || (codigo == 'V02' && request.resource.data.code == 'V02' && request.resource.data.plate == '0965 MVM' && request.resource.data.label == 'V02 - 0965 MVM')
+          || (codigo == 'V03' && request.resource.data.code == 'V03' && request.resource.data.plate == '0957 MVM' && request.resource.data.label == 'V03 - 0957 MVM')
+          || (codigo == 'V04' && request.resource.data.code == 'V04' && request.resource.data.plate == '0958 MVM' && request.resource.data.label == 'V04 - 0958 MVM')
+          || (codigo == 'V05' && request.resource.data.code == 'V05' && request.resource.data.plate == '0954 MVM' && request.resource.data.label == 'V05 - 0954 MVM')
+          || (codigo == 'V06' && request.resource.data.code == 'V06' && request.resource.data.plate == '1628 MTB' && request.resource.data.label == 'V06 - 1628 MTB')
+          || (codigo == 'V07' && request.resource.data.code == 'V07' && request.resource.data.plate == '9132 MTM' && request.resource.data.label == 'V07 - 9132 MTM')
+        );
+    }
+
+    function numeroFlota(valor) {
+      return valor == null || (valor is number && valor >= 0 && valor <= 10000000);
+    }
+
+    function marcaUsoFlota(valor) {
+      return valor is string && valor.size() >= 20 && valor.size() <= 40;
+    }
+
+    function usoVehiculoValido() {
+      return request.resource.data.keys().hasOnly([
+          'kind', 'status', 'agentNumber', 'zone', 'shift', 'vehicleId', 'vehicleLabel', 'plate',
+          'startTime', 'startKm', 'hasDefects', 'defects', 'equipmentStatus', 'equipmentIncident',
+          'endTime', 'endKm', 'refueled', 'liters', 'shiftIncidents', 'cleanliness', 'openedAt', 'closedAt'
+        ])
+        && request.resource.data.kind in ['turno', 'otros']
+        && request.resource.data.status in ['abierto', 'cerrado']
+        && request.resource.data.agentNumber is string
+        && request.resource.data.agentNumber.size() > 0
+        && request.resource.data.agentNumber.size() <= 32
+        && request.resource.data.zone in ['Plaza Estrella', 'Berbés', 'Bouzas']
+        && request.resource.data.shift in ['Mañana', 'Tarde', 'Noche']
+        && request.resource.data.vehicleId is string
+        && request.resource.data.vehicleId.size() > 0
+        && request.resource.data.vehicleId.size() <= 64
+        && request.resource.data.vehicleLabel is string
+        && request.resource.data.vehicleLabel.size() > 0
+        && request.resource.data.vehicleLabel.size() <= 80
+        && request.resource.data.plate is string
+        && request.resource.data.plate.size() > 0
+        && request.resource.data.plate.size() <= 24
+        && request.resource.data.startTime is string
+        && request.resource.data.startTime.size() > 0
+        && request.resource.data.startTime.size() <= 8
+        && numeroFlota(request.resource.data.startKm)
+        && (request.resource.data.hasDefects == null || request.resource.data.hasDefects is bool)
+        && request.resource.data.defects is string
+        && request.resource.data.defects.size() <= 400
+        && (request.resource.data.equipmentStatus == null || request.resource.data.equipmentStatus in ['Todo OK', 'Incidencia'])
+        && request.resource.data.equipmentIncident is string
+        && request.resource.data.equipmentIncident.size() <= 400
+        && request.resource.data.endTime is string
+        && request.resource.data.endTime.size() <= 8
+        && numeroFlota(request.resource.data.endKm)
+        && (request.resource.data.refueled == null || request.resource.data.refueled is bool)
+        && numeroFlota(request.resource.data.liters)
+        && request.resource.data.shiftIncidents is string
+        && request.resource.data.shiftIncidents.size() <= 400
+        && (request.resource.data.cleanliness == null || request.resource.data.cleanliness in [1, 2, 3, 4, 5])
+        && marcaUsoFlota(request.resource.data.openedAt)
+        && (
+          request.resource.data.status == 'abierto'
+            ? (request.resource.data.kind == 'turno' && request.resource.data.closedAt == null)
+            : marcaUsoFlota(request.resource.data.closedAt)
+        );
+    }
+
+    /** Un agente abre su propio turno, sin datos de cierre, o anota otro uso ya cerrado con su placa. */
+    function usoNuevoDelAgente() {
+      return placaDeConsulta(request.resource.data.agentNumber)
+        && (
+          (
+            request.resource.data.kind == 'turno'
+            && request.resource.data.status == 'abierto'
+            && request.resource.data.endTime == ''
+            && request.resource.data.endKm == null
+            && request.resource.data.refueled == null
+            && request.resource.data.liters == null
+            && request.resource.data.cleanliness == null
+          )
+          || (request.resource.data.kind == 'otros' && request.resource.data.status == 'cerrado')
+        );
+    }
+
+    /** Cierre de un turno abierto: solo los datos de cierre. La apertura y los km iniciales no cambian. */
+    function cierreUsoValido() {
+      return resource.data.kind == 'turno'
+        && resource.data.status == 'abierto'
+        && request.resource.data.status == 'cerrado'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'endTime', 'endKm', 'refueled', 'liters', 'shiftIncidents', 'cleanliness', 'closedAt'
+        ])
+        && request.resource.data.endTime.size() > 0
+        && request.resource.data.endKm is number
+        && (resource.data.startKm == null || request.resource.data.endKm >= resource.data.startKm)
+        && request.resource.data.refueled is bool
+        && request.resource.data.cleanliness != null;
+    }
+
+    /** Parque compartido. La ficha la administra jefatura; la semilla inicial la puede crear cualquier usuario. */
+    match /vehiculosFlota/{id} {
+      allow read: if esUsuarioNodus();
+      allow create: if esUsuarioNodus() && vehiculoFlotaValido() && id != 'sustitucion' && (leeTodo() || esSemillaFlota(id));
+      allow update: if leeTodo() && vehiculoFlotaValido();
+      allow delete: if leeTodo();
+    }
+
+    /** Aperturas, cierres y otros usos del parque. */
+    match /vehiculosUsos/{id} {
+      allow read: if esUsuarioNodus();
+      allow create: if esUsuarioNodus()
+        && usoVehiculoValido()
+        && id.size() > 0
+        && id.size() <= 80
+        && (leeTodo() || usoNuevoDelAgente());
+      allow update: if esUsuarioNodus()
+        && usoVehiculoValido()
+        && (leeTodo() || cierreUsoValido());
+      allow delete: if leeTodo();
     }
   }
 }

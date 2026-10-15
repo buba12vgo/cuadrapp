@@ -39,15 +39,18 @@ function CabeceraMes() {
   const { etiquetaRol } = useAcceso()
   const { nombreMes, anio, cambiarMes } = useMovilMes()
   return (
-    <header className="shrink-0 border-b border-slate-200 bg-slate-950 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white">
+    <header className="shrink-0 border-b border-brand-700 bg-brand-800 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white">
       <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-            Cuadrapp · {etiquetaRol || 'consulta'}
-          </p>
-          <p className="text-sm text-slate-300">
-            {user?.email ? user.email : 'Jefes y responsables'}
-          </p>
+        <div className="flex items-center gap-2.5">
+          <img src="/moapp-mark.png" alt="" className="h-9 w-9 object-contain" />
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
+              MōaPP · {etiquetaRol || 'consulta'}
+            </p>
+            <p className="text-sm text-white/80">
+              {user?.email ? user.email : 'Jefes y responsables'}
+            </p>
+          </div>
         </div>
         <button
           type="button"
@@ -98,7 +101,7 @@ export function MovilLayout() {
   return (
     <AppDialogProvider>
       <MovilMesProvider>
-        <div className="movil-shell flex h-dvh max-h-dvh flex-col overflow-hidden bg-slate-100 text-slate-900">
+        <div className="movil-shell flex h-dvh max-h-dvh flex-col overflow-hidden bg-canvas text-ink">
           <CabeceraMes />
           <main className="movil-scroll min-h-0 flex-1 overflow-y-scroll px-3 py-3 pb-[max(6rem,calc(5.5rem+env(safe-area-inset-bottom,0px)))]">
             {estado === 'loading' ? (
@@ -134,7 +137,7 @@ export function MovilLayout() {
                   to={rutaDePestanaMovil(clave)}
                   className={({ isActive }) =>
                     `flex flex-col items-center gap-0.5 rounded-2xl py-2 text-xs font-bold ${FOCUS_RING} ${
-                      isActive ? 'bg-slate-950 text-white' : 'text-slate-500'
+                      isActive ? 'bg-brand-800 text-white' : 'text-muted'
                     }`
                   }
                 >

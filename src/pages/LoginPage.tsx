@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CalendarDays } from 'lucide-react'
+import { MarcaMoapp } from '@/components/MarcaMoapp'
 import { Navigate } from 'react-router-dom'
 import { useAcceso } from '@/contexts/AccesoContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -56,10 +56,8 @@ export function LoginPage() {
       />
       <div className="relative w-full max-w-sm rounded-xl border border-line bg-surface p-6 shadow-card-lg">
         <div className="mb-4 flex flex-col items-center gap-2">
-          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-600 text-white">
-            <CalendarDays className="h-6 w-6" aria-hidden />
-          </span>
-          <h1 className={`${PAGE_TITLE} text-center text-lg`}>Cuadrapp</h1>
+          <MarcaMoapp className="h-16 w-16" />
+          <h1 className={`${PAGE_TITLE} text-center text-lg`}>MōaPP</h1>
           <p className={`${PAGE_SUBTITLE} text-center`}>
             Cuadrantes de la Policía Portuaria
           </p>

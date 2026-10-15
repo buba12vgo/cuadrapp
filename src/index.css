@@ -5,20 +5,21 @@
   --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
   --font-display: 'Plus Jakarta Sans', 'IBM Plex Sans', ui-sans-serif, sans-serif;
 
-  --color-brand-50: #eef5f8;
-  --color-brand-100: #d4e6ee;
-  --color-brand-200: #a8c9d8;
-  --color-brand-400: #3d8eaf;
-  --color-brand-500: #1a7594;
-  --color-brand-600: #0b4f6c;
-  --color-brand-700: #083d54;
-  --color-brand-800: #062c3d;
+  --color-brand-50: #e8f6fc;
+  --color-brand-100: #c9ecf8;
+  --color-brand-200: #9adaf2;
+  --color-brand-400: #2ab7e9;
+  --color-brand-500: #1a82be;
+  --color-brand-600: #0b4c93;
+  --color-brand-700: #063163;
+  --color-brand-800: #021a3d;
+  --color-brand-900: #01081a;
 
-  --color-canvas: #f2f5f7;
+  --color-canvas: #f3f6fa;
   --color-surface: #ffffff;
-  --color-ink: #0e1c24;
-  --color-muted: #5a6b74;
-  --color-line: #dce3e8;
+  --color-ink: #01081a;
+  --color-muted: #3e5168;
+  --color-line: #d3dee8;
 }
 
 @layer base {
@@ -43,14 +44,14 @@
 
   .shadow-card {
     box-shadow:
-      0 1px 2px rgb(14 28 36 / 0.04),
-      0 4px 16px rgb(14 28 36 / 0.04);
+      0 1px 2px rgb(1 8 26 / 0.05),
+      0 4px 16px rgb(1 8 26 / 0.05);
   }
 
   .shadow-card-lg {
     box-shadow:
-      0 2px 4px rgb(14 28 36 / 0.04),
-      0 12px 32px rgb(14 28 36 / 0.08);
+      0 2px 4px rgb(1 8 26 / 0.05),
+      0 12px 32px rgb(1 8 26 / 0.1);
   }
 
   /* Los días del mes se reparten la altura: no se esconde el final del mes. */
@@ -141,12 +142,12 @@ html:has(.movil-shell) #root {
   padding: 1.5rem;
   color: #fff;
   font-family: 'Plus Jakarta Sans', 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
-  background-color: #041821;
+  background-color: #021a3d;
   background-image:
-    radial-gradient(ellipse 42% 36% at 24% -8%, rgba(61, 142, 175, 0.38), transparent 62%),
-    radial-gradient(ellipse 40% 42% at 110% 28%, rgba(11, 79, 108, 0.9), transparent 58%),
-    radial-gradient(ellipse 48% 40% at 0% 112%, rgba(26, 117, 148, 0.32), transparent 62%),
-    linear-gradient(180deg, #041821 0%, #083d54 48%, #0b4f6c 100%);
+    radial-gradient(ellipse 42% 36% at 24% -8%, rgba(42, 183, 233, 0.34), transparent 62%),
+    radial-gradient(ellipse 40% 42% at 110% 28%, rgba(11, 76, 147, 0.85), transparent 58%),
+    radial-gradient(ellipse 48% 40% at 0% 112%, rgba(42, 183, 233, 0.18), transparent 62%),
+    linear-gradient(180deg, #01081a 0%, #021a3d 46%, #0b4c93 100%);
 }
 
 .moapp-entrada::before {
@@ -154,7 +155,7 @@ html:has(.movil-shell) #root {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background-image: radial-gradient(rgba(232, 241, 246, 0.16) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(42, 183, 233, 0.28) 1px, transparent 1px);
   background-size: 24px 24px;
   opacity: 0.4;
   animation: moapp-puntos 14s linear infinite;
@@ -172,8 +173,8 @@ html:has(.movil-shell) #root {
 .moapp-entrada-marca {
   position: relative;
   display: grid;
-  width: 7.5rem;
-  height: 7.5rem;
+  width: 9.5rem;
+  height: 9.5rem;
   place-items: center;
 }
 
@@ -187,7 +188,7 @@ html:has(.movil-shell) #root {
 .moapp-entrada-halo {
   inset: -1.15rem;
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(126, 200, 222, 0.55), transparent 68%);
+  background: radial-gradient(circle, rgba(42, 183, 233, 0.55), transparent 68%);
   opacity: 0;
   animation: moapp-halo 1.7s ease-out both;
 }
@@ -199,7 +200,7 @@ html:has(.movil-shell) #root {
 .moapp-entrada-aliento {
   inset: -0.2rem;
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(61, 142, 175, 0.55), transparent 70%);
+  background: radial-gradient(circle, rgba(42, 183, 233, 0.42), transparent 70%);
   opacity: 0;
   animation: moapp-aliento 2.6s ease-in-out 1.15s infinite;
 }
@@ -210,7 +211,7 @@ html:has(.movil-shell) #root {
   height: calc(100% + 1.8rem);
   overflow: visible;
   fill: none;
-  stroke: #a8c9d8;
+  stroke: #2ab7e9;
   stroke-width: 1.7;
   stroke-linecap: round;
   stroke-dasharray: 0.18 0.82;
@@ -224,50 +225,33 @@ html:has(.movil-shell) #root {
   position: relative;
   z-index: 1;
   display: inline-flex;
-  width: 7.5rem;
-  height: 7.5rem;
+  width: 9.5rem;
+  height: 9.5rem;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  overflow: visible;
   margin: 0;
   padding: 0;
   border: 0;
-  border-radius: 1.6rem;
+  border-radius: 0;
   background: transparent;
-  box-shadow: 0 18px 40px rgba(4, 24, 33, 0.35);
+  box-shadow: none;
   cursor: pointer;
   animation:
     moapp-logo 1.05s cubic-bezier(0.16, 1, 0.3, 1) both,
     moapp-logo-vive 2.8s ease-in-out 1.15s infinite;
 }
 
-.moapp-entrada-logo svg {
+.moapp-entrada-logo img {
   width: 100%;
   height: 100%;
   display: block;
-}
-
-.moapp-placa {
-  fill: #0b4f6c;
-}
-
-.moapp-rejilla path {
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  animation: moapp-trazo 0.55s ease forwards;
-}
-
-.moapp-celda {
-  fill: #e8f1f6;
-  opacity: 0;
-  animation: moapp-celda 1.6s ease-in-out 1.35s infinite;
+  object-fit: contain;
 }
 
 .moapp-entrada-logo:hover,
 .moapp-entrada-logo:focus-visible {
-  box-shadow:
-    0 18px 40px rgba(4, 24, 33, 0.35),
-    0 0 0 3px rgba(168, 201, 216, 0.95);
+  filter: drop-shadow(0 0 0.45rem rgba(42, 183, 233, 0.9));
   outline: none;
 }
 
@@ -289,7 +273,7 @@ html:has(.movil-shell) #root {
   height: 2px;
   margin-top: 0.85rem;
   border-radius: 999px;
-  background: linear-gradient(90deg, transparent, #3d8eaf 35%, #e8f1f6 70%, transparent);
+  background: linear-gradient(90deg, transparent, #2ab7e9 35%, #e8f6fc 70%, transparent);
   transform-origin: center;
   animation: moapp-linea 0.7s ease 1.7s both;
 }
@@ -307,7 +291,7 @@ html:has(.movil-shell) #root {
   font-weight: 500;
   line-height: 1.45;
   letter-spacing: 0.02em;
-  color: rgba(232, 241, 246, 0.88);
+  color: rgba(232, 246, 252, 0.92);
 }
 
 .moapp-entrada-palabra {
@@ -342,22 +326,6 @@ html:has(.movil-shell) #root {
   }
   50% {
     transform: translateY(-0.18rem) scale(1.03);
-  }
-}
-
-@keyframes moapp-trazo {
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-
-@keyframes moapp-celda {
-  0%,
-  100% {
-    opacity: 0.12;
-  }
-  50% {
-    opacity: 0.9;
   }
 }
 
@@ -451,20 +419,13 @@ html:has(.movil-shell) #root {
   .moapp-entrada-logo,
   .moapp-entrada-letra,
   .moapp-entrada-linea,
-  .moapp-entrada-palabra,
-  .moapp-rejilla path,
-  .moapp-celda {
+  .moapp-entrada-palabra {
     animation: none;
   }
 
   .moapp-entrada-cometa,
   .moapp-entrada-aliento,
-  .moapp-entrada-halo,
-  .moapp-celda {
+  .moapp-entrada-halo {
     opacity: 0;
-  }
-
-  .moapp-rejilla path {
-    stroke-dashoffset: 0;
   }
 }

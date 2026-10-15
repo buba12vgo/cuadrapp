@@ -1,3 +1,4 @@
+import { MarcaMoapp } from '@/components/MarcaMoapp'
 import {
   BookOpen,
   Briefcase,
@@ -220,15 +221,13 @@ function BrandMark({ compact = false }: { compact?: boolean }) {
         compact ? 'justify-center' : 'gap-2.5'
       }`}
     >
-      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white">
-        <CalendarDays className="h-5 w-5" aria-hidden />
-      </span>
+      <MarcaMoapp className="h-10 w-10" />
       {compact ? (
-        <span className="sr-only">Cuadrapp</span>
+        <span className="sr-only">MōaPP</span>
       ) : (
         <div className="leading-tight">
           <p className="font-display text-sm font-bold tracking-tight text-ink">
-            Cuadrapp
+            MōaPP
           </p>
           <span className="inline-flex rounded-full bg-brand-50 px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-brand-700">
             Portuaria
@@ -399,7 +398,7 @@ export function AdminLayout() {
 
           <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-line bg-surface px-3 py-1.5 text-[11px] text-muted lg:hidden">
             <span>Policía Portuaria</span>
-            <span>Cuadrapp</span>
+            <span>MōaPP</span>
           </footer>
         </div>
       </div>

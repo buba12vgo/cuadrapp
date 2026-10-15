@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react'
 
 const claveEntrada = 'moapp-entrada'
-const palabra = ['M', 'o', 'a', 'P', 'P'] as const
+const palabra = ['M', 'ō', 'a', 'P', 'P'] as const
 const frase = ['Cuadrantes', 'y', 'personal', 'de', 'la', 'Policía', 'Portuaria'] as const
 const duracionMs = 5200
 const duracionReducidaMs = 1600
 const fundidoMs = 560
 const fundidoReducidoMs = 280
-const trazos = ['M14 23.5h36', 'M14 32h36', 'M14 40.5h36', 'M25 15v34', 'M39 15v34'] as const
 
 function yaVista() {
   try {
@@ -59,15 +58,7 @@ export function EntradaMoapp() {
             <circle cx="50" cy="50" r="46" pathLength="1" />
           </svg>
           <button type="button" className="moapp-entrada-logo" onClick={() => setSale(true)} aria-label="Saltar la intro">
-            <svg viewBox="0 0 64 64" aria-hidden="true">
-              <rect className="moapp-placa" width="64" height="64" rx="16" />
-              <g className="moapp-rejilla" fill="none" stroke="#E8F1F6" strokeWidth="2.2" strokeLinecap="round">
-                {trazos.map((d, indice) => (
-                  <path key={d} d={d} pathLength="1" style={{ animationDelay: `${0.42 + indice * 0.12}s` }} />
-                ))}
-              </g>
-              <rect className="moapp-celda" x="25.6" y="32.7" width="12.8" height="7" rx="1.2" />
-            </svg>
+            <img src="/moapp-mark.png" alt="" />
           </button>
         </div>
         <h1 className="moapp-entrada-nombre">

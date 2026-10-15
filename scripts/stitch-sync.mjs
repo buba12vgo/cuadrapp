@@ -52,10 +52,10 @@ const theme = {
   bodyFont: 'IBM_PLEX_SANS',
   labelFont: 'IBM_PLEX_SANS',
   font: 'IBM_PLEX_SANS',
-  overridePrimaryColor: '#0B4F6C',
+  overridePrimaryColor: '#0B4C93',
   overrideSecondaryColor: '#1A7A6D',
   overrideTertiaryColor: '#C45C26',
-  backgroundLight: '#F2F5F7',
+  backgroundLight: '#F3F6FA',
 }
 
 const SCREENS = [

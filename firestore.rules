@@ -1459,6 +1459,162 @@ service cloud.firestore {
       allow delete: if leeTodo();
     }
 
+    function esOficialProteccion() {
+      return leeTodo()
+        || (esConsulta() && perfilConsulta().get('oficialProteccion', false) == true);
+    }
+
+    function manifiestoCruceroOk(valor) {
+      return valor == null
+        || (
+          valor is map
+          && valor.keys().hasOnly(['archivo', 'columnas', 'filas'])
+          && valor.archivo is string
+          && valor.archivo.size() <= 180
+          && valor.columnas is list
+          && valor.columnas.size() <= 16
+          && valor.filas is list
+          && valor.filas.size() <= 400
+        );
+    }
+
+    function servicioCruceroOk(valor) {
+      return valor is map
+        && valor.keys().hasOnly(['horario', 'terminal', 'jefeManana', 'jefeTarde', 'puestos', 'notas'])
+        && valor.horario is string
+        && valor.horario.size() <= 40
+        && valor.terminal is string
+        && valor.terminal.size() <= 120
+        && valor.notas is string
+        && valor.notas.size() <= 4000
+        && valor.puestos is list
+        && valor.puestos.size() <= 16
+        && (valor.jefeManana == null || valor.jefeManana is map)
+        && (valor.jefeTarde == null || valor.jefeTarde is map);
+    }
+
+    function cruceroValido() {
+      return request.resource.size() < 900000
+        && request.resource.data.keys().hasOnly([
+          'fecha', 'buque', 'eta', 'etd', 'procedencia', 'destino', 'eslora', 'terminal', 'consignatario',
+          'oficialNombre', 'oficialExtension',
+          'pasajeros', 'embarquesPasajeros', 'desembarquesPasajeros',
+          'tripulantes', 'embarquesTripulantes', 'desembarquesTripulantes',
+          'autobusesGuias', 'excursionesOficiales', 'otrasExcursiones', 'repartoPlanos',
+          'personasPlanos', 'listaConsignatario', 'autobuses',
+          'coordinadorNombre', 'coordinadorDni', 'coordinadorTelefono', 'coordinadorMatricula', 'coordinadorEmpresa',
+          'taxiMatricula', 'taxiConductor', 'taxiDni', 'taxiPasajeros', 'taxiHora',
+          'taxisOficiales', 'taxisConsignatario',
+          'serviciosBuque', 'accesosProteccion', 'visitas',
+          'pasajerosManifiesto', 'tripulacionManifiesto', 'movimientosManifiesto',
+          'autorUid', 'autorNombre', 'creadoEn', 'actualizadoEn'
+        ])
+        && request.resource.data.fecha is string
+        && request.resource.data.fecha.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && request.resource.data.buque is string
+        && request.resource.data.buque.size() > 0
+        && request.resource.data.buque.size() <= 120
+        && request.resource.data.eta is string
+        && request.resource.data.eta.size() <= 8
+        && request.resource.data.etd is string
+        && request.resource.data.etd.size() <= 8
+        && request.resource.data.repartoPlanos in ['', 'SI', 'NO']
+        && request.resource.data.personasPlanos is list
+        && request.resource.data.personasPlanos.size() <= 30
+        && request.resource.data.listaConsignatario is list
+        && request.resource.data.listaConsignatario.size() <= 80
+        && request.resource.data.autobuses is list
+        && request.resource.data.autobuses.size() <= 40
+        && request.resource.data.taxisOficiales is list
+        && request.resource.data.taxisOficiales.size() <= 40
+        && request.resource.data.taxisConsignatario is list
+        && request.resource.data.taxisConsignatario.size() <= 40
+        && request.resource.data.serviciosBuque is list
+        && request.resource.data.serviciosBuque.size() <= 80
+        && request.resource.data.accesosProteccion is list
+        && request.resource.data.accesosProteccion.size() <= 80
+        && request.resource.data.visitas is list
+        && request.resource.data.visitas.size() <= 80
+        && manifiestoCruceroOk(request.resource.data.pasajerosManifiesto)
+        && manifiestoCruceroOk(request.resource.data.tripulacionManifiesto)
+        && manifiestoCruceroOk(request.resource.data.movimientosManifiesto)
+        && request.resource.data.autorUid is string
+        && request.resource.data.autorUid.size() > 0
+        && request.resource.data.autorUid.size() <= 128
+        && request.resource.data.autorNombre is string
+        && request.resource.data.autorNombre.size() > 0
+        && request.resource.data.autorNombre.size() <= 120
+        && request.resource.data.creadoEn is string
+        && request.resource.data.creadoEn.size() >= 20
+        && request.resource.data.creadoEn.size() <= 40
+        && request.resource.data.actualizadoEn is string
+        && request.resource.data.actualizadoEn.size() >= 20
+        && request.resource.data.actualizadoEn.size() <= 40;
+    }
+
+    function autorCruceroNuevo() {
+      return request.resource.data.autorUid == request.auth.uid
+        && nombrePropio(request.resource.data.autorNombre);
+    }
+
+    function autorCruceroConservado() {
+      return request.resource.data.autorUid == resource.data.autorUid
+        && request.resource.data.autorNombre == resource.data.autorNombre
+        && request.resource.data.creadoEn == resource.data.creadoEn;
+    }
+
+    function anotacionCruceroOk(id) {
+      return request.resource.size() < 200000
+        && request.resource.data.keys().hasOnly([
+          'cruceroId', 'fecha', 'horas', 'otrosAccesos', 'autorUid', 'autorNombre', 'actualizadoEn'
+        ])
+        && request.resource.data.cruceroId == id
+        && request.resource.data.fecha is string
+        && request.resource.data.fecha.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && request.resource.data.horas is map
+        && request.resource.data.horas.size() <= 40
+        && request.resource.data.otrosAccesos is list
+        && request.resource.data.otrosAccesos.size() <= 80
+        && request.resource.data.autorUid == request.auth.uid
+        && nombrePropio(request.resource.data.autorNombre)
+        && request.resource.data.autorNombre.size() > 0
+        && request.resource.data.autorNombre.size() <= 120
+        && request.resource.data.actualizadoEn is string
+        && request.resource.data.actualizadoEn.size() >= 20
+        && request.resource.data.actualizadoEn.size() <= 40;
+    }
+
+    /** Ficha de la escala. La escribe el Oficial de Protección. El jefe solo cubre el servicio. */
+    match /cruceros/{id} {
+      allow read: if esUsuarioNodus();
+      allow create: if esOficialProteccion() && cruceroValido() && autorCruceroNuevo();
+      allow update: if esOficialProteccion() && cruceroValido() && autorCruceroConservado();
+      allow delete: if esOficialProteccion();
+    }
+
+    /** Dispositivo de Policía Portuaria. Lo cubre el Oficial o el jefe de servicio. */
+    match /crucerosServicio/{id} {
+      allow read: if esUsuarioNodus();
+      allow create, update: if (esOficialProteccion() || esJefaturaConsulta())
+        && request.resource.size() < 100000
+        && request.resource.data.keys().hasOnly(['cruceroId', 'fecha', 'servicio', 'actualizadoEn'])
+        && request.resource.data.cruceroId == id
+        && request.resource.data.fecha is string
+        && request.resource.data.fecha.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && servicioCruceroOk(request.resource.data.servicio)
+        && request.resource.data.actualizadoEn is string
+        && request.resource.data.actualizadoEn.size() >= 20
+        && request.resource.data.actualizadoEn.size() <= 40;
+      allow delete: if esOficialProteccion();
+    }
+
+    /** Horas reales de autobús y otros accesos que anota la policía. */
+    match /crucerosAnotaciones/{id} {
+      allow read: if esUsuarioNodus();
+      allow create, update: if esUsuarioNodus() && anotacionCruceroOk(id);
+      allow delete: if esUsuarioNodus();
+    }
+
     /** Aperturas, cierres y otros usos del parque. */
     match /vehiculosUsos/{id} {
       allow read: if esUsuarioNodus();

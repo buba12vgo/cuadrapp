@@ -1335,6 +1335,71 @@ service cloud.firestore {
       allow delete: if esUsuarioNodus() && (leeTodo() || pasoRetirablePorAutor());
     }
 
+    /** Desplegable de entradas (peatonal o barrera) que se gestiona en Admin/Accesos. */
+    function puntoAccesoValido() {
+      return request.resource.data.keys().hasOnly(['nombre', 'creadoEn'])
+        && request.resource.data.nombre is string
+        && request.resource.data.nombre.size() > 0
+        && request.resource.data.nombre.size() <= 80
+        && request.resource.data.creadoEn is string
+        && request.resource.data.creadoEn.size() >= 20
+        && request.resource.data.creadoEn.size() <= 40;
+    }
+
+    match /accesosPuntos/{id} {
+      allow read: if esUsuarioNodus();
+      allow create, update: if leeTodo() && puntoAccesoValido();
+      allow delete: if leeTodo();
+    }
+
+    /** Anotación de Centro de Control: peatón o paso por barrera. */
+    function anotacionAccesoCentroValida() {
+      return request.resource.data.keys().hasOnly([
+          'fecha', 'hora', 'puntoId', 'puntoNombre', 'nombre', 'dni', 'matricula',
+          'empresaPertenece', 'empresaDestino', 'autorUid', 'autorNombre', 'autorPlaca', 'creadoEn'
+        ])
+        && request.resource.data.fecha is string
+        && request.resource.data.fecha.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && request.resource.data.hora is string
+        && request.resource.data.hora.matches('^([01]\\d|2[0-3]):[0-5]\\d$')
+        && request.resource.data.puntoId is string
+        && request.resource.data.puntoId.size() > 0
+        && request.resource.data.puntoId.size() <= 64
+        && request.resource.data.puntoNombre is string
+        && request.resource.data.puntoNombre.size() > 0
+        && request.resource.data.puntoNombre.size() <= 80
+        && request.resource.data.nombre is string
+        && request.resource.data.nombre.size() > 0
+        && request.resource.data.nombre.size() <= 80
+        && request.resource.data.dni is string
+        && request.resource.data.dni.size() <= 12
+        && request.resource.data.matricula is string
+        && (
+          request.resource.data.matricula == ''
+          || request.resource.data.matricula.matches('^[A-Z0-9]{4,12}$')
+        )
+        && request.resource.data.empresaPertenece is string
+        && request.resource.data.empresaPertenece.size() <= 80
+        && request.resource.data.empresaDestino is string
+        && request.resource.data.empresaDestino.size() <= 80
+        && request.resource.data.autorUid == request.auth.uid
+        && request.resource.data.autorNombre is string
+        && request.resource.data.autorNombre.size() > 0
+        && request.resource.data.autorNombre.size() <= 120
+        && request.resource.data.autorPlaca is string
+        && request.resource.data.autorPlaca.size() <= 16
+        && firmaPropia(request.resource.data.autorNombre, request.resource.data.autorPlaca)
+        && request.resource.data.creadoEn is string
+        && request.resource.data.creadoEn.size() >= 20
+        && request.resource.data.creadoEn.size() <= 40;
+    }
+
+    match /accesosCentro/{id} {
+      allow read: if esUsuarioNodus();
+      allow create: if esUsuarioNodus() && anotacionAccesoCentroValida();
+      allow delete: if esUsuarioNodus() && (leeTodo() || resource.data.autorUid == request.auth.uid);
+    }
+
     function vehiculoFlotaValido() {
       return request.resource.data.keys().hasOnly(['code', 'label', 'plate', 'active'])
         && request.resource.data.code is string

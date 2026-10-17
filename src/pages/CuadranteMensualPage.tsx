@@ -529,6 +529,7 @@ export function CuadranteMensualPage() {
                 asignaciones,
                 anio,
                 mes,
+                tiposPermiso,
               ),
             )
           }

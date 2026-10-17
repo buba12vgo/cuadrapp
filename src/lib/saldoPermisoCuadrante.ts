@@ -23,9 +23,18 @@ export function resumenMesAgente(
   agenteId: string,
   anio: number,
   mes: number,
+  permisos?: PermisoConfig[],
 ): ResumenPermisosAgente {
   const resumen = resumenPermisosVacio()
-  acumularPermisosMes(resumen, fila, asignaciones, agenteId, anio, mes)
+  acumularPermisosMes(
+    resumen,
+    fila,
+    asignaciones,
+    agenteId,
+    anio,
+    mes,
+    permisos,
+  )
   return resumen
 }
 
@@ -35,6 +44,7 @@ export function resumenesMesCuadrante(
   asignaciones: AsignacionesDiarias,
   anio: number,
   mes: number,
+  permisos?: PermisoConfig[],
 ): Record<string, ResumenPermisosAgente> {
   const mapa: Record<string, ResumenPermisosAgente> = {}
   for (const agente of agentes) {
@@ -44,6 +54,7 @@ export function resumenesMesCuadrante(
       agente.id,
       anio,
       mes,
+      permisos,
     )
   }
   return mapa
@@ -195,7 +206,14 @@ export function mensajeSiNoPuedeAsignarCelda(opts: {
     opts.anio,
     opts.resumenAnio,
     opts.mesCargado,
-    resumenMesAgente(fila, asignaciones, opts.agente.id, opts.anio, opts.mes),
+    resumenMesAgente(
+      fila,
+      asignaciones,
+      opts.agente.id,
+      opts.anio,
+      opts.mes,
+      opts.permisos,
+    ),
     opts.permiso,
   )
 }
@@ -226,7 +244,14 @@ export function mensajeSiNoPuedeAsignarMes(opts: {
     opts.anio,
     opts.resumenAnio,
     opts.mesCargado,
-    resumenMesAgente(fila, asignaciones, opts.agente.id, opts.anio, opts.mes),
+    resumenMesAgente(
+      fila,
+      asignaciones,
+      opts.agente.id,
+      opts.anio,
+      opts.mes,
+      opts.permisos,
+    ),
     opts.permiso,
   )
 }

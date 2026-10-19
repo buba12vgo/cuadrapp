@@ -96,9 +96,9 @@ import {
 } from '@/lib/variablesCobro'
 import type { RolPolicia, Turno } from '@/types'
 import {
-  ROLES_OPERATIVO_CUADRANTE,
+  ROLES_CUADRANTE_GENERADO,
   ROL_LABEL,
-  agentesOperativosCuadrante,
+  agentesConCuadranteGenerado,
 } from '@/lib/rolesCuadrante'
 import { abreviaturaDesdePermisos } from '@/lib/permisos'
 import { useTiposPermiso } from '@/lib/permisosStore'
@@ -122,7 +122,7 @@ import {
 import { MESES, isoFecha } from '@/lib/fechas'
 
 const DIA_SEMANA = ['D', 'L', 'M', 'X', 'J', 'V', 'S'] as const
-const ROLES = ROLES_OPERATIVO_CUADRANTE
+const ROLES = ROLES_CUADRANTE_GENERADO
 const ANCHO_DIA = 28
 const ANCHO_TOT = 24
 const ANCHO_AGENTE = 32
@@ -359,7 +359,7 @@ export function CuadranteMensualPage() {
   >({})
 
   const agentesOperativos = useMemo(
-    () => agentesOperativosCuadrante(agentesData),
+    () => agentesConCuadranteGenerado(agentesData),
     [agentesData],
   )
 

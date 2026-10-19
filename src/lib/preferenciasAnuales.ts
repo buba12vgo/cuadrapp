@@ -290,39 +290,30 @@ export function patronCumplidoEnFila(
 
   const real: Cupos = { M: totales.M, T: totales.T, N: totales.N }
   const labor = real.M + real.T + real.N
+  const pref = agente.preferenciaAnual
 
-  if (
-    esSinPreferencia(agente.preferenciaAnual) ||
-    agenteSinLimitacionesTurno(agente.limitaciones)
-  ) {
-    const compatibles = patronesCompatibles(agente.limitaciones)
-    for (const patron of compatibles) {
-      const esperado = cuposDesdePatron(agente, patron, labor)
-      if (
-        real.M === esperado.M &&
-        real.T === esperado.T &&
-        real.N === esperado.N
-      ) {
-        return patron
-      }
+  const coincide = (patron: PatronPreferenciaAnual) => {
+    const esperado = cuposDesdePatron(agente, patron, labor)
+    return (
+      real.M === esperado.M &&
+      real.T === esperado.T &&
+      real.N === esperado.N
+    )
+  }
+
+  if (esSinPreferencia(pref)) {
+    for (const patron of patronesCompatibles(agente.limitaciones)) {
+      if (coincide(patron)) return patron
     }
     return null
   }
 
-  if (esPatronFijo(agente.preferenciaAnual)) {
-    const esperado = cuposDesdePatron(
-      agente,
-      agente.preferenciaAnual.modo,
-      labor,
-    )
-    if (
-      real.M === esperado.M &&
-      real.T === esperado.T &&
-      real.N === esperado.N
-    ) {
-      return agente.preferenciaAnual.modo
-    }
+  if (esPatronFijo(pref)) {
+    return coincide(pref.modo) ? pref.modo : null
   }
+
+  const inferido = inferirModoDesdeObjetivos(pref)
+  if (inferido && coincide(inferido)) return inferido
 
   return null
 }

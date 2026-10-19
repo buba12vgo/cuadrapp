@@ -46,10 +46,8 @@ import {
   type TurnoAnual,
 } from '@/lib/generarPlanAnual'
 import {
-  agenteSinLimitacionesTurno,
   esSinPreferencia,
   etiquetaPreferenciaEnPlan,
-  filaCumplePatronObligatorio,
   filaCumplePreferencia,
   patronCumplidoEnFila,
 } from '@/lib/preferenciasAnuales'
@@ -154,8 +152,7 @@ function cuadraTotal(
   agente: FichaPolicia,
   _clave: TurnoAnual,
 ) {
-  if (!agenteSinLimitacionesTurno(agente.limitaciones)) return true
-  return filaCumplePatronObligatorio(agente, totales)
+  return filaCumplePreferencia(agente, totales)
 }
 
 function tituloPreferencia(agente: FichaPolicia, totales: Record<TurnoAnual, number>) {
@@ -548,13 +545,8 @@ export function PlanAnualPage() {
               const totales = totalesFila(fila)
               const fichaMarcada = agentesMarcados.has(agente.id)
               const sinPref = esSinPreferencia(agente.preferenciaAnual)
-              const sinLimitaciones = agenteSinLimitacionesTurno(
-                agente.limitaciones,
-              )
               const patronAsignado = patronCumplidoEnFila(agente, totales)
               const cuadra = filaCumplePreferencia(agente, totales)
-              const patObligatorio =
-                sinLimitaciones && patronAsignado != null
 
               return (
                 <tr key={agente.id} className="h-[20px]">
@@ -650,17 +642,13 @@ export function PlanAnualPage() {
                   ))}
                   <td
                     className={`${CELDA} sticky z-10 border-l-2 border-l-slate-400 text-center ${
-                      patronAsignado
-                        ? 'bg-emerald-50 font-semibold text-emerald-800'
-                        : sinPref
-                          ? 'bg-violet-50 font-medium text-violet-800'
-                          : patObligatorio
-                            ? 'bg-emerald-50 font-semibold text-emerald-800'
-                            : sinLimitaciones
-                              ? 'bg-rose-50 font-semibold text-rose-800'
-                              : cuadra
-                                ? 'bg-slate-50 font-medium text-slate-700'
-                                : 'bg-slate-50 text-slate-600'
+                      !cuadra
+                        ? SEMAFORO_KO
+                        : patronAsignado
+                          ? 'bg-emerald-50 font-semibold text-emerald-800'
+                          : sinPref
+                            ? 'bg-violet-50 font-medium text-violet-800'
+                            : 'bg-emerald-50 font-semibold text-emerald-800'
                     }`}
                     style={{ width: '7%' }}
                     title={tituloPreferencia(agente, totales)}

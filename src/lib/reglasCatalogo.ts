@@ -210,7 +210,7 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     categoria: 'PLANTILLA',
     titulo: 'Preferencia anual M / T / N',
     descripcion:
-      'Cada agente define objetivos de meses en mañana, tarde y noche; el resto son vacaciones (V). El generador prioriza el % global por encima de la preferencia de la ficha si hay limitaciones; sin limitación de turnos siempre asigna 4-4-3, 4-3-4 o 5-3-3.',
+      'En la ficha se elige 4-4-3, 4-3-4, 5-3-3 o sin preferencia. El generador deja esa frecuencia. Sin preferencia vale cualquiera de los tres patrones, adaptado a las limitaciones. Si el resultado no es el de la ficha, los totales y Pat salen en rojo.',
     estado: 'implementada',
     referencia: 'preferenciaAnual · objetivoM/T/N',
   },
@@ -273,7 +273,7 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
       'Autogenerar Año regenera únicamente el año seleccionado en el plan anual. Los planes de años anteriores y posteriores no se modifican.',
     estado: 'implementada',
     detalle:
-      'Cambiar de año en el selector no crea ni borra planes. Autogenerar asigna cupos M/T/N priorizando el % global y mensual por encima de la preferencia de la ficha (con limitaciones); sin limitación de turnos siempre usa 4-4-3, 4-3-4 o 5-3-3. Hasta 3 pasadas de refinado (swaps, reasignación parcial y equilibrio mensual). Limpiar año vacía solo el año seleccionado (dos confirmaciones). Diciembre del año anterior solo se consulta (regla N), no se reescribe.',
+      'Cambiar de año en el selector no crea ni borra planes. Autogenerar asigna la frecuencia de la ficha (4-4-3, 4-3-4 o 5-3-3; sin preferencia, cualquiera de las tres). No sustituye una fila que ya cumple la ficha por otra que no. Hasta 3 pasadas de refinado reordenan meses sin cambiar esos cupos. La bolsa no entra. Limpiar año vacía solo el año seleccionado (dos confirmaciones). Diciembre del año anterior solo se consulta (regla N), no se reescribe.',
     referencia: 'PlanAnualPage · autogenerar · planAnualStore · planesAnuales',
   },
   {
@@ -318,7 +318,7 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
       'El plan cuadra los efectivos M/T/N de cada mes con el reparto exacto del % selector sobre los activos de ese mes. El año global admite ±2 pp.',
     estado: 'implementada',
     detalle:
-      'Prioridad al autogenerar: (1) efectivos mensuales exactos según %, (2) % global anual (±2 pp), (3) preferencias de ficha. Cada fila se coloca mirando el déficit de columna y se refinan los meses desviados al final.',
+      'La frecuencia de la ficha se mantiene. El % mensual y el anual (±2 pp) se acercan reordenando meses y, solo en fichas sin preferencia, eligiendo entre 4-4-3, 4-3-4 y 5-3-3. Si una fila no puede quedar con la frecuencia de la ficha, sus totales salen en rojo.',
     referencia: 'cuposObjetivoMes · cuadraCupos · TOLERANCIA_PCT_PLAN = 2',
   },
   {

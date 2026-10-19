@@ -1,10 +1,19 @@
 import type { FichaPolicia, RolPolicia } from '@/types'
 
-/** Roles que siguen en plan anual y cuadrante mensual operativo. */
+/**
+ * Plantilla operativa para mínimos y listados.
+ * La bolsa cuenta en la dotación, pero no recibe cuadrante generado.
+ */
 export const ROLES_OPERATIVO_CUADRANTE: RolPolicia[] = [
   'JEFE_EQUIPO',
   'POLICIA',
   'POLICIA_BOLSA',
+]
+
+/** Policías y jefes de equipo: plan anual y cuadrante mensual. */
+export const ROLES_CUADRANTE_GENERADO: RolPolicia[] = [
+  'JEFE_EQUIPO',
+  'POLICIA',
 ]
 
 export const ROL_LABEL: Record<RolPolicia, string> = {
@@ -23,6 +32,11 @@ export function esRolOperativoCuadrante(rol: RolPolicia): boolean {
   )
 }
 
+/** La bolsa de trabajo no entra en el plan ni en el cuadrante autogenerado. */
+export function esRolConCuadranteGenerado(rol: RolPolicia): boolean {
+  return rol === 'POLICIA' || rol === 'JEFE_EQUIPO'
+}
+
 export function esRolJefeServicio(rol: RolPolicia): boolean {
   return rol === 'JEFE_SERVICIO'
 }
@@ -39,6 +53,10 @@ export function esRolFueraCuadranteOperativo(rol: RolPolicia): boolean {
 
 export function agentesOperativosCuadrante(agentes: FichaPolicia[]) {
   return agentes.filter((agente) => esRolOperativoCuadrante(agente.rolBase))
+}
+
+export function agentesConCuadranteGenerado(agentes: FichaPolicia[]) {
+  return agentes.filter((agente) => esRolConCuadranteGenerado(agente.rolBase))
 }
 
 export function agentesCuadranteJefes(agentes: FichaPolicia[]) {

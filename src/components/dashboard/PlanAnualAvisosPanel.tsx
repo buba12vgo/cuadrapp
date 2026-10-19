@@ -42,7 +42,7 @@ export function PlanAnualAvisosPanel({ marcas, agentes }: Props) {
           ? `${marcas.mesesSinCuadrar.length} mes(es) sin cuadrar.`
           : null,
         marcas.agentesSinCuadrar.length > 0
-          ? `${marcas.agentesSinCuadrar.length} ficha(s) con infracciones.`
+          ? `${marcas.agentesSinCuadrar.length} ficha(s) sin la frecuencia de la ficha.`
           : null,
       ]
         .filter(Boolean)
@@ -82,7 +82,7 @@ export function PlanAnualAvisosPanel({ marcas, agentes }: Props) {
         ) : null}
         {marcas.agentesSinCuadrar.length > 0 ? (
           <p>
-            Fichas con infracciones o sin patrón obligatorio:{' '}
+            Fichas con infracciones o con una frecuencia distinta a la de la ficha:{' '}
             <span className="font-semibold">
               {marcas.agentesSinCuadrar
                 .map((id) => {
@@ -100,8 +100,8 @@ export function PlanAnualAvisosPanel({ marcas, agentes }: Props) {
           </p>
         ) : null}
         <p className="text-slate-600">
-          El generador prioriza efectivos mensuales M/T/N por encima del % global
-          y la preferencia de ficha.{' '}
+          La frecuencia de la ficha se mantiene. Si no se puede colocar, los
+          totales y Pat salen en rojo.{' '}
           <span className="font-semibold text-violet-700">Flex</span> = sin
           preferencia.
         </p>

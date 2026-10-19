@@ -12,7 +12,7 @@ import { ensureFirebase, isFirebaseReady } from '@/lib/firebase'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
 import { useTiposPermiso } from '@/lib/permisosStore'
 import { usePuestosData } from '@/lib/puestosStore'
-import { agentesOperativosCuadrante } from '@/lib/rolesCuadrante'
+import { agentesConCuadranteGenerado } from '@/lib/rolesCuadrante'
 
 /** Lectura del cuadrante mensual operativo. No escribe. */
 export function useCuadranteOperativoMes(anio: number, mes: number) {
@@ -28,7 +28,7 @@ export function useCuadranteOperativoMes(anio: number, mes: number) {
   const [agentesCargados, setAgentesCargados] = useState(false)
 
   const operativos = useMemo(
-    () => agentesOperativosCuadrante(agentesData),
+    () => agentesConCuadranteGenerado(agentesData),
     [agentesData],
   )
   const idsKey = operativos.map((agente) => agente.id).join('\0')

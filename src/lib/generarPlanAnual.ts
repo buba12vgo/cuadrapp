@@ -8,9 +8,9 @@ import {
   cuposDesdePatron,
   debeBalancearMTAnual,
   esPatronFijo,
+  esSinPreferencia,
   filaCumpleBalanceMT,
-  filaCumplePatronObligatorio,
-  patronCumplidoEnFila,
+  filaCumplePreferencia,
   patronesCompatibles,
   vacacionesObjetivoPreferencia,
 } from '@/lib/preferenciasAnuales'
@@ -41,8 +41,7 @@ export type MarcasPlanAnual = {
   /** Meses cuyo % queda fuera de tolerancia. */
   mesesSinCuadrar: number[]
   /**
-   * Agentes con infracciones graves o sin patrón obligatorio (4-4-3 / 4-3-4 / 5-3-3
-   * si no tienen limitación de turnos).
+   * Agentes con infracciones graves o cuya frecuencia M/T/N/V no es la de la ficha.
    */
   agentesSinCuadrar: string[]
   /** El mix de preferencias de la plantilla no puede alcanzar el % del selector. */
@@ -92,13 +91,9 @@ export function esPoliciaBolsa(rol: RolPolicia) {
 }
 
 export function grupoPlanAnual(rol: RolPolicia): GrupoPlanAnual | null {
-  // Jefes de servicio y responsables tienen su propio cuadrante; no entran
-  // en el plan anual operativo.
-  if (
-    rol === 'POLICIA' ||
-    rol === 'JEFE_EQUIPO' ||
-    rol === 'POLICIA_BOLSA'
-  ) {
+  // Jefes de servicio y responsables tienen su propio cuadrante.
+  // La bolsa de trabajo no recibe plan anual.
+  if (rol === 'POLICIA' || rol === 'JEFE_EQUIPO') {
     return 'OPERATIVO'
   }
   return null
@@ -320,6 +315,24 @@ function cuposLaborales(
     else if (lim.N) N += libres - suma
   }
   return { M, T, N }
+}
+
+/** Cupos que respetan la frecuencia de la ficha. Sin preferencia: uno por patrón compatible. */
+function cuposCandidatosFicha(agente: FichaPolicia, libres: number): Cupos[] {
+  const pref = agente.preferenciaAnual
+  if (esSinPreferencia(pref)) {
+    const compatibles = patronesCompatibles(agente.limitaciones)
+    if (compatibles.length > 0) {
+      return compatibles.map((patron) =>
+        cuposDesdePatron(agente, patron, libres),
+      )
+    }
+    return [cuposLaborales(agente, libres)]
+  }
+  if (esPatronFijo(pref)) {
+    return [cuposDesdePatron(agente, pref.modo, libres)]
+  }
+  return [cuposLaborales(agente, libres)]
 }
 
 function sumarCupos(acumulado: Cupos, fila: FilaPlanAnual) {
@@ -597,7 +610,7 @@ function puntajeFilaSinLimitaciones(
 ) {
   const totales = contarFila(fila)
   let puntaje = cuentaInfraccionesGravesFila(agente, fila, planAnioAnterior) * 100
-  if (patronCumplidoEnFila(agente, totales) == null) puntaje += 1000
+  if (!filaCumplePreferencia(agente, totales)) puntaje += 100000
   const nuevoTotal: Cupos = {
     M: acumulado.M + totales.M,
     T: acumulado.T + totales.T,
@@ -627,11 +640,11 @@ function asignarFilaSinLimitaciones(
   columnas?: ContextoColumnasMes,
 ): FilaPlanAnual {
   const libres = MESES - vacacionesObjetivo(agente)
-  const patrones = patronesCompatibles(agente.limitaciones)
+  const candidatos = cuposCandidatosFicha(agente, libres)
   let mejorFila = asignarFila(
     agente,
     anio,
-    undefined,
+    candidatos[0],
     planAnioAnterior,
     columnas,
   )
@@ -644,8 +657,7 @@ function asignarFilaSinLimitaciones(
     columnas,
   )
 
-  for (const patron of patrones) {
-    const cupos = cuposDesdePatron(agente, patron, libres)
+  for (const cupos of candidatos.slice(1)) {
     const fila = asignarFila(agente, anio, cupos, planAnioAnterior, columnas)
     const puntaje = puntajeFilaSinLimitaciones(
       agente,
@@ -1357,134 +1369,6 @@ function desviacionPorcentajes(
   )
 }
 
-function elegirCuposSinPreferencia(
-  agente: FichaPolicia,
-  acumulado: Cupos,
-  objetivos: ObjetivosGlobales,
-  libres: number,
-): Cupos {
-  const compatibles = patronesCompatibles(agente.limitaciones)
-  if (compatibles.length === 0) {
-    return cuposLaborales(agente, libres)
-  }
-
-  let mejorCupos = cuposDesdePatron(agente, compatibles[0], libres)
-  let mejorDev = Number.POSITIVE_INFINITY
-
-  for (const patron of compatibles) {
-    const cupos = cuposDesdePatron(agente, patron, libres)
-    const nuevoTotal: Cupos = {
-      M: acumulado.M + cupos.M,
-      T: acumulado.T + cupos.T,
-      N: acumulado.N + cupos.N,
-    }
-    const dev = desviacionPorcentajes(pctDesdeCupos(nuevoTotal), objetivos)
-    if (dev < mejorDev) {
-      mejorDev = dev
-      mejorCupos = cupos
-    }
-  }
-
-  return mejorCupos
-}
-
-function cuposCandidatosLimitados(agente: FichaPolicia, libres: number): Cupos[] {
-  const lim = agente.limitaciones
-  if (!lim.M && !lim.T && !lim.N) return [{ M: 0, T: 0, N: 0 }]
-
-  const permitidos =
-    (lim.M ? 1 : 0) + (lim.T ? 1 : 0) + (lim.N ? 1 : 0)
-  if (permitidos === 1) {
-    if (lim.M) return [{ M: libres, T: 0, N: 0 }]
-    if (lim.T) return [{ M: 0, T: libres, N: 0 }]
-    return [{ M: 0, T: 0, N: libres }]
-  }
-
-  const candidatos: Cupos[] = []
-  if (lim.M && lim.T && !lim.N) {
-    for (let t = 0; t <= libres; t++) {
-      candidatos.push({ M: libres - t, T: t, N: 0 })
-    }
-    return candidatos
-  }
-  if (lim.M && lim.N && !lim.T) {
-    for (let n = 0; n <= libres; n++) {
-      candidatos.push({ M: libres - n, T: 0, N: n })
-    }
-    return candidatos
-  }
-  if (lim.T && lim.N && !lim.M) {
-    for (let n = 0; n <= libres; n++) {
-      candidatos.push({ M: 0, T: libres - n, N: n })
-    }
-    return candidatos
-  }
-
-  return [cuposLaborales(agente, libres)]
-}
-
-function elegirCuposConLimitaciones(
-  agente: FichaPolicia,
-  acumulado: Cupos,
-  objetivos: ObjetivosGlobales,
-  libres: number,
-  anio: number,
-  columnas?: ContextoColumnasMes,
-): Cupos {
-  let mejorCupos = cuposLaborales(agente, libres)
-  let mejorDev = Number.POSITIVE_INFINITY
-
-  for (const cupos of cuposCandidatosLimitados(agente, libres)) {
-    const nuevoTotal: Cupos = {
-      M: acumulado.M + cupos.M,
-      T: acumulado.T + cupos.T,
-      N: acumulado.N + cupos.N,
-    }
-    let dev =
-      desviacionPorcentajes(pctDesdeCupos(nuevoTotal), objetivos) * 10
-    if (columnas) {
-      const filaEstimada: FilaPlanAnual = Array.from({ length: MESES }, () => null)
-      for (const mes of mesesVacacionesEnPlan(
-        agente,
-        anio,
-        vacacionesObjetivo(agente),
-      )) {
-        filaEstimada[mes] = 'V'
-      }
-      const mesesLibres = huecos(filaEstimada)
-      let restoM = cupos.M
-      let restoT = cupos.T
-      let restoN = cupos.N
-      for (const mes of mesesLibres) {
-        if (restoN > 0) {
-          filaEstimada[mes] = 'N'
-          restoN -= 1
-        } else if (restoT > 0) {
-          filaEstimada[mes] = 'T'
-          restoT -= 1
-        } else if (restoM > 0) {
-          filaEstimada[mes] = 'M'
-          restoM -= 1
-        }
-      }
-      dev +=
-        desviacionColumnasConFila(
-          columnas.plan,
-          columnas.ids,
-          agente.id,
-          filaEstimada,
-          columnas.objetivos,
-        ) * 50
-    }
-    if (dev < mejorDev) {
-      mejorDev = dev
-      mejorCupos = cupos
-    }
-  }
-
-  return mejorCupos
-}
-
 function asignarFilaConCuposCandidatos(
   agente: FichaPolicia,
   anio: number,
@@ -1494,7 +1378,7 @@ function asignarFilaConCuposCandidatos(
   columnas?: ContextoColumnasMes,
 ): FilaPlanAnual {
   const libres = MESES - vacacionesObjetivo(agente)
-  const candidatos = cuposCandidatosLimitados(agente, libres)
+  const candidatos = cuposCandidatosFicha(agente, libres)
   let mejorFila = asignarFila(
     agente,
     anio,
@@ -1535,12 +1419,25 @@ function elegirCuposParaObjetivos(
   acumulado: Cupos,
   objetivos: ObjetivosGlobales,
   libres: number,
-  anio: number,
 ): Cupos {
-  if (agenteSinLimitacionesTurno(agente.limitaciones)) {
-    return elegirCuposSinPreferencia(agente, acumulado, objetivos, libres)
+  const candidatos = cuposCandidatosFicha(agente, libres)
+  let mejorCupos = candidatos[0] ?? { M: 0, T: 0, N: 0 }
+  let mejorDev = Number.POSITIVE_INFINITY
+
+  for (const cupos of candidatos) {
+    const nuevoTotal: Cupos = {
+      M: acumulado.M + cupos.M,
+      T: acumulado.T + cupos.T,
+      N: acumulado.N + cupos.N,
+    }
+    const dev = desviacionPorcentajes(pctDesdeCupos(nuevoTotal), objetivos)
+    if (dev < mejorDev) {
+      mejorDev = dev
+      mejorCupos = cupos
+    }
   }
-  return elegirCuposConLimitaciones(agente, acumulado, objetivos, libres, anio)
+
+  return mejorCupos
 }
 
 function acumuladoSinAgente(
@@ -1602,7 +1499,7 @@ function filaCuadraAgente(
   if (cuentaInfraccionesGravesFila(agente, fila, planAnioAnterior) > 0) {
     return false
   }
-  if (!filaCumplePatronObligatorio(agente, contarFila(fila))) return false
+  if (!filaCumplePreferencia(agente, contarFila(fila))) return false
   return true
 }
 
@@ -1620,7 +1517,6 @@ function preferenciasAlcanzanObjetivo(
       acumulado,
       objetivos,
       libres,
-      new Date().getFullYear(),
     )
     suma.M += cupos.M
     suma.T += cupos.T
@@ -1752,7 +1648,7 @@ function cuentaProblemasFila(
   planAnioAnterior?: PlanAnual,
 ) {
   let problemas = cuentaInfraccionesGravesFila(agente, fila, planAnioAnterior)
-  if (!filaCumplePatronObligatorio(agente, contarFila(fila))) problemas += 1
+  if (!filaCumplePreferencia(agente, contarFila(fila))) problemas += 100
   return problemas
 }
 
@@ -1967,36 +1863,41 @@ function intentarAjustarCuposParaPorcentajes(
 
       const acumulado = acumuladoSinAgente(plan, agentes, agente.id)
       const actual = contarFila(fila)
+      const cumplia = filaCumplePreferencia(agente, actual)
 
-      let nueva: FilaPlanAnual
-      if (agenteSinLimitacionesTurno(agente.limitaciones)) {
-        nueva = asignarFilaSinLimitaciones(
-          agente,
-          anio,
-          acumulado,
-          objetivos,
-          planAnioAnterior,
-        )
-      } else {
-        nueva = asignarFilaConCuposCandidatos(
-          agente,
-          anio,
-          acumulado,
-          objetivos,
-          planAnioAnterior,
-        )
-        const nuevaCuenta = contarFila(nueva)
-        if (
-          nuevaCuenta.M === actual.M &&
-          nuevaCuenta.T === actual.T &&
-          nuevaCuenta.N === actual.N
-        ) {
-          continue
-        }
+      const nueva = agenteSinLimitacionesTurno(agente.limitaciones)
+        ? asignarFilaSinLimitaciones(
+            agente,
+            anio,
+            acumulado,
+            objetivos,
+            planAnioAnterior,
+          )
+        : asignarFilaConCuposCandidatos(
+            agente,
+            anio,
+            acumulado,
+            objetivos,
+            planAnioAnterior,
+          )
+      const nuevaCuenta = contarFila(nueva)
+      const cumpleNueva = filaCumplePreferencia(agente, nuevaCuenta)
+      if (
+        nuevaCuenta.M === actual.M &&
+        nuevaCuenta.T === actual.T &&
+        nuevaCuenta.N === actual.N &&
+        nuevaCuenta.V === actual.V
+      ) {
+        continue
       }
+      if (cumplia && !cumpleNueva) continue
 
       const filaAnterior = [...fila]
       plan[agente.id] = nueva
+      if (!cumplia && cumpleNueva) {
+        mejorado = true
+        continue
+      }
       const marcasDesp = calcularMarcas(
         plan,
         agentes,
@@ -2067,6 +1968,9 @@ export function generarPlanAnual(
   const plan: PlanAnual = opciones.planBase
     ? clonarPlan(opciones.planBase)
     : {}
+  for (const agente of agentes) {
+    if (esPoliciaBolsa(agente.rolBase)) delete plan[agente.id]
+  }
   const objetivos = objetivosGlobales ?? OBJETIVOS_PLAN_DEFECTO
   const agentesGenerar = agentesAutogenerables(agentes, opciones.grupo)
   const generarIds = new Set(agentesGenerar.map((agente) => agente.id))
@@ -2115,13 +2019,6 @@ export function generarPlanAnual(
     )
     plan[agente.id] = fila
     sumarCupos(acumulado, fila)
-  }
-
-  for (const agente of agentes) {
-    if (!esPoliciaBolsa(agente.rolBase)) continue
-    if (!plan[agente.id]) {
-      plan[agente.id] = filaVaciaPlanAnual()
-    }
   }
 
   intentarAjustarCuposParaPorcentajes(

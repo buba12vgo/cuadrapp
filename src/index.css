@@ -88,6 +88,14 @@
   .aviso-entrada {
     animation: aviso-entrada 0.35s ease-out both;
   }
+
+  .entrada-marca {
+    animation: entrada-marca 0.7s ease-out both;
+  }
+
+  .entrada-logo {
+    animation: entrada-logo-pulso 2.4s ease-in-out infinite;
+  }
 }
 
 @keyframes aviso-pulso {
@@ -111,9 +119,38 @@
   }
 }
 
+@keyframes entrada-marca {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes entrada-logo-pulso {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow:
+      0 2px 4px rgb(14 28 36 / 0.04),
+      0 12px 32px rgb(14 28 36 / 0.08);
+  }
+  50% {
+    transform: scale(1.04);
+    box-shadow:
+      0 2px 8px rgb(11 79 108 / 0.18),
+      0 16px 40px rgb(11 79 108 / 0.22);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .aviso-vivo,
-  .aviso-entrada {
+  .aviso-entrada,
+  .entrada-marca,
+  .entrada-logo {
     animation: none;
   }
 }

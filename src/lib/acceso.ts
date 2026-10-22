@@ -247,7 +247,7 @@ export function pestanasMovil(
   opciones?: OpcionesAcceso,
 ): PestanaMovil[] {
   if (usaVistaMovilJefes(rol, opciones)) {
-    return ['cuadrante', 'calendario', 'diario', 'permisos']
+    return ['cuadrante', 'calendario', 'permisos']
   }
   if (rol === 'SUPERADMIN' || rol === 'ADMIN') {
     return ['solicitudes', 'cuadrante', 'calendario', 'diario']

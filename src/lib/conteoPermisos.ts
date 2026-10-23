@@ -17,10 +17,11 @@ import {
   CODIGO_DIAS_ANO_ANTERIOR,
   cuposAnioConRollover,
   leerCuposPermisoAnio,
+  permisoPorNombre,
   saldosPermisoAgente,
   totalRestanteTrasladable,
 } from '@/lib/cuposPermiso'
-import type { PermisoConfig } from '@/lib/permisos'
+import { permisoSumaDiaTrabajo, type PermisoConfig } from '@/lib/permisos'
 import { esRolCuadranteJefes } from '@/lib/rolesCuadrante'
 import { acumularComputoTurno } from '@/lib/computoDiasTrabajados'
 import type { FichaPolicia, Turno } from '@/types'
@@ -31,8 +32,38 @@ export type ResumenPermisosAgente = {
   jornadaDisponible: number
   /** Jornadas M/T/N (1) y M-T (2) del cuadrante. */
   jornadasTrabajadas: number
-  /** Días P y L, de cualquier tipo de permiso. */
+  /** Días P y L cuyo tipo está marcado como día de trabajo. */
   diasPermiso: number
+}
+
+function permisoCatalogoDelDia(
+  turno: Turno,
+  nombre: string | undefined,
+  permisos: PermisoConfig[],
+) {
+  if (turno === 'L' || esLibrePorDisponibilidad(nombre)) {
+    return (
+      permisos.find(
+        (permiso) =>
+          esLibrePorDisponibilidad(permiso.codigo) ||
+          esLibrePorDisponibilidad(permiso.nombre),
+      ) ?? null
+    )
+  }
+  return permisoPorNombre(permisos, nombre)
+}
+
+/** Sin catálogo, o sin tipo reconocido, el permiso sigue sumando. */
+export function diaPermisoSumaComoTrabajo(
+  turno: Turno | undefined,
+  nombre: string | undefined,
+  permisos: PermisoConfig[] | undefined,
+) {
+  if (turno !== 'P' && turno !== 'L') return false
+  if (!permisos || permisos.length === 0) return true
+  const permiso = permisoCatalogoDelDia(turno, nombre, permisos)
+  if (!permiso) return true
+  return permisoSumaDiaTrabajo(permiso)
 }
 
 export function resumenPermisosVacio(): ResumenPermisosAgente {
@@ -76,16 +107,21 @@ export function acumularPermisosMes(
   agenteId: string,
   anio: number,
   mes: number,
+  permisos?: PermisoConfig[],
 ) {
   const nDias = fila.length
   const parcial = { trabajados: 0, permisos: 0 }
   for (let dia = 1; dia <= nDias; dia++) {
     const turno = fila[dia - 1]
     if (!turno) continue
-    acumularComputoTurno(parcial, turno)
     const fecha = isoFecha(anio, mes, dia)
     const asignable = turno as TurnoAsignable
     const asignado = asignaciones[fecha]?.[asignable]?.[agenteId]
+    acumularComputoTurno(
+      parcial,
+      turno,
+      diaPermisoSumaComoTrabajo(turno, asignado, permisos),
+    )
 
     if (turno === 'P') {
       sumarTipo(resumen, asignado || 'Permiso')
@@ -127,6 +163,7 @@ export function acumularPermisosDesdeFirestore(
     agente.id,
     anio,
     mes,
+    permisos,
   )
 }
 

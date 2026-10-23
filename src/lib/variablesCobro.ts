@@ -97,11 +97,11 @@ function sumarFestivoDia(
 
 /**
  * Cuenta variables de cobro mensuales desde el cuadrante diario.
- * Festivo: una unidad por día festivo en M, T o N. M-T (mañana y tarde)
- * suma dos en cada domingo y en cada día festivo. La noche de sábado y la
- * noche de domingo se cobran como festivo aunque ese día no esté en el
- * calendario. Noche sábado (22–06): si el domingo es festivo, suma el tramo
- * de domingo que aún no esté cobrado.
+ * Festivo: una unidad por día festivo en M, T o N. El domingo trabajado
+ * cuenta como festivo en cualquier turno (M, T o N); M-T suma dos porque
+ * cubre mañana y tarde. La noche de sábado se cobra como festivo aunque el
+ * sábado no esté en el calendario. Noche sábado (22–06): si el domingo es
+ * festivo, suma el tramo de domingo que aún no esté cobrado.
  * Conciliaciones y festivos se acumulan a la vez. M-T en sábado suma
  * conciliación de mañana y de tarde.
  * Jornada Disponible se marca en asignaciones (M/T/N/MT).
@@ -149,23 +149,24 @@ export function contarVariablesCobroAgente(
     if (wd === 6 && tarde) counts.conciliacion_sabado_tarde++
 
     const festivo = diaEsFestivoCobro(anio, mes, dia, eventos)
-    if (turno === 'MT' && (festivo || wd === 0)) {
+    const esDomingo = wd === 0
+    if (turno === 'MT' && (festivo || esDomingo)) {
       sumarFestivoDia(diasFestivoCobrados, dia, counts, 2)
-    } else if (festivo) {
+    } else if (festivo || esDomingo) {
       sumarFestivoDia(diasFestivoCobrados, dia, counts, 1)
     }
 
-    if (turno === 'N' && (wd === 6 || wd === 0)) {
+    if (turno === 'N' && wd === 6) {
       sumarFestivoDia(diasFestivoCobrados, dia, counts, 1)
     }
 
     if (wd === 6 && turno === 'N') {
-      const domingo = dia + 1
+      const diaDomingo = dia + 1
       if (
-        domingo <= nDias &&
-        diaEsFestivoCobro(anio, mes, domingo, eventos)
+        diaDomingo <= nDias &&
+        diaEsFestivoCobro(anio, mes, diaDomingo, eventos)
       ) {
-        sumarFestivoDia(diasFestivoCobrados, domingo, counts, 1)
+        sumarFestivoDia(diasFestivoCobrados, diaDomingo, counts, 1)
       }
     }
   }

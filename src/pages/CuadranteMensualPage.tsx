@@ -307,6 +307,12 @@ function claseSumatorioF(valor: number, valoresGrupo: number[]) {
   return seSepara ? PIE_ALERTA : PIE_CLARO
 }
 
+function claseConteoPie(valor: number, color: string) {
+  return `text-[9px] tabular-nums ${
+    valor > 0 ? `font-semibold ${color}` : 'text-slate-400'
+  }`
+}
+
 export function CuadranteMensualPage() {
   const { alert, confirm } = useAppDialog()
   const { puedeEscribir } = useAcceso()
@@ -1706,10 +1712,28 @@ export function CuadranteMensualPage() {
           <tfoot className="z-20">
             <tr>
               <td
-                className={`${CELDA_PIE} sticky left-0 z-40 bg-slate-200 text-left font-bold`}
+                className={`${CELDA_PIE} sticky left-0 z-40 bg-slate-200 text-center font-bold`}
                 style={{ width: ANCHO_DIA, minWidth: ANCHO_DIA }}
+                title="Días trabajados, sumatorio F y desglose: festivos, sábado tarde, sábado mañana, viernes noche"
               >
-                Σ
+                <div className="flex h-full flex-col items-center justify-center gap-px leading-none">
+                  <span className="text-[11px]">Σ</span>
+                  <span className="text-[11px]" title="Festivos + conciliaciones">
+                    F
+                  </span>
+                  <span className="text-[9px] text-emerald-900" title="Festivos">
+                    Fest
+                  </span>
+                  <span className="text-[9px] text-orange-900" title="Sábado tarde">
+                    ST
+                  </span>
+                  <span className="text-[9px] text-sky-900" title="Sábado mañana">
+                    SM
+                  </span>
+                  <span className="text-[9px] text-violet-900" title="Viernes noche">
+                    VN
+                  </span>
+                </div>
               </td>
               {columnasAgente.map(({ agente, fila, turnoMes: turnoPlan }) => {
                 const trabajados = totalTrabajados(fila)
@@ -1719,6 +1743,9 @@ export function CuadranteMensualPage() {
                   mes,
                   eventosData,
                 )
+                const sabadoTarde = variables.conciliacion_sabado_tarde
+                const sabadoManana = variables.conciliacion_sabado_manana
+                const viernesNoche = variables.conciliacion_viernes_noche
                 const conciliaciones = totalConciliaciones(variables)
                 const festivos = variables.festivo
                 const sumatorioF = festivos + conciliaciones
@@ -1727,14 +1754,15 @@ export function CuadranteMensualPage() {
                 const objetivoFila =
                   turnoPlan === 'V' || turnoPlan == null ? 0 : objetivo
                 const cumpleDias = trabajados === objetivoFila
+                const tituloVariables = `${sumatorioF} variables: ${festivos} festivos, ${sabadoTarde} sábado tarde, ${sabadoManana} sábado mañana, ${viernesNoche} viernes noche`
                 return (
                   <td
                     key={agente.id}
                     className={`${CELDA_PIE} bg-slate-200`}
                     style={{ width: ANCHO_AGENTE, minWidth: ANCHO_AGENTE }}
-                    title={`Días trabajados ${trabajados}/${objetivoFila}. Variables ${sumatorioF} (${festivos} festivos + ${conciliaciones} conciliaciones)${turnoPlan ? `, turno ${turnoPlan}` : ''}.`}
+                    title={`Días trabajados ${trabajados}/${objetivoFila}. ${tituloVariables}${turnoPlan ? `, turno ${turnoPlan}` : ''}.`}
                   >
-                    <div className="flex h-full flex-col items-center justify-center gap-px py-0.5 leading-none">
+                    <div className="flex h-full flex-col items-center justify-center gap-px leading-none">
                       <span
                         className={`text-[11px] ${claseDiasTrabajados(trabajados, objetivoFila)}`}
                         title={
@@ -1747,9 +1775,33 @@ export function CuadranteMensualPage() {
                       </span>
                       <span
                         className={`text-[11px] ${claseSumatorioF(sumatorioF, grupoF)}`}
-                        title={`${sumatorioF} variables: ${festivos} festivos + ${conciliaciones} conciliaciones`}
+                        title={tituloVariables}
                       >
                         {sumatorioF}F
+                      </span>
+                      <span
+                        className={claseConteoPie(festivos, 'text-emerald-900')}
+                        title={`${festivos} festivos`}
+                      >
+                        {festivos}
+                      </span>
+                      <span
+                        className={claseConteoPie(sabadoTarde, 'text-orange-900')}
+                        title={`${sabadoTarde} conciliación sábado tarde`}
+                      >
+                        {sabadoTarde}
+                      </span>
+                      <span
+                        className={claseConteoPie(sabadoManana, 'text-sky-900')}
+                        title={`${sabadoManana} conciliación sábado mañana`}
+                      >
+                        {sabadoManana}
+                      </span>
+                      <span
+                        className={claseConteoPie(viernesNoche, 'text-violet-900')}
+                        title={`${viernesNoche} conciliación viernes noche`}
+                      >
+                        {viernesNoche}
                       </span>
                     </div>
                   </td>

@@ -12,7 +12,6 @@ import {
 import { diaEsEspecial } from '@/lib/diaEspecial'
 import type { CuadranteMensual } from '@/lib/generarCuadranteMensual'
 import {
-  sumatorioFMensual,
   totalConciliaciones,
   contarVariablesCobroAgente,
 } from '@/lib/variablesCobro'
@@ -151,10 +150,10 @@ export function exportarCuadranteMensualExcel(
       const trabajados = totalTrabajados(fila)
       const variables = contarVariablesCobroAgente(fila, anio, mes, eventos)
       const conciliaciones = totalConciliaciones(variables)
-      const sumatorioF = sumatorioFMensual(fila, anio, mes, eventos)
+      const sumatorioF = variables.festivo + conciliaciones
       const objetivoFila =
         turnoPlan === 'V' || turnoPlan == null ? 0 : objetivo
-      return `${trabajados}/${objetivoFila}d\n${sumatorioF}F (${variables.festivo}+${conciliaciones})`
+      return `${trabajados}/${objetivoFila}d\n${sumatorioF}F\nFest ${variables.festivo}\nST ${variables.conciliacion_sabado_tarde}\nSM ${variables.conciliacion_sabado_manana}\nVN ${variables.conciliacion_viernes_noche}`
     }),
     '',
     '',

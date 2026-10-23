@@ -341,7 +341,7 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
       'Cada policía debe trabajar 2 fines de semana al mes; excepcionalmente 3, nunca más. Prohibido 0 o 1 finde (se reparten mejor los cobros de festivos). Sábado y domingo cuentan como un finde si se trabaja alguno de los dos.',
     estado: 'implementada',
     detalle:
-      'Al autogenerar se priorizan filas con 2 findes laborados, se rechazan cuadrantes con más de 3 y se corrigen filas con 0 o 1 finde subiendo hasta 2. El pie del cuadrante muestra los días trabajados y el sumatorio de variables (festivos + conciliaciones).',
+      'Al autogenerar se priorizan filas con 2 findes laborados, se rechazan cuadrantes con más de 3 y se corrigen filas con 0 o 1 finde subiendo hasta 2. El pie del cuadrante muestra los días trabajados, el sumatorio F (festivos + conciliaciones) y el desglose de festivos, sábado tarde, sábado mañana y viernes noche.',
     referencia:
       'OBJETIVO_FINDES_MES = 2 · MAX_FINDES_MES = 3 · MIN_FINDES_MES · equilibrarFindesUnicoMes',
   },
@@ -353,7 +353,7 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
       'No se pueden trabajar más de 2 fines de semana seguidos. Sábado y domingo van juntos: o se trabajan los dos o se descansan los dos. Se procura alternar los findes laborables, priorizando cubrir los mínimos operativos.',
     estado: 'implementada',
     detalle:
-      'Al autogenerar, cada fila sale con el sábado y el domingo juntos y con 2 findes. Después el generador hace pasadas buscando combinaciones entre compañeros del mismo turno: intercambia días o un patrón entero si así se quitan findes partidos o se equilibra quien lleva 3 con quien lleva 1. Solo acepta la combinación si no rompe fatiga, jornadas, permisos, rachas ni la cobertura mínima. El pie muestra el sumatorio F equilibrado entre agentes del mismo turno. Un sábado laborable con domingo de descanso (o al revés) se marca en rojo.',
+      'Al autogenerar, cada fila sale con el sábado y el domingo juntos y con 2 findes. Después el generador hace pasadas buscando combinaciones entre compañeros del mismo turno: intercambia días o un patrón entero si así se quitan findes partidos o se equilibra quien lleva 3 con quien lleva 1. Solo acepta la combinación si no rompe fatiga, jornadas, permisos, rachas ni la cobertura mínima. El pie muestra el sumatorio F equilibrado entre agentes del mismo turno, con el desglose de festivos y de cada conciliación. Un sábado laborable con domingo de descanso (o al revés) se marca en rojo.',
     referencia: 'resolverFindes · patronesAtomicos · unificarFindesPartidos · sumatorioFMensual',
   },
   {

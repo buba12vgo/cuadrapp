@@ -61,9 +61,13 @@
     min-width: 100%;
   }
 
-  .rejilla-mes thead tr,
-  .rejilla-mes tfoot tr {
+  .rejilla-mes thead tr {
     height: 22px;
+  }
+
+  /* Días, sumatorio F y desglose Fest/ST/SM/VN. El mes se reparte el resto. */
+  .rejilla-mes tfoot tr {
+    height: 70px;
   }
 
   .rejilla-mes tbody tr {

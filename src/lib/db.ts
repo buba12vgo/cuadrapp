@@ -456,6 +456,8 @@ function eventoDesdeFirestore(
     tipo,
     descripcion:
       typeof data.descripcion === 'string' ? data.descripcion.trim() : '',
+    observaciones:
+      typeof data.observaciones === 'string' ? data.observaciones.trim() : '',
     modificadoresMinimos: leerModificadoresMinimos(data.modificadoresMinimos),
   }
 }
@@ -479,6 +481,7 @@ function eventoParaFirestore(evento: EventoOperativo): EventoOperativo {
     fecha,
     tipo,
     descripcion: evento.descripcion.trim(),
+    observaciones: (evento.observaciones ?? '').trim(),
     modificadoresMinimos,
   }
 }

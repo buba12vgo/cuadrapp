@@ -62,5 +62,7 @@ export interface EventoOperativo {
   fecha: string
   tipo: TipoEvento
   descripcion: string
+  /** Nota interna. Solo se muestra al pinchar el evento. */
+  observaciones?: string
   modificadoresMinimos: Record<string, { M: number; T: number; N: number }>
 }

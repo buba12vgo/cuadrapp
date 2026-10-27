@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { ChipEventoCalendario } from '@/components/ChipEventoCalendario'
 import { useEventosData } from '@/lib/eventosStore'
 import { etiquetaDia, isoFechaMovil, useMovilMes } from '@/pages/movil/movilMes'
@@ -6,6 +6,7 @@ import { etiquetaDia, isoFechaMovil, useMovilMes } from '@/pages/movil/movilMes'
 export function MovilEventosPage() {
   const { anio, mes, nombreMes } = useMovilMes()
   const [eventos] = useEventosData()
+  const [eventoAbierto, setEventoAbierto] = useState<string | null>(null)
   const dias = useMemo(() => {
     const porDia = new Map<number, typeof eventos>()
     for (const evento of eventos) {
@@ -36,9 +37,35 @@ export function MovilEventosPage() {
                 {dia} {etiquetaDia(anio, mes, dia).largo}
               </p>
               <p className="sr-only">{isoFechaMovil(anio, mes, dia)}</p>
-              {lista.map((evento) => (
-                <ChipEventoCalendario key={evento.id} evento={evento} />
-              ))}
+              {lista.map((evento) => {
+                const abierto = eventoAbierto === evento.id
+                return (
+                  <div key={evento.id}>
+                    <button
+                      type="button"
+                      className="block w-full text-left"
+                      aria-expanded={abierto}
+                      onClick={() =>
+                        setEventoAbierto((actual) =>
+                          actual === evento.id ? null : evento.id,
+                        )
+                      }
+                    >
+                      <ChipEventoCalendario evento={evento} />
+                    </button>
+                    {abierto ? (
+                      <div className="mt-1 rounded-lg bg-slate-50 px-2 py-1.5">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                          Observaciones
+                        </p>
+                        <p className="whitespace-pre-wrap text-sm text-slate-700">
+                          {evento.observaciones?.trim() || 'Sin observaciones'}
+                        </p>
+                      </div>
+                    ) : null}
+                  </div>
+                )
+              })}
             </li>
           ))}
         </ul>

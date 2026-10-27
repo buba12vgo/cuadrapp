@@ -47,8 +47,8 @@ export function ListadoComputoDias({
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
       <p className="text-xs text-slate-500">
-        {anio}: cada turno M, T o N cuenta 1 jornada y M-T cuenta 2. Todos los
-        permisos (cualquier tipo, también el libre) cuentan 1. Vacaciones y
+        {anio}: cada turno M, T o N cuenta 1 jornada y M-T cuenta 2. Un permiso
+        cuenta 1 solo si su tipo está marcado como día de trabajo. Vacaciones y
         descansos no entran. La diferencia es el cómputo menos{' '}
         {JORNADAS_ANUALES_REFERENCIA}.
         {vistaPrevia
@@ -70,7 +70,7 @@ export function ListadoComputoDias({
               </th>
               <th
                 className={`${TH} text-center`}
-                title="Días de permiso de cualquier tipo, incluido el libre."
+                title="Días de permiso cuyo tipo suma como día de trabajo."
               >
                 Permisos
               </th>

@@ -246,6 +246,17 @@ export const REGLAS_CATALOGO: ReglaCatalogo[] = [
     referencia: 'cuposPermiso · PermisosPage · AgentesPage · saldoPermisoCuadrante',
   },
   {
+    id: 'permiso-suma-dia-trabajo',
+    categoria: 'PLANTILLA',
+    titulo: 'Qué permisos suman como día de trabajo',
+    descripcion:
+      'Cada tipo de permiso tiene una casilla «Día de trabajo». Si está marcada, cada día de ese permiso entra en el cómputo anual de jornadas. Si no, el permiso no suma. Sin la casilla guardada, el tipo sigue sumando.',
+    estado: 'implementada',
+    detalle:
+      'El listado Cómputo días de Permisos agentes suma las jornadas M, T y N (1), M-T (2) y los permisos marcados (1), y resta 186. Vacaciones y descansos no entran. El saldo del permiso se sigue contando aunque no sume como jornada.',
+    referencia: 'PermisosPage · conteoPermisos · computoDiasTrabajados',
+  },
+  {
     id: 'dias-ano-anterior',
     categoria: 'PLANTILLA',
     titulo: 'Días del Año Anterior',

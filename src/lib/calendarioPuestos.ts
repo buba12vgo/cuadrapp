@@ -384,6 +384,7 @@ export const mockEventosCalendario: EventoOperativo[] = [
     fecha: '2026-08-22',
     tipo: 'CRUCERO',
     descripcion: 'Crucero transatlántico',
+    observaciones: 'Atraque previsto por la mañana. Confirmar lonja.',
     modificadoresMinimos: {
       'Centro de Control': { M: 3, T: 3, N: 2 },
       Lonjas: { M: 4, T: 3, N: 2 },

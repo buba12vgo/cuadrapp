@@ -456,6 +456,8 @@ function eventoDesdeFirestore(
     tipo,
     descripcion:
       typeof data.descripcion === 'string' ? data.descripcion.trim() : '',
+    observaciones:
+      typeof data.observaciones === 'string' ? data.observaciones.trim() : '',
     modificadoresMinimos: leerModificadoresMinimos(data.modificadoresMinimos),
   }
 }
@@ -474,13 +476,16 @@ function eventoParaFirestore(evento: EventoOperativo): EventoOperativo {
   for (const [puesto, turnos] of Object.entries(evento.modificadoresMinimos)) {
     modificadoresMinimos[puesto] = clonarMinimosPuesto(turnos)
   }
-  return {
+  const payload: EventoOperativo = {
     id,
     fecha,
     tipo,
     descripcion: evento.descripcion.trim(),
     modificadoresMinimos,
   }
+  const observaciones = (evento.observaciones ?? '').trim()
+  if (observaciones) payload.observaciones = observaciones
+  return payload
 }
 
 export async function getEventos(): Promise<EventoOperativo[]> {

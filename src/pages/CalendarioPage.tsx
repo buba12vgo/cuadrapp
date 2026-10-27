@@ -80,6 +80,7 @@ type FilaEvento = {
   id: string
   tipoDia: TipoDiaEditor
   descripcion: string
+  observaciones: string
 }
 
 function etiquetaTipoDia(tipoDia: TipoDiaEditor, tipos: TipoEventoConfig[]) {
@@ -101,7 +102,7 @@ function filaNueva(fecha: string, tipoDia: TipoDiaEditor = CODIGO_TIPO_CRUCERO):
     typeof crypto !== 'undefined' && 'randomUUID' in crypto
       ? crypto.randomUUID().slice(0, 8)
       : String(Date.now())
-  return { id: `ev-${fecha}-${sufijo}`, tipoDia, descripcion: '' }
+  return { id: `ev-${fecha}-${sufijo}`, tipoDia, descripcion: '', observaciones: '' }
 }
 
 function filasDesdeEventos(fecha: string, eventos: EventoOperativo[]): FilaEvento[] {
@@ -110,7 +111,47 @@ function filasDesdeEventos(fecha: string, eventos: EventoOperativo[]): FilaEvent
     id: evento.id,
     tipoDia: tipoEditorDesdeEvento(evento),
     descripcion: evento.descripcion,
+    observaciones: evento.observaciones ?? '',
   }))
+}
+
+function ObservacionesEvento({
+  evento,
+  soloLectura,
+  onGuardar,
+}: {
+  evento: EventoOperativo
+  soloLectura: boolean
+  onGuardar: (texto: string) => void
+}) {
+  const [texto, setTexto] = useState(evento.observaciones ?? '')
+
+  return (
+    <div
+      className="mt-0.5 rounded border border-slate-200 bg-slate-50 p-1"
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
+    >
+      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+        Observaciones
+      </p>
+      {soloLectura ? (
+        <p className="whitespace-pre-wrap text-[11px] leading-snug text-slate-700">
+          {texto.trim() || 'Sin observaciones'}
+        </p>
+      ) : (
+        <textarea
+          className="mt-0.5 w-full resize-y rounded border border-slate-200 bg-white px-1 py-0.5 text-[11px] leading-snug text-slate-800"
+          rows={3}
+          aria-label={`Observaciones de ${evento.descripcion || 'evento'}`}
+          value={texto}
+          placeholder="Sin observaciones"
+          onChange={(event) => setTexto(event.target.value)}
+          onBlur={() => onGuardar(texto)}
+        />
+      )}
+    </div>
+  )
 }
 
 function EditorDiaDrawer({
@@ -136,6 +177,7 @@ function EditorDiaDrawer({
   const [filas, setFilas] = useState<FilaEvento[]>(() =>
     filasDesdeEventos(fecha, eventos),
   )
+  const [eventoAbierto, setEventoAbierto] = useState<string | null>(null)
   const [minimos, setMinimos] = useState<MinimosDia>(() => {
     const base = baseDia()
     const conMinimos =
@@ -169,7 +211,11 @@ function EditorDiaDrawer({
     const defecto = minimosDefectoParaFecha(fecha, semana, puestos)
     const minimosIguales = minimosIgualesDefecto(minimos, defecto, puestos)
     const utiles = filas.filter(
-      (fila) => fila.descripcion.trim() || fila.tipoDia !== 'NORMAL' || !minimosIguales,
+      (fila) =>
+        fila.descripcion.trim() ||
+        fila.observaciones.trim() ||
+        fila.tipoDia !== 'NORMAL' ||
+        !minimosIguales,
     )
     if (utiles.length === 0) {
       await onGuardar([])
@@ -186,6 +232,7 @@ function EditorDiaDrawer({
           (fila.tipoDia === 'NORMAL'
             ? 'Mínimos personalizados'
             : etiquetaTipoDia(fila.tipoDia, tipos)),
+        observaciones: fila.observaciones.trim(),
         modificadoresMinimos: record,
       })),
     )
@@ -242,10 +289,19 @@ function EditorDiaDrawer({
                   className="flex flex-col gap-1 rounded-md border border-slate-200 p-2"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-slate-500">
+                    <button
+                      type="button"
+                      className="text-left text-xs font-bold text-slate-500"
+                      aria-expanded={eventoAbierto === fila.id}
+                      onClick={() =>
+                        setEventoAbierto((actual) =>
+                          actual === fila.id ? null : fila.id,
+                        )
+                      }
+                    >
                       Evento {indice + 1}
                       {etiqueta ? ` · ${etiqueta.emoji}` : ''}
-                    </span>
+                    </button>
                     <button
                       type="button"
                       className="text-xs font-semibold text-rose-700"
@@ -287,6 +343,29 @@ function EditorDiaDrawer({
                       )
                     }}
                   />
+                  {eventoAbierto === fila.id ? (
+                    <label className="flex flex-col gap-0.5">
+                      <span className="text-xs font-semibold text-slate-600">
+                        Observaciones
+                      </span>
+                      <textarea
+                        className={`${CAMPO} h-20 resize-y py-1.5`}
+                        aria-label={`Observaciones del evento ${indice + 1}`}
+                        value={fila.observaciones}
+                        placeholder="Solo se ven al pinchar este evento"
+                        onChange={(event) => {
+                          const observaciones = event.target.value
+                          setFilas((actual) =>
+                            actual.map((item) =>
+                              item.id === fila.id
+                                ? { ...item, observaciones }
+                                : item,
+                            ),
+                          )
+                        }}
+                      />
+                    </label>
+                  ) : null}
                 </div>
               )
             })}
@@ -395,6 +474,7 @@ export function CalendarioPage() {
   const [fechaSeleccionada, setFechaSeleccionada] = useState<string | null>(
     null,
   )
+  const [eventoNotasId, setEventoNotasId] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const firebaseOk = isFirebaseReady()
@@ -443,6 +523,34 @@ export function CalendarioPage() {
         err instanceof Error
           ? err.message
           : 'No se pudo guardar el evento en Firestore'
+      setError(mensaje)
+      await showAlert(mensaje, 'Error al guardar')
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  async function guardarObservaciones(evento: EventoOperativo, texto: string) {
+    if (soloLectura) return
+    const observaciones = texto.trim()
+    if ((evento.observaciones ?? '') === observaciones) return
+    if (!firebaseOk && !isDesignPreview) {
+      await showAlert('Firebase no está configurado; no se puede guardar.', 'Firebase')
+      return
+    }
+    const actualizado = { ...evento, observaciones }
+    setGuardando(true)
+    setError(null)
+    try {
+      const guardado = firebaseOk ? await saveEvento(actualizado) : actualizado
+      setEventosData((actual) =>
+        actual.map((item) => (item.id === evento.id ? guardado : item)),
+      )
+    } catch (err) {
+      const mensaje =
+        err instanceof Error
+          ? err.message
+          : 'No se pudieron guardar las observaciones'
       setError(mensaje)
       await showAlert(mensaje, 'Error al guardar')
     } finally {
@@ -537,10 +645,9 @@ export function CalendarioPage() {
             const eventosDia = eventosPorFecha.get(fecha) ?? []
 
             return (
-              <button
+              <div
                 key={fecha}
-                type="button"
-                className={`flex min-h-[5.5rem] flex-col rounded-sm border border-slate-200 p-1 text-left hover:border-slate-400 hover:ring-1 hover:ring-blue-300 ${
+                className={`flex min-h-[5.5rem] flex-col rounded-sm border border-slate-200 p-1 text-left hover:border-slate-400 ${
                   fechaSeleccionada === fecha
                     ? 'ring-2 ring-blue-500'
                     : 'bg-white'
@@ -549,11 +656,47 @@ export function CalendarioPage() {
                   if (!soloLectura) setFechaSeleccionada(fecha)
                 }}
               >
-                <span className="text-sm font-bold text-slate-800">{dia}</span>
-                {eventosDia.map((item) => (
-                  <ChipEventoCalendario key={item.id} evento={item} />
-                ))}
-              </button>
+                <button
+                  type="button"
+                  className="w-fit text-left text-sm font-bold text-slate-800"
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    if (!soloLectura) setFechaSeleccionada(fecha)
+                  }}
+                >
+                  {dia}
+                </button>
+                {eventosDia.map((item) => {
+                  const abierto = eventoNotasId === item.id
+                  return (
+                    <div key={item.id}>
+                      <button
+                        type="button"
+                        className="block w-full text-left"
+                        aria-expanded={abierto}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          setEventoNotasId((actual) =>
+                            actual === item.id ? null : item.id,
+                          )
+                        }}
+                      >
+                        <ChipEventoCalendario evento={item} />
+                      </button>
+                      {abierto ? (
+                        <ObservacionesEvento
+                          key={`${item.id}:${item.observaciones ?? ''}`}
+                          evento={item}
+                          soloLectura={soloLectura}
+                          onGuardar={(texto) =>
+                            void guardarObservaciones(item, texto)
+                          }
+                        />
+                      ) : null}
+                    </div>
+                  )
+                })}
+              </div>
             )
           })}
             </div>
